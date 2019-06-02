@@ -8,3 +8,6 @@ It's also an interesting project because it involves writing a small debugger us
 
 ## When?
 It's a pet project, and with a full time job and two kids it's not going to be finished quickly.
+
+## Status
+* Working proof of concept; a basic skeleton of the application, with command interface, is in place. No assembler integration yet (plan to use Intel's XED), and error handling and some code clarification comes first needed.
