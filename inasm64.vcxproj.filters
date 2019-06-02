@@ -27,6 +27,12 @@
     <ClCompile Include="stdafx.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="inasm64\cli.cpp">
+      <Filter>Source Files\inasm64</Filter>
+    </ClCompile>
+    <ClCompile Include="inasm64\assembler.cpp">
+      <Filter>Source Files\inasm64</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="inasm64\runtime.h">
@@ -34,6 +40,15 @@
     </ClInclude>
     <ClInclude Include="stdafx.h">
       <Filter>Source Files</Filter>
+    </ClInclude>
+    <ClInclude Include="inasm64\cli.h">
+      <Filter>Source Files\inasm64</Filter>
+    </ClInclude>
+    <ClInclude Include="inasm64\assembler.h">
+      <Filter>Source Files\inasm64</Filter>
+    </ClInclude>
+    <ClInclude Include="inasm64\configuration.h">
+      <Filter>Source Files\inasm64</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>
