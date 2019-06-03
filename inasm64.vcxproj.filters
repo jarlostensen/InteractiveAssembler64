@@ -33,6 +33,9 @@
     <ClCompile Include="inasm64\assembler.cpp">
       <Filter>Source Files\inasm64</Filter>
     </ClCompile>
+    <ClCompile Include="inasm64\common.cpp">
+      <Filter>Source Files\inasm64</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="inasm64\runtime.h">
@@ -47,7 +50,7 @@
     <ClInclude Include="inasm64\assembler.h">
       <Filter>Source Files\inasm64</Filter>
     </ClInclude>
-    <ClInclude Include="inasm64\configuration.h">
+    <ClInclude Include="inasm64\common.h">
       <Filter>Source Files\inasm64</Filter>
     </ClInclude>
   </ItemGroup>

@@ -2,7 +2,7 @@
 #include <string>
 #include <cstdint>
 
-#include "configuration.h"
+#include "common.h"
 #include "assembler.h"
 
 namespace inasm64
@@ -18,5 +18,5 @@ namespace inasm64
             const_cast<std::string&>(info.Assembly) = assembly;
             return true;
         }
-    }
+    }  // namespace assembler
 }  // namespace inasm64

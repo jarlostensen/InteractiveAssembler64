@@ -6,7 +6,7 @@
 #include <sstream>
 #include <vector>
 
-#include "configuration.h"
+#include "common.h"
 #include "runtime.h"
 #include "assembler.h"
 #include "cli.h"
@@ -38,218 +38,6 @@ namespace inasm64
             }
 
             //TODO: perhaps this should just be a part of runtime?
-            bool setreg(const char* regName, int64_t value)
-            {
-                const auto len = strlen(regName);
-                if(len > 3)
-                    return false;
-                auto result = true;
-                auto prefixHi = char(::toupper(regName[0]));
-                if(len == 2 && prefixHi != 'R')
-                {
-                    // should be a byte- or word -register
-                    switch(prefixHi)
-                    {
-
-// sadly this magic (https://stackoverflow.com/questions/35525555/c-preprocessor-how-to-create-a-character-literal) does not work with MS141
-// complains about newline in constant at SINGLEQUOTE
-//#define CONCAT_H(x, y, z) x##y##z
-//#define SINGLEQUOTE ' 
-//#define CONCAT(x, y, z) CONCAT_H(x, y, z)
-//#define CHARIFY(x) CONCAT(SINGLEQUOTE, x, SINGLEQUOTE)
-
-#define _SETNAMEDBYTEREG_HL(prefix)                                                  \
-        if(regName[1] == 'l' || regName[1] == 'L')                                   \
-        {                                                                            \
-            runtime::SetReg(runtime::ByteReg::##prefix##L, int8_t(value & 0xff));    \
-        }                                                                            \
-        else if(regName[1] == 'h' || regName[1] == 'H')                              \
-        {                                                                            \
-            runtime::SetReg(runtime::ByteReg::##prefix##H, int8_t(value & 0xff));    \
-        }                                                                            \
-        else if(regName[1] == 'x' || regName[1] == 'X')                              \
-        {                                                                            \
-            runtime::SetReg(runtime::WordReg::##prefix##X, int16_t(value & 0xffff)); \
-        }                                                                            \
-        else                                                                         \
-            result = false;                                                          \
-        break
-                    case 'A':
-                        _SETNAMEDBYTEREG_HL(A);
-                    case 'B':
-                        _SETNAMEDBYTEREG_HL(B);
-                    case 'C':
-                        _SETNAMEDBYTEREG_HL(C);
-                    case 'D':
-                        _SETNAMEDBYTEREG_HL(D);
-                    default:
-                        if(regName[1] == 'i' || regName[1] == 'I')
-                        {
-                            if(prefixHi == 'D')
-                            {
-                                runtime::SetReg(runtime::WordReg::DI, int16_t(value & 0xffff));
-                            }
-                            else if(prefixHi == 'S')
-                            {
-                                runtime::SetReg(runtime::WordReg::SI, int16_t(value & 0xffff));
-                            }
-                            else
-                                result = false;
-                        }
-                        else if(regName[1] == 'p' || regName[1] == 'P')
-                        {
-                            if(prefixHi == 'B')
-                            {
-                                runtime::SetReg(runtime::WordReg::BP, int16_t(value & 0xffff));
-                            }
-                            else if(prefixHi == 'S')
-                            {
-                                runtime::SetReg(runtime::WordReg::SP, int16_t(value & 0xffff));
-                            }
-                            else
-                                result = false;
-                        }
-                        else
-                            result = false;
-                        break;
-                    }
-                }
-                else if(len == 3 || prefixHi == 'R')
-                {
-                    // 32- or 64 -bit registers
-                    if(prefixHi == 'E')
-                    {
-                        prefixHi = char(::toupper(regName[1]));
-                        switch(prefixHi)
-                        {
-#define _SETNAMEDDWORDREG(prefix)                                                          \
-        if(regName[2] == 'x' || regName[2] == 'X')                                         \
-        {                                                                                  \
-            runtime::SetReg(runtime::DWordReg::E##prefix##X, int32_t(value & 0xffffffff)); \
-        }                                                                                  \
-        else                                                                               \
-            result = false;                                                                \
-        break
-                        case 'A':
-                            _SETNAMEDDWORDREG(A);
-                        case 'B':
-                            _SETNAMEDDWORDREG(B);
-                        case 'C':
-                            _SETNAMEDDWORDREG(C);
-                        case 'D':
-                            _SETNAMEDDWORDREG(D);
-                        default:
-                            if(regName[2] == 'i' || regName[2] == 'I')
-                            {
-                                if(prefixHi == 'D')
-                                {
-                                    runtime::SetReg(runtime::DWordReg::EDI, int32_t(value & 0xffffffff));
-                                }
-                                else if(prefixHi == 'S')
-                                {
-                                    runtime::SetReg(runtime::DWordReg::ESI, int32_t(value & 0xffffffff));
-                                }
-                                else
-                                    result = false;
-                            }
-                            else if(regName[2] == 'p' || regName[2] == 'P')
-                            {
-                                if(prefixHi == 'B')
-                                {
-                                    runtime::SetReg(runtime::DWordReg::EBP, int16_t(value & 0xffffffff));
-                                }
-                                else if(prefixHi == 'S')
-                                {
-                                    runtime::SetReg(runtime::DWordReg::ESP, int16_t(value & 0xffffffff));
-                                }
-                                else
-                                    result = false;
-                            }
-                            else
-                                result = false;
-                            break;
-                        }
-                    }
-                    else if(prefixHi == 'R')
-                    {
-                        prefixHi = char(::toupper(regName[1]));
-                        switch(prefixHi)
-                        {
-#define _SETNAMEDQWORDREG(prefix)                                    \
-        if(regName[2] == 'x' || regName[2] == 'X')                   \
-        {                                                            \
-            runtime::SetReg(runtime::QWordReg::R##prefix##X, value); \
-        }                                                            \
-        else                                                         \
-            result = false;                                          \
-        break
-                        case 'A':
-                            _SETNAMEDQWORDREG(A);
-                        case 'B':
-                            _SETNAMEDQWORDREG(B);
-                        case 'C':
-                            _SETNAMEDQWORDREG(C);
-                        case 'D':
-                            _SETNAMEDQWORDREG(D);
-                        default:
-                            if(regName[2] == 'i' || regName[2] == 'I')
-                            {
-                                if(prefixHi == 'D')
-                                {
-                                    runtime::SetReg(runtime::QWordReg::RDI, value);
-                                }
-                                else if(prefixHi == 'S')
-                                {
-                                    runtime::SetReg(runtime::QWordReg::RSI, value);
-                                }
-                                else
-                                    result = false;
-                            }
-                            else if(regName[2] == 'p' || regName[2] == 'P')
-                            {
-                                if(prefixHi == 'B')
-                                {
-                                    runtime::SetReg(runtime::QWordReg::RBP, value);
-                                }
-                                else if(prefixHi == 'S')
-                                {
-                                    runtime::SetReg(runtime::QWordReg::RSP, value);
-                                }
-                                else
-                                    result = false;
-                            }
-                            else
-                            {
-                                // R8-R15?
-                                const auto ordinal = ::atol(regName + 1);
-                                switch(ordinal)
-                                {
-#define _SETORDQWORDREG(ord)\
-    case ord:\
-        runtime::SetReg(runtime::QWordReg::R##ord, value)
-
-                                _SETORDQWORDREG(8);
-                                _SETORDQWORDREG(9);
-                                _SETORDQWORDREG(10);
-                                _SETORDQWORDREG(11);
-                                _SETORDQWORDREG(12);
-                                _SETORDQWORDREG(13);
-                                _SETORDQWORDREG(14);
-                                _SETORDQWORDREG(15);
-                                default:
-                                    result = false;
-                                break;
-                                }                                
-                            }
-                            break;
-                        }
-                    }
-                    else
-                        result = false;
-                }
-
-                return result;
-            }
 
         }  // namespace
 
@@ -297,7 +85,7 @@ namespace inasm64
 
                 if(!assembler::Assemble(commandLine, _asm_info))
                 {
-                    //TODO: proper error handling
+                    //TODO: proper error handling and error reporting
                     _mode = Mode::Processing;
                     return Command::Invalid;
                 }
@@ -329,11 +117,11 @@ namespace inasm64
                         //TODO: proper error handling
                         return Command::Invalid;
                     }
-                    
+
                     //ZZZ: assumes hex input
-                    const int64_t value = ::strtoll(tokens[2].c_str(),nullptr,16);
+                    const int64_t value = ::strtoll(tokens[2].c_str(), nullptr, 16);
                     //TODO: error/invalid number handling
-                    setreg(tokens[1].c_str(), value);
+                    runtime::SetReg(tokens[1].c_str(), value);
 
                     return Command::Reg;
                 }

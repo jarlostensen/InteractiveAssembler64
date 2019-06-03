@@ -33,8 +33,17 @@ namespace inasm64
         ///</summary>
         struct ExecutionContext
         {
-            const CONTEXT*  OsContext;
+            ///<summary>
+            /// OS thread context, extension dependant. See GetEnabledXStateFeatures
+            ///</summary>
+            const CONTEXT* OsContext;
+            ///<summary>
+            /// instruction bytes of currently executed
+            ///</summary>
             uint8_t Instruction[kMaxAssembledInstructionSize];
+            ///<summary>
+            /// number of bytes in instruction
+            ///</summary>
             size_t InstructionSize;
         };
         ///<summary>
@@ -57,6 +66,11 @@ namespace inasm64
         bool SetNextInstruction(const void*);
 
         ////////////////////////////////////////////////////
+
+        ///<summary>
+        /// set a named register value
+        ///</summary>
+        bool SetReg(const char* regName, int64_t value);
 
         enum class ByteReg
         {

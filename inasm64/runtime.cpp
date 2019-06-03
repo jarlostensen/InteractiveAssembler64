@@ -3,7 +3,8 @@
 #include <windows.h>
 #include <debugapi.h>
 
-#include "configuration.h"
+#include <memory>
+#include "common.h"
 #include "runtime.h"
 
 #if !defined(_WIN64)
@@ -33,10 +34,6 @@ namespace inasm64
             bool _running : 1;
         } _flags = { 0 };
 
-        CONTEXT _active_ctx = { 0 };
-        bool _ctx_changed = false;
-        ExecutionContext _rt_context = { 0 };
-
         unsigned char* _scratch_memory = nullptr;
         unsigned char* _scratch_wp = nullptr;
         size_t _scratch_size = 0;
@@ -45,16 +42,45 @@ namespace inasm64
         DEBUG_EVENT _dbg_event = { 0 };
         DWORD _continue_status = DBG_CONTINUE;
 
+        PCONTEXT _active_ctx = nullptr;
+        DWORD _ctx_flags = 0;
+        DWORD _context_size = 0;
+        bool _ctx_changed = false;
+        ExecutionContext _rt_context = { 0 };
+
+        bool LoadContext(HANDLE thread)
+        {
+            if(!_active_ctx)
+            {
+                // https://docs.microsoft.com/en-us/windows/desktop/debug/working-with-xstate-context
+
+                // initialise the CONTEXT structure so that it can hold AVX extensions if they are available
+                const auto feature_mask = GetEnabledXStateFeatures();
+                const auto xstate_mask = (feature_mask & XSTATE_MASK_AVX) ? CONTEXT_XSTATE : 0;
+                _ctx_flags = CONTEXT_ALL | xstate_mask;
+                _context_size = 0;
+                InitializeContext(nullptr, _ctx_flags, nullptr, &_context_size);
+                const auto buffer = malloc(_context_size);
+                ZeroMemory(buffer, _context_size);
+                InitializeContext(buffer, _ctx_flags, &_active_ctx, &_context_size);
+                _rt_context.OsContext = _active_ctx;
+            }
+            _active_ctx->ContextFlags = _ctx_flags;
+            //NOTE: unsupported masks are ignored as per documentation of this function, so it is safe to always set them
+            SetXStateFeaturesMask(_active_ctx, XSTATE_MASK_AVX | XSTATE_MASK_AVX512);
+            return GetThreadContext(thread, _active_ctx) == TRUE;
+        }
+
         void SetNexInstructionAddress(LPCVOID at)
         {
-            _active_ctx.Rip = DWORD_PTR(at);
+            _active_ctx->Rip = DWORD_PTR(at);
             _ctx_changed = true;
         }
 
         void EnableTrapFlag()
         {
             // set trap flag for next instr.
-            _active_ctx.EFlags |= 0x100;
+            _active_ctx->EFlags |= 0x100;
             _ctx_changed = true;
         }
 
@@ -80,8 +106,6 @@ namespace inasm64
 
                 if(!_flags._running)
                     return false;
-
-                _rt_context.OsContext = &_active_ctx;
 
                 // cycle through debug events to load the application up to the first breakpoint in ntdll!LdrpDoCodeRunnerBreak, then initialise the process scratch memory
                 // and leave the process hanging until someone calls Step (or quits)
@@ -110,23 +134,21 @@ namespace inasm64
                                     const auto thread = ActiveThread();
 
                                     // set the trap flag so that the first instruction in the code scratch area will be intercepted when it executes
-                                    _active_ctx = { 0 };
-                                    _active_ctx.ContextFlags = CONTEXT_ALL;
-                                    if(GetThreadContext(thread, &_active_ctx))
+                                    if(LoadContext(thread))
                                     {
                                         // set the next instruction to the beginning of the code scratch area (expecting it will be filled with valid code by someone calling AddCode shortly)
                                         SetNexInstructionAddress(_code);
                                         EnableTrapFlag();
-                                        SetThreadContext(thread, &_active_ctx);
+                                        SetThreadContext(thread, _active_ctx);
                                         _ctx_changed = false;
                                     }
-                                    //TODO: else serious issue
+                                    // else a serious error, report or silentl ignore?
 
                                     CloseHandle(thread);
                                 }
                                 else
                                 {
-                                    //TODO: something is seriously borked
+                                    detail::SetError(Error::SystemError);
                                     return false;
                                 }
 
@@ -158,6 +180,10 @@ namespace inasm64
                     }
                 }
             }
+            else
+            {
+                detail::SetError(Error::SystemError);
+            }
 
             return _flags._started;
         }
@@ -172,6 +198,8 @@ namespace inasm64
                 CloseHandle(_processinfo.hProcess);
                 _code = _scratch_memory = _scratch_wp = nullptr;
                 _scratch_size = 0;
+                free(_active_ctx);
+                _active_ctx = nullptr;
             }
             ZeroMemory(&_flags, sizeof(_flags));
         }
@@ -182,8 +210,10 @@ namespace inasm64
                 return false;
 
             if(_scratch_size - size_t(_scratch_wp - _scratch_memory) < size)
-                // no more room
+            {
+                detail::SetError(Error::CodeBufferFull);
                 return false;
+            }
 
             SIZE_T written;
             if(WriteProcessMemory(_process_vm, _scratch_wp, code, SIZE_T(size), &written) == TRUE && size_t(written) == size)
@@ -192,6 +222,7 @@ namespace inasm64
                 _scratch_wp += size;
                 return true;
             }
+            detail::SetError(Error::SystemError);
             return false;
         }
 
@@ -199,20 +230,25 @@ namespace inasm64
         {
             // not started, or no code loaded
             if(!_flags._started || _scratch_wp == _scratch_memory)
+            {
+                detail::SetError(Error::NoMoreCode);
                 return false;
+            }
 
             // no more code to execute
             if(_code == _scratch_wp)
+            {
+                detail::SetError(Error::NoMoreCode);
                 return false;
+            }
 
             if(_ctx_changed)
             {
                 // update thread context before we execute, if there are changes
-                SetThreadContext(ActiveThread(), &_active_ctx);
+                SetThreadContext(ActiveThread(), _active_ctx);
                 _ctx_changed = false;
             }
 
-            
             auto stepped = false;
             while(!stepped && _flags._running)
             {
@@ -236,8 +272,10 @@ namespace inasm64
                     {
                         const auto thread = ActiveThread();
                         if(!thread)
-                            //TODO: serious issue...
+                        {
+                            detail::SetError(Error::SystemError);
                             return false;
+                        }
 
                         // advance the code pointer to the next instruction
                         const auto next_instr = reinterpret_cast<unsigned char*>(_dbg_event.u.Exception.ExceptionRecord.ExceptionAddress);
@@ -247,16 +285,14 @@ namespace inasm64
                         //      in an map keyed by address.
                         SIZE_T written;
                         ReadProcessMemory(_process_vm, _code, _rt_context.Instruction, _rt_context.InstructionSize, &written);
-                        //TODO: check for error conditions            
+                        //TODO: check for error conditions
                         _code = next_instr;
 
                         // refresh the context and re-set the trap flag
-                        _active_ctx = { 0 };
-                        _active_ctx.ContextFlags = CONTEXT_ALL;
-                        if(GetThreadContext(thread, &_active_ctx))
+                        if(LoadContext(thread))
                         {
                             EnableTrapFlag();
-                            SetThreadContext(thread, &_active_ctx);                            
+                            SetThreadContext(thread, _active_ctx);
                         }
 
                         CloseHandle(thread);
@@ -304,19 +340,24 @@ namespace inasm64
         bool SetNextInstruction(const void* at)
         {
             if(!_flags._started || (at < _scratch_memory || at >= _scratch_wp))
+            {
+                detail::SetError(Error::InvalidAddress);
                 return false;
+            }
 
             const auto thread = ActiveThread();
             if(thread)
             {
                 SetNexInstructionAddress(at);
-                SetThreadContext(thread, &_active_ctx);
-                _code = reinterpret_cast<unsigned char*>(_active_ctx.Rip);
+                SetThreadContext(thread, _active_ctx);
+                _code = reinterpret_cast<unsigned char*>(_active_ctx->Rip);
                 _ctx_changed = false;
                 CloseHandle(thread);
+                return true;
             }
 
-            return true;
+            detail::SetError(Error::SystemError);
+            return false;
         }
 
         void SetReg(ByteReg reg, int8_t value)
@@ -324,13 +365,13 @@ namespace inasm64
             if(!_flags._started)
                 return;
 
-#define _SETBYTEREG_LO(r)              \
-    _active_ctx.##r &= ~DWORD64(0xff); \
-    _active_ctx.##r |= value
+#define _SETBYTEREG_LO(r)               \
+    _active_ctx->##r &= ~DWORD64(0xff); \
+    _active_ctx->##r |= value
 
-#define _SETBYTEREG_HI(r)                \
-    _active_ctx.##r &= ~DWORD64(0xff00); \
-    _active_ctx.##r |= (DWORD64(value) << 8)
+#define _SETBYTEREG_HI(r)                 \
+    _active_ctx->##r &= ~DWORD64(0xff00); \
+    _active_ctx->##r |= (DWORD64(value) << 8)
             switch(reg)
             {
             case ByteReg::AL:
@@ -363,11 +404,11 @@ namespace inasm64
 
         int8_t GetReg(ByteReg reg)
         {
-            int8_t value;
+            int8_t value = 0;
 #define _GETBYTEREG_LO(r) \
-    value = int8_t(_active_ctx.##r & DWORD64(0xff))
+    value = int8_t(_active_ctx->##r & DWORD64(0xff))
 #define _GETBYTEREG_HI(r) \
-    value = int8_t((_active_ctx.##r & DWORD64(0xff00)) >> 8)
+    value = int8_t((_active_ctx->##r & DWORD64(0xff00)) >> 8)
 
             switch(reg)
             {
@@ -404,9 +445,9 @@ namespace inasm64
             if(!_flags._started)
                 return;
 
-#define _SETWORDREG(r)                   \
-    _active_ctx.##r &= ~DWORD64(0xffff); \
-    _active_ctx.##r |= DWORD64(value)
+#define _SETWORDREG(r)                    \
+    _active_ctx->##r &= ~DWORD64(0xffff); \
+    _active_ctx->##r |= DWORD64(value)
 
             switch(reg)
             {
@@ -440,9 +481,9 @@ namespace inasm64
 
         int16_t GetReg(WordReg reg)
         {
-            int16_t value;
+            int16_t value = 0;
 #define _GETWORDREG(r) \
-    value = int16_t(_active_ctx.##r & DWORD64(0xffff))
+    value = int16_t(_active_ctx->##r & DWORD64(0xffff))
 
             switch(reg)
             {
@@ -479,9 +520,9 @@ namespace inasm64
             if(!_flags._started)
                 return;
 
-#define _SETDWORDREG(r)                      \
-    _active_ctx.##r &= ~DWORD64(0xffffffff); \
-    _active_ctx.##r |= DWORD64(value)
+#define _SETDWORDREG(r)                       \
+    _active_ctx->##r &= ~DWORD64(0xffffffff); \
+    _active_ctx->##r |= DWORD64(value)
 
             switch(reg)
             {
@@ -515,9 +556,9 @@ namespace inasm64
 
         int32_t GetReg(DWordReg reg)
         {
-            int32_t value;
+            int32_t value = 0;
 #define _GETDWORDREG(r) \
-    value = int32_t(_active_ctx.##r & DWORD64(0xffffffff))
+    value = int32_t(_active_ctx->##r & DWORD64(0xffffffff))
 
             switch(reg)
             {
@@ -557,32 +598,32 @@ namespace inasm64
             switch(reg)
             {
             case QWordReg::RAX:
-                _active_ctx.Rax = value;
+                _active_ctx->Rax = value;
                 break;
             case QWordReg::RBX:
-                _active_ctx.Rbx = value;
+                _active_ctx->Rbx = value;
                 break;
             case QWordReg::RCX:
-                _active_ctx.Rcx = value;
+                _active_ctx->Rcx = value;
                 break;
             case QWordReg::RDX:
-                _active_ctx.Rdx = value;
+                _active_ctx->Rdx = value;
                 break;
             case QWordReg::RBP:
-                _active_ctx.Rbp = value;
+                _active_ctx->Rbp = value;
                 break;
             case QWordReg::RSP:
-                _active_ctx.Rsp = value;
+                _active_ctx->Rsp = value;
                 break;
             case QWordReg::RSI:
-                _active_ctx.Rsi = value;
+                _active_ctx->Rsi = value;
                 break;
             case QWordReg::RDI:
-                _active_ctx.Rdi = value;
+                _active_ctx->Rdi = value;
                 break;
-#define _SET_R_REG(n)             \
-    case QWordReg::R##n:          \
-        _active_ctx.R##n = value; \
+#define _SET_R_REG(n)              \
+    case QWordReg::R##n:           \
+        _active_ctx->R##n = value; \
         break
                 _SET_R_REG(8);
                 _SET_R_REG(9);
@@ -602,24 +643,24 @@ namespace inasm64
             switch(reg)
             {
             case QWordReg::RAX:
-                return _active_ctx.Rax;
+                return _active_ctx->Rax;
             case QWordReg::RBX:
-                return _active_ctx.Rbx;
+                return _active_ctx->Rbx;
             case QWordReg::RCX:
-                return _active_ctx.Rcx;
+                return _active_ctx->Rcx;
             case QWordReg::RDX:
-                return _active_ctx.Rdx;
+                return _active_ctx->Rdx;
             case QWordReg::RBP:
-                return _active_ctx.Rbp;
+                return _active_ctx->Rbp;
             case QWordReg::RSP:
-                return _active_ctx.Rsp;
+                return _active_ctx->Rsp;
             case QWordReg::RSI:
-                return _active_ctx.Rsi;
+                return _active_ctx->Rsi;
             case QWordReg::RDI:
-                return _active_ctx.Rdi;
+                return _active_ctx->Rdi;
 #define _GET_R_REG(n)    \
     case QWordReg::R##n: \
-        return _active_ctx.R##n
+        return _active_ctx->R##n
                 _GET_R_REG(8);
                 _GET_R_REG(9);
                 _GET_R_REG(10);
@@ -630,6 +671,220 @@ namespace inasm64
                 _GET_R_REG(15);
             }
             return 0;
+        }
+
+        bool SetReg(const char* regName, int64_t value)
+        {
+            //TODO: XMM and YMM registers
+
+            const auto len = strlen(regName);
+            if(len > 3)
+                return false;
+            auto result = true;
+            auto prefixHi = char(::toupper(regName[0]));
+            if(len == 2 && prefixHi != 'R')
+            {
+                // should be a byte- or word -register
+                switch(prefixHi)
+                {
+                    // sadly this magic (https://stackoverflow.com/questions/35525555/c-preprocessor-how-to-create-a-character-literal) does not work with MS141
+                    // complains about newline in constant at SINGLEQUOTE
+                    //#define CONCAT_H(x, y, z) x##y##z
+                    //#define SINGLEQUOTE '
+                    //#define CONCAT(x, y, z) CONCAT_H(x, y, z)
+                    //#define CHARIFY(x) CONCAT(SINGLEQUOTE, x, SINGLEQUOTE)
+
+#define _SETNAMEDBYTEREG_HL(prefix)                                              \
+    if(regName[1] == 'l' || regName[1] == 'L')                                   \
+    {                                                                            \
+        runtime::SetReg(runtime::ByteReg::##prefix##L, int8_t(value & 0xff));    \
+    }                                                                            \
+    else if(regName[1] == 'h' || regName[1] == 'H')                              \
+    {                                                                            \
+        runtime::SetReg(runtime::ByteReg::##prefix##H, int8_t(value & 0xff));    \
+    }                                                                            \
+    else if(regName[1] == 'x' || regName[1] == 'X')                              \
+    {                                                                            \
+        runtime::SetReg(runtime::WordReg::##prefix##X, int16_t(value & 0xffff)); \
+    }                                                                            \
+    else                                                                         \
+        result = false;                                                          \
+    break
+                case 'A':
+                    _SETNAMEDBYTEREG_HL(A);
+                case 'B':
+                    _SETNAMEDBYTEREG_HL(B);
+                case 'C':
+                    _SETNAMEDBYTEREG_HL(C);
+                case 'D':
+                    _SETNAMEDBYTEREG_HL(D);
+                default:
+                    if(regName[1] == 'i' || regName[1] == 'I')
+                    {
+                        if(prefixHi == 'D')
+                        {
+                            runtime::SetReg(runtime::WordReg::DI, int16_t(value & 0xffff));
+                        }
+                        else if(prefixHi == 'S')
+                        {
+                            runtime::SetReg(runtime::WordReg::SI, int16_t(value & 0xffff));
+                        }
+                        else
+                            result = false;
+                    }
+                    else if(regName[1] == 'p' || regName[1] == 'P')
+                    {
+                        if(prefixHi == 'B')
+                        {
+                            runtime::SetReg(runtime::WordReg::BP, int16_t(value & 0xffff));
+                        }
+                        else if(prefixHi == 'S')
+                        {
+                            runtime::SetReg(runtime::WordReg::SP, int16_t(value & 0xffff));
+                        }
+                        else
+                            result = false;
+                    }
+                    else
+                        result = false;
+                    break;
+                }
+            }
+            else if(len == 3 || prefixHi == 'R')
+            {
+                // 32- or 64 -bit registers
+                if(prefixHi == 'E')
+                {
+                    prefixHi = char(::toupper(regName[1]));
+                    switch(prefixHi)
+                    {
+#define _SETNAMEDDWORDREG(prefix)                                                      \
+    if(regName[2] == 'x' || regName[2] == 'X')                                         \
+    {                                                                                  \
+        runtime::SetReg(runtime::DWordReg::E##prefix##X, int32_t(value & 0xffffffff)); \
+    }                                                                                  \
+    else                                                                               \
+        result = false;                                                                \
+    break
+                    case 'A':
+                        _SETNAMEDDWORDREG(A);
+                    case 'B':
+                        _SETNAMEDDWORDREG(B);
+                    case 'C':
+                        _SETNAMEDDWORDREG(C);
+                    case 'D':
+                        _SETNAMEDDWORDREG(D);
+                    default:
+                        if(regName[2] == 'i' || regName[2] == 'I')
+                        {
+                            if(prefixHi == 'D')
+                            {
+                                runtime::SetReg(runtime::DWordReg::EDI, int32_t(value & 0xffffffff));
+                            }
+                            else if(prefixHi == 'S')
+                            {
+                                runtime::SetReg(runtime::DWordReg::ESI, int32_t(value & 0xffffffff));
+                            }
+                            else
+                                result = false;
+                        }
+                        else if(regName[2] == 'p' || regName[2] == 'P')
+                        {
+                            if(prefixHi == 'B')
+                            {
+                                runtime::SetReg(runtime::DWordReg::EBP, int16_t(value & 0xffffffff));
+                            }
+                            else if(prefixHi == 'S')
+                            {
+                                runtime::SetReg(runtime::DWordReg::ESP, int16_t(value & 0xffffffff));
+                            }
+                            else
+                                result = false;
+                        }
+                        else
+                            result = false;
+                        break;
+                    }
+                }
+                else if(prefixHi == 'R')
+                {
+                    prefixHi = char(::toupper(regName[1]));
+                    switch(prefixHi)
+                    {
+#define _SETNAMEDQWORDREG(prefix)                                \
+    if(regName[2] == 'x' || regName[2] == 'X')                   \
+    {                                                            \
+        runtime::SetReg(runtime::QWordReg::R##prefix##X, value); \
+    }                                                            \
+    else                                                         \
+        result = false;                                          \
+    break
+                    case 'A':
+                        _SETNAMEDQWORDREG(A);
+                    case 'B':
+                        _SETNAMEDQWORDREG(B);
+                    case 'C':
+                        _SETNAMEDQWORDREG(C);
+                    case 'D':
+                        _SETNAMEDQWORDREG(D);
+                    default:
+                        if(regName[2] == 'i' || regName[2] == 'I')
+                        {
+                            if(prefixHi == 'D')
+                            {
+                                runtime::SetReg(runtime::QWordReg::RDI, value);
+                            }
+                            else if(prefixHi == 'S')
+                            {
+                                runtime::SetReg(runtime::QWordReg::RSI, value);
+                            }
+                            else
+                                result = false;
+                        }
+                        else if(regName[2] == 'p' || regName[2] == 'P')
+                        {
+                            if(prefixHi == 'B')
+                            {
+                                runtime::SetReg(runtime::QWordReg::RBP, value);
+                            }
+                            else if(prefixHi == 'S')
+                            {
+                                runtime::SetReg(runtime::QWordReg::RSP, value);
+                            }
+                            else
+                                result = false;
+                        }
+                        else
+                        {
+                            // R8-R15?
+                            const auto ordinal = ::atol(regName + 1);
+                            switch(ordinal)
+                            {
+#define _SETORDQWORDREG(ord) \
+    case ord:                \
+        runtime::SetReg(runtime::QWordReg::R##ord, value)
+
+                                _SETORDQWORDREG(8);
+                                _SETORDQWORDREG(9);
+                                _SETORDQWORDREG(10);
+                                _SETORDQWORDREG(11);
+                                _SETORDQWORDREG(12);
+                                _SETORDQWORDREG(13);
+                                _SETORDQWORDREG(14);
+                                _SETORDQWORDREG(15);
+                            default:
+                                result = false;
+                                break;
+                            }
+                        }
+                        break;
+                    }
+                }
+                else
+                    result = false;
+            }
+
+            return result;
         }
     }  // namespace runtime
 }  // namespace inasm64
