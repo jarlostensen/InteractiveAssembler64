@@ -16,7 +16,10 @@ namespace inasm64
             Quit,
             Step,
             Assemble,
-            Reg,
+            DisplayAllRegs,
+            DisplayFpRegs,
+            DisplayAvxRegs,
+            SetReg,
             Help,
         };
         ///<summary>

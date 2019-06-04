@@ -102,7 +102,10 @@ namespace inasm64
                 _startupinfo_a = { 0 };
                 _startupinfo_a.cb = sizeof(_startupinfo_a);
                 _processinfo = { 0 };
-                _flags._running = CreateProcessA(exeFilePathName, nullptr, nullptr, nullptr, FALSE, DEBUG_ONLY_THIS_PROCESS, nullptr, nullptr, &_startupinfo_a, &_processinfo) == TRUE ? true : false;
+
+                // see inasm64::kTrapModeArgumentValue
+                static auto debuggeeCommandLine = "262";
+                _flags._running = CreateProcessA(exeFilePathName, const_cast<LPSTR>(debuggeeCommandLine), nullptr, nullptr, FALSE, DEBUG_ONLY_THIS_PROCESS, nullptr, nullptr, &_startupinfo_a, &_processinfo) == TRUE ? true : false;
 
                 if(!_flags._running)
                     return false;
@@ -675,17 +678,21 @@ namespace inasm64
 
         bool SetReg(const char* regName, int64_t value)
         {
-            //TODO: XMM and YMM registers
+            //TODO: XMM and YMM registers, FP registers
 
             const auto len = strlen(regName);
-            if(len > 3)
-                return false;
-            auto result = true;
-            auto prefixHi = char(::toupper(regName[0]));
-            if(len == 2 && prefixHi != 'R')
+            if(len > 4)
             {
+                detail::SetError(Error::InvalidCommandFormat);
+                return false;
+            }
+            auto result = true;
+            auto firstToken = char(::toupper(regName[0]));
+            if(len == 2 && firstToken != 'R')
+            {
+                const auto secondToken = char(::toupper(regName[1]));
                 // should be a byte- or word -register
-                switch(prefixHi)
+                switch(firstToken)
                 {
                     // sadly this magic (https://stackoverflow.com/questions/35525555/c-preprocessor-how-to-create-a-character-literal) does not work with MS141
                     // complains about newline in constant at SINGLEQUOTE
@@ -695,15 +702,15 @@ namespace inasm64
                     //#define CHARIFY(x) CONCAT(SINGLEQUOTE, x, SINGLEQUOTE)
 
 #define _SETNAMEDBYTEREG_HL(prefix)                                              \
-    if(regName[1] == 'l' || regName[1] == 'L')                                   \
+    if(secondToken == 'L')                                                       \
     {                                                                            \
         runtime::SetReg(runtime::ByteReg::##prefix##L, int8_t(value & 0xff));    \
     }                                                                            \
-    else if(regName[1] == 'h' || regName[1] == 'H')                              \
+    else if(secondToken == 'H')                                                  \
     {                                                                            \
         runtime::SetReg(runtime::ByteReg::##prefix##H, int8_t(value & 0xff));    \
     }                                                                            \
-    else if(regName[1] == 'x' || regName[1] == 'X')                              \
+    else if(secondToken == 'X')                                                  \
     {                                                                            \
         runtime::SetReg(runtime::WordReg::##prefix##X, int16_t(value & 0xffff)); \
     }                                                                            \
@@ -719,26 +726,26 @@ namespace inasm64
                 case 'D':
                     _SETNAMEDBYTEREG_HL(D);
                 default:
-                    if(regName[1] == 'i' || regName[1] == 'I')
+                    if(secondToken == 'I')
                     {
-                        if(prefixHi == 'D')
+                        if(firstToken == 'D')
                         {
                             runtime::SetReg(runtime::WordReg::DI, int16_t(value & 0xffff));
                         }
-                        else if(prefixHi == 'S')
+                        else if(firstToken == 'S')
                         {
                             runtime::SetReg(runtime::WordReg::SI, int16_t(value & 0xffff));
                         }
                         else
                             result = false;
                     }
-                    else if(regName[1] == 'p' || regName[1] == 'P')
+                    else if(secondToken == 'P')
                     {
-                        if(prefixHi == 'B')
+                        if(firstToken == 'B')
                         {
                             runtime::SetReg(runtime::WordReg::BP, int16_t(value & 0xffff));
                         }
-                        else if(prefixHi == 'S')
+                        else if(firstToken == 'S')
                         {
                             runtime::SetReg(runtime::WordReg::SP, int16_t(value & 0xffff));
                         }
@@ -750,16 +757,17 @@ namespace inasm64
                     break;
                 }
             }
-            else if(len == 3 || prefixHi == 'R')
+            else if(len == 3 || firstToken == 'R')
             {
                 // 32- or 64 -bit registers
-                if(prefixHi == 'E')
+                const auto secondToken = char(::toupper(regName[2]));
+                if(firstToken == 'E')
                 {
-                    prefixHi = char(::toupper(regName[1]));
-                    switch(prefixHi)
+                    firstToken = char(::toupper(regName[1]));
+                    switch(firstToken)
                     {
 #define _SETNAMEDDWORDREG(prefix)                                                      \
-    if(regName[2] == 'x' || regName[2] == 'X')                                         \
+    if(secondToken == 'X')                                                             \
     {                                                                                  \
         runtime::SetReg(runtime::DWordReg::E##prefix##X, int32_t(value & 0xffffffff)); \
     }                                                                                  \
@@ -775,26 +783,26 @@ namespace inasm64
                     case 'D':
                         _SETNAMEDDWORDREG(D);
                     default:
-                        if(regName[2] == 'i' || regName[2] == 'I')
+                        if(secondToken == 'I')
                         {
-                            if(prefixHi == 'D')
+                            if(firstToken == 'D')
                             {
                                 runtime::SetReg(runtime::DWordReg::EDI, int32_t(value & 0xffffffff));
                             }
-                            else if(prefixHi == 'S')
+                            else if(firstToken == 'S')
                             {
                                 runtime::SetReg(runtime::DWordReg::ESI, int32_t(value & 0xffffffff));
                             }
                             else
                                 result = false;
                         }
-                        else if(regName[2] == 'p' || regName[2] == 'P')
+                        else if(secondToken == 'P')
                         {
-                            if(prefixHi == 'B')
+                            if(firstToken == 'B')
                             {
                                 runtime::SetReg(runtime::DWordReg::EBP, int16_t(value & 0xffffffff));
                             }
-                            else if(prefixHi == 'S')
+                            else if(firstToken == 'S')
                             {
                                 runtime::SetReg(runtime::DWordReg::ESP, int16_t(value & 0xffffffff));
                             }
@@ -806,13 +814,13 @@ namespace inasm64
                         break;
                     }
                 }
-                else if(prefixHi == 'R')
+                else if(firstToken == 'R')
                 {
-                    prefixHi = char(::toupper(regName[1]));
-                    switch(prefixHi)
+                    firstToken = char(::toupper(regName[1]));
+                    switch(firstToken)
                     {
 #define _SETNAMEDQWORDREG(prefix)                                \
-    if(regName[2] == 'x' || regName[2] == 'X')                   \
+    if(secondToken == 'X')                                       \
     {                                                            \
         runtime::SetReg(runtime::QWordReg::R##prefix##X, value); \
     }                                                            \
@@ -828,26 +836,26 @@ namespace inasm64
                     case 'D':
                         _SETNAMEDQWORDREG(D);
                     default:
-                        if(regName[2] == 'i' || regName[2] == 'I')
+                        if(secondToken == 'I')
                         {
-                            if(prefixHi == 'D')
+                            if(firstToken == 'D')
                             {
                                 runtime::SetReg(runtime::QWordReg::RDI, value);
                             }
-                            else if(prefixHi == 'S')
+                            else if(firstToken == 'S')
                             {
                                 runtime::SetReg(runtime::QWordReg::RSI, value);
                             }
                             else
                                 result = false;
                         }
-                        else if(regName[2] == 'p' || regName[2] == 'P')
+                        else if(secondToken == 'P')
                         {
-                            if(prefixHi == 'B')
+                            if(firstToken == 'B')
                             {
                                 runtime::SetReg(runtime::QWordReg::RBP, value);
                             }
-                            else if(prefixHi == 'S')
+                            else if(firstToken == 'S')
                             {
                                 runtime::SetReg(runtime::QWordReg::RSP, value);
                             }
@@ -860,9 +868,10 @@ namespace inasm64
                             const auto ordinal = ::atol(regName + 1);
                             switch(ordinal)
                             {
-#define _SETORDQWORDREG(ord) \
-    case ord:                \
-        runtime::SetReg(runtime::QWordReg::R##ord, value)
+#define _SETORDQWORDREG(ord)                               \
+    case ord:                                              \
+        runtime::SetReg(runtime::QWordReg::R##ord, value); \
+        break
 
                                 _SETORDQWORDREG(8);
                                 _SETORDQWORDREG(9);
@@ -883,6 +892,9 @@ namespace inasm64
                 else
                     result = false;
             }
+
+            if(!result)
+                detail::SetError(Error::UnrecognizedRegisterName);
 
             return result;
         }

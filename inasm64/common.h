@@ -4,6 +4,8 @@ namespace inasm64
 {
     //NOTE: the most XED will do
     constexpr size_t kMaxAssembledInstructionSize = 15;
+    // value of single argument passed back to running application when used as a debuggee
+    constexpr int kTrapModeArgumentValue = 262;
 
     enum class Error
     {
@@ -11,6 +13,8 @@ namespace inasm64
         EmptyInput,
         NoMoreCode,
         CodeBufferFull,
+        InvalidCommandFormat,
+        UnrecognizedRegisterName,
         InvalidAddress,
         SystemError,
     };

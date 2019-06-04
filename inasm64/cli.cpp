@@ -5,6 +5,7 @@
 #include <string>
 #include <sstream>
 #include <vector>
+#include <algorithm>
 
 #include "common.h"
 #include "runtime.h"
@@ -43,7 +44,10 @@ namespace inasm64
 
         std::string Help()
         {
-            static const std::string _help = "h:\tthis text\na:\tstart assembling instructions, empty input ends\np:\tsingle step one instruction\nq:\tquit";
+            static const std::string _help =
+                "h\t\tshowh help\na\t\tstart assembling instructions, empty input ends\np\t\tsingle step one instruction\n"
+                "r <reg> [value]\tread or set register value\n"
+                "q\t\tquit";
             return _help;
         }
 
@@ -59,9 +63,12 @@ namespace inasm64
             return _mode;
         }
 
-        Command Execute(std::string& commandLine)
+        Command Execute(std::string& commandLine_)
         {
             //TODO: not at all happy with this code and all the early out returns; refactor and clean up once flow is clear
+
+            auto commandLine = commandLine_;
+            std::transform(commandLine.begin(), commandLine.end(), commandLine.begin(), ::toupper);
 
             Command result = Command::Invalid;
 
@@ -80,21 +87,26 @@ namespace inasm64
                         _code_buffer_pos = 0;
                     }
                     _mode = Mode::Processing;
-                    return Command::Assemble;
+                    result = Command::Assemble;
                 }
-
-                if(!assembler::Assemble(commandLine, _asm_info))
+                else
                 {
-                    //TODO: proper error handling and error reporting
-                    _mode = Mode::Processing;
-                    return Command::Invalid;
+                    if(!assembler::Assemble(commandLine, _asm_info))
+                    {
+                        //TODO: proper error handling and error reporting
+                        _mode = Mode::Processing;
+                        result = Command::Invalid;
+                    }
+                    else
+                    {
+                        // cache instructions while they are being entered, we'll submi them to the runtime when we exit assembly mode
+                        //TODO: error/overflow handling
+                        memcpy(_code_buffer + _code_buffer_pos, _asm_info.Instruction, _asm_info.InstructionSize);
+                        _code_buffer_pos += _asm_info.InstructionSize;
+                        _asm_info.Address = reinterpret_cast<const void*>(reinterpret_cast<const uint8_t*>(runtime::InstructionWriteAddress()) + _code_buffer_pos);
+                        result = Command::Assemble;
+                    }
                 }
-
-                // cache instructions while they are being entered, we'll submi them to the runtime when we exit assembly mode
-                //TODO: error/overflow handling
-                memcpy(_code_buffer + _code_buffer_pos, _asm_info.Instruction, _asm_info.InstructionSize);
-                _code_buffer_pos += _asm_info.InstructionSize;
-                _asm_info.Address = reinterpret_cast<const void*>(reinterpret_cast<const uint8_t*>(runtime::InstructionWriteAddress()) + _code_buffer_pos);
             }
             else
             {
@@ -102,42 +114,59 @@ namespace inasm64
                 {
                     //TODO: proper error handling
                     _mode = Mode::Processing;
-                    return Command::Invalid;
+                    result = Command::Invalid;
                 }
-
-                const auto tokens = split(commandLine, ' ');
-                //TODO: make this more resilient (and bark on invalid commands, like "raaaa"...)
-                const auto cmd = char(::tolower(tokens[0][0]));
-                switch(cmd)
+                else
                 {
-                case 'r':
-                {
-                    if(tokens.size() != 3)
+                    const auto tokens = split(commandLine, ' ');
+                    //TODO: make this more resilient (and bark on invalid commands, like "raaaa"...)
+                    const auto cmd = char(tokens[0][0]);
+                    switch(cmd)
                     {
-                        //TODO: proper error handling
-                        return Command::Invalid;
+                    case 'R':
+                    {
+                        if(tokens.size() == 1)
+                        {
+                            result = Command::DisplayAllRegs;
+                        }
+                        else if(tokens.size() == 2)
+                        {
+                            if(tokens[1] == "FP")
+                                result = Command::DisplayFpRegs;
+                            else if(tokens[2] == "AVX")
+                                result = Command::DisplayAvxRegs;
+                            else
+                            {
+                                detail::SetError(Error::InvalidCommandFormat);
+                                result = Command::Invalid;
+                            }
+                        }
+                        else
+                        {
+                            //ZZZ: assumes hex input
+                            const int64_t value = ::strtoll(tokens[2].c_str(), nullptr, 16);
+                            result = runtime::SetReg(tokens[1].c_str(), value) ? Command::SetReg : Command::Invalid;
+                        }
                     }
-
-                    //ZZZ: assumes hex input
-                    const int64_t value = ::strtoll(tokens[2].c_str(), nullptr, 16);
-                    //TODO: error/invalid number handling
-                    runtime::SetReg(tokens[1].c_str(), value);
-
-                    return Command::Reg;
-                }
-                case 'a':
-                    _mode = Mode::Assembling;
-                    _asm_info.Address = runtime::InstructionWriteAddress();
-                    return Command::Assemble;
-                case 'q':
-                    runtime::Shutdown();
-                    return Command::Quit;
-                case 'p':
-                    return runtime::Step() ? Command::Step : Command::Invalid;
-                case 'h':
-                    return Command::Help;
-                default:
                     break;
+                    case 'A':
+                        _mode = Mode::Assembling;
+                        _asm_info.Address = runtime::InstructionWriteAddress();
+                        result = Command::Assemble;
+                        break;
+                    case 'Q':
+                        runtime::Shutdown();
+                        result = Command::Quit;
+                        break;
+                    case 'P':
+                        result = runtime::Step() ? Command::Step : Command::Invalid;
+                        break;
+                    case 'H':
+                        result = Command::Help;
+                        break;
+                    default:
+                        break;
+                    }
                 }
             }
             return result;
