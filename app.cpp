@@ -10,13 +10,15 @@
 #include "inasm64/assembler.h"
 #include "inasm64/cli.h"
 
+std::ostream& coutreg(const char* reg)
+{
+    // perhaps I should just have used printf....
+    return std::cout << std::setfill(' ') << std::setw(4) << reg << std::setw(1) << " = 0x" << std::setfill('0') << std::setw(16) << std::hex;
+}
+
 void DumpRegs()
 {
     const auto ctx = inasm64::runtime::Context();
-
-    const auto coutreg = [](const char* name) -> std::ostream& {
-        return std::cout << std::setfill(' ') << std::setw(4) << name << std::setw(1) << " = 0x" << std::setfill('0') << std::setw(16) << std::hex;
-    };
 
     coutreg("rax") << ctx->OsContext->Rax << " ";
     coutreg("rbx") << ctx->OsContext->Rbx << " ";
@@ -41,6 +43,33 @@ void DumpRegs()
     coutreg("eflags") << ctx->OsContext->EFlags << std::endl;
 
     //TODO: XMM, FP, make it selectable, etc.
+}
+
+void DumpFpRegisters()
+{
+    const auto ctx = inasm64::runtime::Context();
+
+    coutreg("xmm0") << ctx->OsContext->Xmm0.Low << ctx->OsContext->Xmm0.High << " ";
+    coutreg("xmm1") << ctx->OsContext->Xmm1.Low << ctx->OsContext->Xmm1.High << " " << std::endl;
+    coutreg("xmm2") << ctx->OsContext->Xmm2.Low << ctx->OsContext->Xmm2.High << " ";
+    coutreg("xmm3") << ctx->OsContext->Xmm3.Low << ctx->OsContext->Xmm3.High << " " << std::endl;
+    coutreg("xmm4") << ctx->OsContext->Xmm4.Low << ctx->OsContext->Xmm4.High << " ";
+    coutreg("xmm5") << ctx->OsContext->Xmm5.Low << ctx->OsContext->Xmm5.High << " " << std::endl;
+    coutreg("xmm6") << ctx->OsContext->Xmm6.Low << ctx->OsContext->Xmm6.High << " ";
+    coutreg("xmm7") << ctx->OsContext->Xmm7.Low << ctx->OsContext->Xmm7.High << " " << std::endl;
+    coutreg("xmm8") << ctx->OsContext->Xmm8.Low << ctx->OsContext->Xmm8.High << " ";
+    coutreg("xmm9") << ctx->OsContext->Xmm9.Low << ctx->OsContext->Xmm9.High << " " << std::endl;
+    coutreg("xmm10") << ctx->OsContext->Xmm10.Low << ctx->OsContext->Xmm10.High << " ";
+    coutreg("xmm11") << ctx->OsContext->Xmm11.Low << ctx->OsContext->Xmm11.High << " " << std::endl;
+    coutreg("xmm12") << ctx->OsContext->Xmm12.Low << ctx->OsContext->Xmm12.High << " ";
+    coutreg("xmm13") << ctx->OsContext->Xmm13.Low << ctx->OsContext->Xmm13.High << " " << std::endl;
+    coutreg("xmm14") << ctx->OsContext->Xmm14.Low << ctx->OsContext->Xmm14.High << " ";
+    coutreg("xmm15") << ctx->OsContext->Xmm15.Low << ctx->OsContext->Xmm15.High << std::endl;
+}
+
+void DumpAvxRegisters()
+{
+    const auto ctx = inasm64::runtime::Context();
     DWORD64 featuremask;
     if(GetXStateFeaturesMask(const_cast<PCONTEXT>(ctx->OsContext), &featuremask))
     {
@@ -49,11 +78,33 @@ void DumpRegs()
             DWORD featureLength = 0;
             const auto Ymm = (PM128A)LocateXStateFeature(const_cast<PCONTEXT>(ctx->OsContext), XSTATE_AVX, &featureLength);
             if(Ymm)
-                for(auto i = 0; i < featureLength / sizeof(Ymm[0]); i++)
-                {
-                    std::cout << "Ymm" << std::dec << i << ": " << std::hex << Ymm[i].Low << " " << Ymm[i].High << "\n";
-                }
+            {
+                coutreg("ymm0") << Ymm[0].Low << Ymm[0].High << " ";
+                coutreg("ymm1") << Ymm[1].Low << Ymm[1].High << " " << std::endl;
+                coutreg("ymm2") << Ymm[2].Low << Ymm[2].High << " ";
+                coutreg("ymm3") << Ymm[3].Low << Ymm[3].High << " " << std::endl;
+                coutreg("ymm4") << Ymm[4].Low << Ymm[4].High << " ";
+                coutreg("ymm5") << Ymm[5].Low << Ymm[5].High << " " << std::endl;
+                coutreg("ymm6") << Ymm[6].Low << Ymm[6].High << " ";
+                coutreg("ymm7") << Ymm[7].Low << Ymm[7].High << " " << std::endl;
+                coutreg("ymm8") << Ymm[8].Low << Ymm[8].High << " ";
+                coutreg("ymm9") << Ymm[9].Low << Ymm[9].High << " " << std::endl;
+                coutreg("ymm10") << Ymm[10].Low << Ymm[10].High << " ";
+                coutreg("ymm11") << Ymm[11].Low << Ymm[11].High << " " << std::endl;
+                coutreg("ymm12") << Ymm[12].Low << Ymm[12].High << " ";
+                coutreg("ymm13") << Ymm[13].Low << Ymm[13].High << " " << std::endl;
+                coutreg("ymm14") << Ymm[14].Low << Ymm[14].High << " ";
+                coutreg("ymm15") << Ymm[15].Low << Ymm[15].High << std::endl;
+            }
         }
+        else
+        {
+            std::cout << "AVX registers not initialised (all zero)\n";
+        }
+    }
+    else
+    {
+        std::cerr << "AVX not supported on this hardware\n";
     }
 }
 
@@ -116,6 +167,12 @@ int main(int argc, char* argv[])
                 break;
             case inasm64::cli::Command::DisplayAllRegs:
                 DumpRegs();
+                break;
+            case inasm64::cli::Command::DisplayFpRegs:
+                DumpFpRegisters();
+                break;
+            case inasm64::cli::Command::DisplayAvxRegs:
+                DumpAvxRegisters();
                 break;
             case inasm64::cli::Command::Help:
                 std::cout << inasm64::cli::Help() << std::endl;
