@@ -121,7 +121,7 @@ int main(int argc, char* argv[])
                 std::cout << inasm64::cli::Help() << std::endl;
                 break;
             case inasm64::cli::Command::Invalid:
-                std::cerr << "Error: " << static_cast<int>(inasm64::GetError()) << std::endl;
+                std::cerr << "error: " << inasm64::ErrorMessage(inasm64::GetError()) << std::endl;
                 break;
             default:
                 break;

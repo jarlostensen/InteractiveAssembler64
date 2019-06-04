@@ -20,6 +20,7 @@ namespace inasm64
     };
 
     Error GetError();
+    const std::string ErrorMessage(Error error);
 
     namespace detail
     {

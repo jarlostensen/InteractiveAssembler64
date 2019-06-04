@@ -1,4 +1,5 @@
 #include "common.h"
+#include <string>
 
 namespace inasm64
 {
@@ -16,6 +17,31 @@ namespace inasm64
     Error GetError()
     {
         return detail::_error;
+    }
+
+    const std::string ErrorMessage(Error error)
+    {
+        switch(error)
+        {
+        case Error::NoError:
+            return "no error";
+        case Error::SystemError:
+            return "general system error";
+        case Error::CodeBufferFull:
+            return "code buffer is full; unable to assemble more instructions";
+        case Error::InvalidAddress:
+            return "invalid address";
+        case Error::InvalidCommandFormat:
+            return "invalid or unrecognized command format";
+        case Error::NoMoreCode:
+            return "no more code to execute";
+        case Error::UnrecognizedRegisterName:
+            return "unrecognized or invalid register name";
+        case Error::EmptyInput:
+            return "invalid, empty, input";
+        default:
+            return "";
+        }
     }
 
 }  // namespace inasm64

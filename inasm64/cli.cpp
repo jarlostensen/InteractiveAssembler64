@@ -133,7 +133,7 @@ namespace inasm64
                         {
                             if(tokens[1] == "FP")
                                 result = Command::DisplayFpRegs;
-                            else if(tokens[2] == "AVX")
+                            else if(tokens[1] == "AVX")
                                 result = Command::DisplayAvxRegs;
                             else
                             {
