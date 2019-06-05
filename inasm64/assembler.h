@@ -11,11 +11,14 @@ namespace inasm64
         {
             // the source assembly statement
             const std::string Assembly = {};
-            // the instruction bytes 
+            // the instruction bytes
             const uint8_t Instruction[kMaxAssembledInstructionSize] = { 0 };
             // the number of instruction bytes
             const size_t InstructionSize = 0;
         };
+
+        bool Initialise();
+
         ///<summary>
         /// assemble a given, single line, input statement into IA 64 instruction bytes
         ///</summary>
