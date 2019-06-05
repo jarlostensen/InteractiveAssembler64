@@ -4,10 +4,11 @@ This project is Work-In-Progress, but the end goal is pretty clear; a simple com
 
 ## Why?
 Because I think it's nice to be able to just write some lines of assembly and see them execute immediately. There are a lot of  instructions available on modern CPUs and being able to try them out and see the effect interactively is nice. 
-It's also an interesting project because it involves writing a small debugger using the Windows Debug APIs, and interacting with an assembler. The latter is TBD but it looks like I'm going to go with Intel's XED assembler for this. There is still lots of work to do, if you're interested then please come back occasionally to check up on progress.
+It's also an interesting project because it involves writing a small debugger using the Windows Debug APIs, and interacting with an assembler. 
 
 ## When?
-It's a pet project, and with a full time job and two kids it's not going to be finished quickly.
+It's a pet project, and with a full time job and two kids it's not going to be finished quickly!
+If you're interested then please come back occasionally to check up on progress, I'll be using twitter @psjarlo to post updates now and then too.
 
 ## Dependencies
 * Intel XED https://github.com/intelxed/xed 
