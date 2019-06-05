@@ -143,7 +143,7 @@ int main(int argc, char* argv[])
     }
     std::cout << std::endl;
 
-    if(inasm64::runtime::Start())
+    if(inasm64::runtime::Start() && inasm64::assembler::Initialise())
     {
         std::cout << "started, enter a command or \'h\' for help\\n\n";
         inasm64::cli::Command cmd = inasm64::cli::Command::Invalid;

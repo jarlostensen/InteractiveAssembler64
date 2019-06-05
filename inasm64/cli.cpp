@@ -65,10 +65,11 @@ namespace inasm64
 
         Command Execute(std::string& commandLine_)
         {
-            //TODO: not at all happy with this code and all the early out returns; refactor and clean up once flow is clear
-
             auto commandLine = commandLine_;
-            std::transform(commandLine.begin(), commandLine.end(), commandLine.begin(), ::toupper);
+            //NOTE: this is the only way to do this compiler-correctly for char strings, since toupper operates on ints...
+            std::transform(commandLine.begin(), commandLine.end(), commandLine.begin(), [](char c) -> char {
+                return char(::toupper(c));
+            });
 
             Command result = Command::Invalid;
 

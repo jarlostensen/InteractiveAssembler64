@@ -687,10 +687,10 @@ namespace inasm64
                 return false;
             }
             auto result = true;
-            auto firstToken = char(::toupper(regName[0]));
+            auto firstToken = regName[0];
             if(len == 2 && firstToken != 'R')
             {
-                const auto secondToken = char(::toupper(regName[1]));
+                const auto secondToken = regName[1];
                 // should be a byte- or word -register
                 switch(firstToken)
                 {
@@ -760,10 +760,10 @@ namespace inasm64
             else if(len == 3 || firstToken == 'R')
             {
                 // 32- or 64 -bit registers
-                const auto secondToken = char(::toupper(regName[2]));
+                const auto secondToken = regName[2];
                 if(firstToken == 'E')
                 {
-                    firstToken = char(::toupper(regName[1]));
+                    firstToken = regName[1];
                     switch(firstToken)
                     {
 #define _SETNAMEDDWORDREG(prefix)                                                      \
@@ -816,7 +816,7 @@ namespace inasm64
                 }
                 else if(firstToken == 'R')
                 {
-                    firstToken = char(::toupper(regName[1]));
+                    firstToken = regName[1];
                     switch(firstToken)
                     {
 #define _SETNAMEDQWORDREG(prefix)                                \

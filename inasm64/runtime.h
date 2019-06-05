@@ -70,7 +70,8 @@ namespace inasm64
         ///<summary>
         /// set a named register value
         ///</summary>
-        bool SetReg(const char* regName, int64_t value);
+        /// NOTE: register name must be all uppercase
+        bool SetReg(const char* regNameUc, int64_t value);
 
         enum class ByteReg
         {
