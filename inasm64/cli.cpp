@@ -100,7 +100,7 @@ namespace inasm64
                     }
                     else
                     {
-                        // cache instructions while they are being entered, we'll submi them to the runtime when we exit assembly mode
+                        // cache instructions while they are being entered, we'll submit them to the runtime when we exit assembly mode
                         //TODO: error/overflow handling
                         memcpy(_code_buffer + _code_buffer_pos, _asm_info.Instruction, _asm_info.InstructionSize);
                         _code_buffer_pos += _asm_info.InstructionSize;
