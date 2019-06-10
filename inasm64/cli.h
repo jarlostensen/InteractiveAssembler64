@@ -39,17 +39,9 @@ namespace inasm64
         ///</summary>
         Command Execute(std::string& commandLine);
         ///<summary>
-        /// extension of the assembler::AssembledInstructionInfo structure to add the destination address of the assembled instruction
-        ///</summary>
-        struct AssembledInstructionInfo
-            : assembler::AssembledInstructionInfo
-        {
-            const void* Address = nullptr;
-        };
-        ///<summary>
         /// if currently in Assemble mode; returns information about the last instruction assembled.
         ///</summary>
-        const AssembledInstructionInfo* LastAssembledInstructionInfo();
+        const void* LastAssembledInstructionAddress();
         ///<summary>
         /// exactly that; a list of available command and their use
         ///</summary>

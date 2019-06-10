@@ -143,41 +143,43 @@ int main(int argc, char* argv[])
     }
     std::cout << std::endl;
 
-    if(inasm64::runtime::Start() && inasm64::assembler::Initialise())
+    using namespace inasm64;
+
+    if(assembler::Initialise() && runtime::Start())
     {
         std::cout << "started, enter a command or \'h\' for help\\n\n";
-        inasm64::cli::Command cmd = inasm64::cli::Command::Invalid;
+        cli::Command cmd = cli::Command::Invalid;
 
-        while(cmd != inasm64::cli::Command::Quit)
+        while(cmd != cli::Command::Quit)
         {
             std::string input;
 
-            if(inasm64::cli::ActiveMode() == inasm64::cli::Mode::Assembling)
-                std::cout << std::hex << inasm64::cli::LastAssembledInstructionInfo()->Address << " ";
+            if(cli::ActiveMode() == cli::Mode::Assembling)
+                std::cout << std::hex << cli::LastAssembledInstructionAddress() << " ";
             else
                 std::cout << "> ";
             std::getline(std::cin, input);
 
-            cmd = inasm64::cli::Execute(input);
+            cmd = cli::Execute(input);
             switch(cmd)
             {
-            case inasm64::cli::Command::Step:
+            case cli::Command::Step:
                 DumpRegs();
                 DumpInstructionInfo();
                 break;
-            case inasm64::cli::Command::DisplayAllRegs:
+            case cli::Command::DisplayAllRegs:
                 DumpRegs();
                 break;
-            case inasm64::cli::Command::DisplayFpRegs:
+            case cli::Command::DisplayFpRegs:
                 DumpFpRegisters();
                 break;
-            case inasm64::cli::Command::DisplayAvxRegs:
+            case cli::Command::DisplayAvxRegs:
                 DumpAvxRegisters();
                 break;
-            case inasm64::cli::Command::Help:
-                std::cout << inasm64::cli::Help() << std::endl;
+            case cli::Command::Help:
+                std::cout << cli::Help() << std::endl;
                 break;
-            case inasm64::cli::Command::Invalid:
+            case cli::Command::Invalid:
                 std::cerr << "error: " << inasm64::ErrorMessage(inasm64::GetError()) << std::endl;
                 break;
             default:

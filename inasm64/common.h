@@ -16,6 +16,7 @@ namespace inasm64
         InvalidCommandFormat,
         UnrecognizedRegisterName,
         InvalidAddress,
+        InvalidInstructionFormat,
         SystemError,
     };
 

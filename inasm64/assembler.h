@@ -9,8 +9,6 @@ namespace inasm64
         ///</summary>
         struct AssembledInstructionInfo
         {
-            // the source assembly statement
-            const std::string Assembly = {};
             // the instruction bytes
             const uint8_t Instruction[kMaxAssembledInstructionSize] = { 0 };
             // the number of instruction bytes

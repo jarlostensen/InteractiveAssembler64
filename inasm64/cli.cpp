@@ -5,6 +5,7 @@
 #include <string>
 #include <sstream>
 #include <vector>
+#include <unordered_map>
 #include <algorithm>
 
 #include "common.h"
@@ -16,12 +17,15 @@ namespace inasm64
 {
     namespace cli
     {
-        AssembledInstructionInfo _asm_info;
         //TODO: determine if this should be dynamic, or if this is even the right approach. Need to get the proper assembler up and running first.
         uint8_t _code_buffer[kMaxAssembledInstructionSize * 128];
         size_t _code_buffer_pos = 0;
         //TODO: error handling and error paths
         Mode _mode = Mode::Processing;
+
+        using asm_map_t = std::unordered_map<uintptr_t, assembler::AssembledInstructionInfo>;
+        asm_map_t _asm_map;
+        asm_map_t::iterator _last_instr = _asm_map.end();
 
         namespace
         {
@@ -51,11 +55,9 @@ namespace inasm64
             return _help;
         }
 
-        const AssembledInstructionInfo* inasm64::cli::LastAssembledInstructionInfo()
+        const void* inasm64::cli::LastAssembledInstructionAddress()
         {
-            if(_mode == Mode::Assembling)
-                return &_asm_info;
-            return nullptr;
+            return reinterpret_cast<const void*>(reinterpret_cast<const uint8_t*>(runtime::InstructionWriteAddress()) + _code_buffer_pos);
         }
 
         Mode ActiveMode()
@@ -92,7 +94,8 @@ namespace inasm64
                 }
                 else
                 {
-                    if(!assembler::Assemble(commandLine, _asm_info))
+                    std::pair<uintptr_t, assembler::AssembledInstructionInfo> asm_info;
+                    if(!assembler::Assemble(commandLine, asm_info.second))
                     {
                         //TODO: proper error handling and error reporting
                         _mode = Mode::Processing;
@@ -102,9 +105,11 @@ namespace inasm64
                     {
                         // cache instructions while they are being entered, we'll submit them to the runtime when we exit assembly mode
                         //TODO: error/overflow handling
-                        memcpy(_code_buffer + _code_buffer_pos, _asm_info.Instruction, _asm_info.InstructionSize);
-                        _code_buffer_pos += _asm_info.InstructionSize;
-                        _asm_info.Address = reinterpret_cast<const void*>(reinterpret_cast<const uint8_t*>(runtime::InstructionWriteAddress()) + _code_buffer_pos);
+                        memcpy(_code_buffer + _code_buffer_pos, asm_info.second.Instruction, asm_info.second.InstructionSize);
+                        asm_info.first = uintptr_t((reinterpret_cast<const uint8_t*>(runtime::InstructionWriteAddress()) + _code_buffer_pos));
+                        const auto at = _asm_map.emplace(asm_info);
+                        _last_instr = at.first;
+                        _code_buffer_pos += asm_info.second.InstructionSize;
                         result = Command::Assemble;
                     }
                 }
@@ -128,18 +133,25 @@ namespace inasm64
                     {
                         if(tokens.size() == 1)
                         {
-                            result = Command::DisplayAllRegs;
-                        }
-                        else if(tokens.size() == 2)
-                        {
-                            if(tokens[1] == "FP")
-                                result = Command::DisplayFpRegs;
-                            else if(tokens[1] == "AVX")
-                                result = Command::DisplayAvxRegs;
+                            if(tokens[0].length() > 1)
+                            {
+                                if(tokens[0][1] == 'F')
+                                {
+                                    result = Command::DisplayFpRegs;
+                                }
+                                else if(tokens[0][1] == 'X')
+                                {
+                                    result = Command::DisplayAvxRegs;
+                                }
+                                else
+                                {
+                                    detail::SetError(Error::InvalidCommandFormat);
+                                    result = Command::Invalid;
+                                }
+                            }
                             else
                             {
-                                detail::SetError(Error::InvalidCommandFormat);
-                                result = Command::Invalid;
+                                result = Command::DisplayAllRegs;
                             }
                         }
                         else
@@ -152,7 +164,6 @@ namespace inasm64
                     break;
                     case 'A':
                         _mode = Mode::Assembling;
-                        _asm_info.Address = runtime::InstructionWriteAddress();
                         result = Command::Assemble;
                         break;
                     case 'Q':
