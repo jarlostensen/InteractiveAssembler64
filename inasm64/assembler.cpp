@@ -2,6 +2,9 @@
 #include <string>
 #include <cstdint>
 #include <vector>
+#include <algorithm>
+
+#include <iostream>
 
 #include "common.h"
 #include "assembler.h"
@@ -16,6 +19,180 @@ namespace inasm64
 
         namespace
         {
+            const char* k8BitRegisters[] = {
+                "al", "ah", "bl", "bh", "cl", "ch", "dl", "dh", "sil", "dil", "spl", "bpl", "r8b", "r9b", "r10b", "r11b", "r12b", "r13b", "r14b", "r15b"
+            };
+
+            const char* k16BitRegisters[] = {
+                "ax", "bx", "dx", "si", "di", "sp", "bp", "r8w", "r9w", "r10w", "r11w", "r12w", "r13w", "r14w", "r15w"
+            };
+
+            const char* k32BitRegisters[] = {
+                "eax", "ebx", "edx", "esi", "edi", "esp", "ebp", "r8d", "r9d", "r10d", "r11d", "r12d", "r13d", "r14d", "r15d"
+            };
+
+            const char* k64BitRegisters[] = {
+                "rax", "rbx", "rdx", "rsi", "rdi", "rsp", "rbp", "r8", "r9", "r10", "r11", "r12", "r13", "r14", "r15"
+            };
+
+            char register_width(const char* reg)
+            {
+                if(reg[0] == 'r')
+                {
+                    for(auto r = 0; r < std::size(k64BitRegisters); ++r)
+                    {
+                        if(strcmp(reg, k64BitRegisters[r]) == 0)
+                        {
+                            return 8;
+                        }
+                    }
+                }
+
+                for(auto r = 0; r < std::size(k32BitRegisters); ++r)
+                {
+                    if(strcmp(reg, k32BitRegisters[r]) == 0)
+                    {
+                        return 4;
+                    }
+                }
+
+                for(auto r = 0; r < std::size(k16BitRegisters); ++r)
+                {
+                    if(strcmp(reg, k16BitRegisters[r]) == 0)
+                    {
+                        return 2;
+                    }
+                }
+                for(auto r = 0; r < std::size(k16BitRegisters); ++r)
+                {
+                    if(strcmp(reg, k16BitRegisters[r]) == 0)
+                    {
+                        return 1;
+                    }
+                }
+                return 0;
+            }
+
+            // either 0x followed by at least one hex digit, or hex digits followed by a 'h'
+            bool starts_with_hex_number(const char* at)
+            {
+                if(at[0] == '0' && at[1] == 'x')
+                {
+                    at += 2;
+                    return isdigit(at[0]) || (at[0] >= 'a' && at[0] <= 'f');
+                }
+                do
+                {
+                    if(!isdigit(at[0]) && (at[0] < 'a' || at[0] > 'f'))
+                        return false;
+                    ++at;
+                } while(at[0] && at[0] != 'h');
+                return true;
+            }
+
+#ifdef _DEBUG
+            void printstatement(const Statement& statement)
+            {
+                switch(statement._op1_type)
+                {
+                case Statement::kReg:
+                    std::cout << "op1 is Register";
+                    break;
+                case Statement::kImm:
+                    std::cout << "op1 is Immediate";
+                    break;
+                case Statement::kMem:
+                    std::cout << "op1 is Memory";
+                    break;
+                }
+
+                if(statement._op1_width)
+                    std::cout << ", width is " << int(statement._op1_width) << " bytes";
+
+                if(statement._op12)
+                {
+                    std::cout << " ";
+                    switch(statement._op2_type)
+                    {
+                    case Statement::kReg:
+                        std::cout << "op2 is Register";
+                        break;
+                    case Statement::kImm:
+                        std::cout << "op2 is Immediate";
+                        break;
+                    case Statement::kMem:
+                        std::cout << "op2 is Memory";
+                        break;
+                    }
+                    if(statement._op2_width)
+                        std::cout << ", width is " << int(statement._op2_width) << " bytes";
+                }
+
+                std::cout << std::endl
+                          << "\t";
+
+                if(statement._lock)
+                    std::cout << "lock ";
+                if(statement._rep)
+                    std::cout << "rep ";
+                if(statement._repne)
+                    std::cout << "repne ";
+                std::cout << statement._instruction << " ";
+
+                const auto coutop = [](char type, char width, const Statement::op& op) {
+                    switch(width)
+                    {
+                    case 1:
+                        std::cout << "byte ";
+                        break;
+                    case 2:
+                        std::cout << "word ";
+                        break;
+                    case 4:
+                        std::cout << "dword ";
+                        break;
+                    case 8:
+                        std::cout << "qword ";
+                        break;
+                    case 0:
+                    default:
+                        break;
+                    }
+                    switch(type)
+                    {
+                    case Statement::kReg:
+                        std::cout << op._reg;
+                        break;
+                    case Statement::kImm:
+                        std::cout << op._imm;
+                        break;
+                    case Statement::kMem:
+                        if(op._mem._seg)
+                            std::cout << op._mem._seg << ":";
+                        std::cout << "[";
+                        if(op._mem._base)
+                            std::cout << op._mem._base;
+                        if(op._mem._index)
+                            std::cout << "+" << op._mem._index;
+                        if(op._mem._scale)
+                            std::cout << "*" << int(op._mem._scale) << " ";
+                        if(op._mem._displacement)
+                            std::cout << "+" << std::hex << op._mem._displacement;
+                        std::cout << "]";
+                        break;
+                    }
+                };
+
+                coutop(statement._op1_type, statement._op1_width, statement._op1);
+                if(statement._op12)
+                {
+                    std::cout << ", ";
+                    coutop(statement._op2_type, statement._op2_width, statement._op2);
+                }
+                std::cout << std::endl;
+            }
+#endif
+
             enum class ParseMode
             {
                 SkipWhitespace,
@@ -24,13 +201,13 @@ namespace inasm64
             };
 
             // basic parse step; split instruction into left- and right -parts delmeted by , (if any), convert to lowercase, tokenise
-            bool TokeniseAssemblyInstruction(const std::string& assembly, std::vector<const char*>& left_tokens, std::vector<const char*>& right_tokens, char* buffer)
+            bool TokeniseAssemblyInstruction(const std::string& assembly, std::vector<char*>& left_tokens, std::vector<char*>& right_tokens, char* buffer)
             {
                 //TODO: error handling
-                const auto input_len = assembly.length() + 1;
-                memcpy(buffer, assembly.c_str(), input_len);
-                _strlwr_s(buffer, input_len);
-                std::vector<const char*>* tokens = &left_tokens;
+                const auto input_len = assembly.length();
+                memcpy(buffer, assembly.c_str(), input_len + 1);
+                _strlwr_s(buffer, input_len + 1);
+                std::vector<char*>* tokens = &left_tokens;
 
                 auto mode = ParseMode::SkipWhitespace;
                 size_t rp = 0;
@@ -95,59 +272,202 @@ namespace inasm64
                 return buffer;
             }
 
-            bool BuildStatement(const std::string& assembly, Statement& statement)
+            struct TokenisedOperand
             {
-                auto result = false;
-                memset(&statement, 0, sizeof(statement));
-                std::vector<const char*> left_tokens;
-                std::vector<const char*> right_tokens;
-                if(TokeniseAssemblyInstruction(assembly, left_tokens, right_tokens, statement._input_tokens) && !left_tokens.empty())
+                char _reg_imm[8] = { 0 };
+                char _seg[4] = { 0 };
+                char _base[8] = { 0 };
+                char _index[8] = { 0 };
+                char _scale[4] = { 0 };
+                char _displacement[20] = { 0 };
+            };
+
+            // a very bespoke "hand rolled" parser for an operand, i.e. variants of
+            // fs:[eax + esi * 4 - 0x11223344]
+            // fs:[eax + esi*4]
+            // fs:[eax]
+            // [eax]
+            // [0x11223344]
+            // ...etc.
+            bool TokeniseOperand(char* operand, TokenisedOperand& op)
+            {
+                // seg:[base + index*scale + offset], or just a register/immediate
+                const auto op_len = strlen(operand);
+                auto rp = 0;
+                char plus_op_cnt = 0;
+                char min_op_cnt = 0;
+                char mul_op_cnt = 0;
+
+                // skip until we find an alphanumeric character, return false if end of string
+                const auto skip_until_alphanum = [&rp, operand, &plus_op_cnt, &min_op_cnt, &mul_op_cnt]() -> bool {
+                    plus_op_cnt = min_op_cnt = mul_op_cnt = 0;
+                    while(operand[rp] && !isalpha(int(operand[rp])) && !isdigit(int(operand[rp])))
+                    {
+                        if(operand[rp] == '+')
+                            ++plus_op_cnt;
+                        else if(operand[rp] == '-')
+                            ++min_op_cnt;
+                        else if(operand[rp] == '*')
+                            ++mul_op_cnt;
+                        ++rp;
+                    }
+                    return operand[rp] != 0;
+                };
+                // skip until we find non-alpha numeric character
+                const auto skip_until_non_alphanum = [&rp, operand]() {
+                    while(operand[rp] && (isalpha(int(operand[rp])) || isdigit(int(operand[rp]))))
+                        ++rp;
+                };
+
+                while(operand[rp] && operand[rp] != ':' && operand[rp] != '[')
                 {
-                    result = true;
-
-                    // check for prefixes
-                    size_t tl = 0;
-                    if(strncmp(left_tokens[tl], "rep", 3) == 0)
+                    ++rp;
+                }
+                if(operand[rp])
+                {
+                    // seg:
+                    if(operand[rp] == ':')
                     {
-                        statement._rep = true;
-                        ++tl;
+                        memcpy_s(op._seg, sizeof(op._seg), operand, rp);
+                        op._seg[rp++] = 0;
                     }
-                    else if(strncmp(left_tokens[tl], "repne", 5) == 0)
+                    while(operand[rp] && operand[rp] != '[')
                     {
-                        statement._repne = true;
-                        ++tl;
+                        ++rp;
                     }
-                    else if(strncmp(left_tokens[tl], "lock", 4) == 0)
+                    if(operand[rp] == '[')
                     {
-                        statement._lock = true;
-                        ++tl;
-                    }
-                    //TODO: others?
-
-                    // instruction
-                    if(tl < left_tokens.size())
-                    {
-                        //zzz: can we always assume it's just the first, or second token?
-                        statement._instruction = left_tokens[tl++];
-                        if(tl < left_tokens.size())
+                        ++rp;
+                        auto rp0 = rp;
+                        while(operand[rp] && operand[rp] != ']')
+                            ++rp;
+                        if(!operand[rp])
                         {
-                            // op1
-
-                            // check for ptrs
+                            detail::SetError(Error::InvalidOperandFormat);
+                            return false;
                         }
-                        else if(!right_tokens.empty())
+                        operand[rp] = 0;
+                        rp = rp0;
+
+                        // base+index*scale+offset
+
+                        if(skip_until_alphanum())
                         {
-                            // "instr , something" is wrong, obviously
-                            detail::SetError(Error::InvalidInstructionFormat);
+                            if(plus_op_cnt || min_op_cnt || mul_op_cnt)
+                            {
+                                detail::SetError(Error::InvalidOperandFormat);
+                                return false;
+                            }
+
+                            rp0 = rp;
+                            skip_until_non_alphanum();
+
+                            // check first if this is a pure displacement, i.e. something like [0xabcdef]
+                            if(starts_with_hex_number(operand + rp0))
+                            {
+                                // special case, we'll just take this value as our displacement and exit
+                                memcpy_s(op._displacement, sizeof(op._displacement), operand + rp0, rp - rp0);
+                                return true;
+                            }
+
+                            // otherwise we'll interpret it as the base register
+                            memcpy_s(op._base, sizeof(op._base), operand + rp0, rp - rp0);
+                            op._base[rp - rp0] = 0;
+                            ++rp;
+
+                            // look for index, but could also be displacement
+                            if(skip_until_alphanum())
+                            {
+                                if((plus_op_cnt && min_op_cnt) || plus_op_cnt > 1 || min_op_cnt > 1 || mul_op_cnt)
+                                {
+                                    detail::SetError(Error::InvalidOperandFormat);
+                                    return false;
+                                }
+
+                                if(!starts_with_hex_number(operand + rp))
+                                {
+                                    // probably an index register
+                                    rp0 = rp;
+                                    skip_until_non_alphanum();
+                                    memcpy(op._index, operand + rp0, rp - rp0);
+                                    op._index[rp - rp0] = 0;
+
+                                    // go past whitespace, until perhaps * or +
+                                    while(operand[rp] && operand[rp] == ' ')
+                                    {
+                                        ++rp;
+                                    }
+                                    if(operand[rp])
+                                    {
+                                        // scale?
+                                        if(operand[rp] == '*')
+                                        {
+                                            // scale should follow
+                                            if(skip_until_alphanum())
+                                            {
+                                                rp0 = rp;
+                                                skip_until_non_alphanum();
+                                                if(rp - rp0 < sizeof(op._scale))
+                                                {
+                                                    memcpy_s(op._scale, sizeof(op._scale), operand + rp0, rp - rp0);
+                                                    op._scale[rp - rp0] = 0;
+                                                    ++rp;
+                                                }
+                                                else
+                                                {
+                                                    detail::SetError(Error::InvalidOperandScale);
+                                                    return false;
+                                                }
+                                            }
+                                            else
+                                            {
+                                                detail::SetError(Error::InvalidOperandFormat);
+                                                return false;
+                                            }
+                                        }
+                                        // continue until displacement (or end)
+                                        skip_until_alphanum();
+                                        if(plus_op_cnt > 1 || min_op_cnt > 1 || mul_op_cnt)
+                                        {
+                                            detail::SetError(Error::InvalidOperandFormat);
+                                            return false;
+                                        }
+                                    }
+                                }
+
+                                if(starts_with_hex_number(operand + rp))
+                                {
+                                    // offset, rest of operand
+                                    //BUT first...scan backwards to see if it is signed
+                                    auto rrp = rp;
+                                    auto is_negative = 0;
+                                    while(rrp > rp0)
+                                    {
+                                        if(operand[rrp] == '-')
+                                        {
+                                            op._displacement[0] = '-';
+                                            is_negative = 1;
+                                            break;
+                                        }
+                                        --rrp;
+                                    }
+                                    // copy number past sign, if needed
+                                    strcpy_s(op._displacement + is_negative, sizeof(op._displacement) - is_negative, operand + rp);
+                                }
+                            }
                         }
                     }
                     else
                     {
-                        detail::SetError(Error::InvalidInstructionFormat);
+                        detail::SetError(Error::InvalidOperandFormat);
+                        return false;
                     }
                 }
-
-                return result;
+                else
+                {
+                    memcpy_s(op._reg_imm, sizeof(op._reg_imm), operand, op_len);
+                }
+                return (op._base[0] != 0 || op._reg_imm[0] != 0);
             }
 
         }  // namespace
@@ -160,16 +480,172 @@ namespace inasm64
 
         bool Assemble(const std::string& assembly, AssembledInstructionInfo& info)
         {
+            auto result = false;
+
             Statement statement;
-            if(BuildStatement(assembly, statement))
+            TokenisedOperand op1;
+            TokenisedOperand op2;
+
+            memset(&statement, 0, sizeof(statement));
+            std::vector<char*> left_tokens;
+            std::vector<char*> right_tokens;
+            if(TokeniseAssemblyInstruction(assembly, left_tokens, right_tokens, statement._input_tokens) && !left_tokens.empty())
+            {
+                result = true;
+
+                // check for prefixes
+                size_t tl = 0;
+                if(strncmp(left_tokens[tl], "rep", 3) == 0)
+                {
+                    statement._rep = true;
+                    ++tl;
+                }
+                else if(strncmp(left_tokens[tl], "repne", 5) == 0)
+                {
+                    statement._repne = true;
+                    ++tl;
+                }
+                else if(strncmp(left_tokens[tl], "lock", 4) == 0)
+                {
+                    statement._lock = true;
+                    ++tl;
+                }
+
+                if(tl < left_tokens.size())
+                {
+                    const auto check_operand_size_prefix = [&tl](const std::vector<char*>& tokens) -> char {
+                        if((tl + 1) < tokens.size())
+                        {
+                            if(strncmp(tokens[tl], "byte", 4) == 0)
+                            {
+                                ++tl;
+                                return 1;
+                            }
+                            if(strncmp(tokens[tl], "word", 4) == 0)
+                            {
+                                ++tl;
+                                return 2;
+                            }
+                            if(strncmp(tokens[tl], "dword", 5) == 0)
+                            {
+                                ++tl;
+                                return 4;
+                            }
+                            if(strncmp(tokens[tl], "qword", 5) == 0)
+                            {
+                                ++tl;
+                                return 8;
+                            }
+                        }
+                        return 0;
+                    };
+
+                    // instruction
+                    statement._instruction = left_tokens[tl++];
+                    if(tl < left_tokens.size())
+                    {
+                        result = false;
+
+                        // op1
+                        statement._op1_width = check_operand_size_prefix(left_tokens);
+                        if(TokeniseOperand(left_tokens[tl], op1))
+                        {
+                            result = (op1._base[0] || op1._reg_imm[0] || op1._displacement[0]);
+
+                            if(result && !right_tokens.empty())
+                            {
+                                tl = 0;
+                                statement._op2_width = check_operand_size_prefix(right_tokens);
+                                result = TokeniseOperand(right_tokens[tl], op2);
+                                // sanity check; if for example the input has whitespace between the segment register and the :, the segment register would be misread as base.
+                                result = result && (op2._base[0] || op1._displacement[0] || (op2._reg_imm[0] && right_tokens.size() == 1));
+                                statement._op12 = true;
+                            }
+
+                            if(result)
+                            {
+                                // simple heuristic for each operand (the assembler driver will have the final say in verifying this)
+                                statement._op1_type = op1._reg_imm[0] ? (isalpha(op1._reg_imm[0]) ? Statement::kReg : Statement::kImm)
+                                                                      : Statement::kMem;
+                                statement._op2_type = op2._reg_imm[0] ? (isalpha(op2._reg_imm[0]) ? Statement::kReg : Statement::kImm)
+                                                                      : Statement::kMem;
+                                switch(statement._op1_type)
+                                {
+                                case Statement::kReg:
+                                    //NOTE: we can safely pass these pointers around here, they'll never leave the scope of this function and it's descendants
+                                    statement._op1._reg = op1._reg_imm;
+                                    // make sure we're getting the right width, either from prefix or largest register
+                                    statement._op1_width = std::max<char>(register_width(statement._op1._reg), statement._op1_width);
+                                    break;
+                                case Statement::kImm:
+                                    statement._op1._imm = op1._reg_imm;
+                                    break;
+                                case Statement::kMem:
+                                    statement._op1._mem._seg = (op1._seg[0] ? op1._seg : nullptr);
+                                    statement._op2._mem._base = (op1._base[0] ? op1._base : nullptr);
+                                    statement._op2._mem._index = (op1._index[0] ? op1._index : nullptr);
+                                    statement._op1._mem._scale = char(strtol(op1._scale, nullptr, 0));
+                                    const auto base = (op1._displacement[strlen(op1._displacement) - 1] != 'h') ? 0 : 16;
+                                    statement._op1._mem._displacement = strtol(op1._displacement, nullptr, base);
+                                    break;
+                                }
+                                if(statement._op12)
+                                {
+                                    switch(statement._op2_type)
+                                    {
+                                    case Statement::kReg:
+                                        //NOTE: we can safely pass these pointers around here, they'll never leave the scope of this function and it's descendants
+                                        statement._op2._reg = op2._reg_imm;
+                                        statement._op2_width = std::max<char>(register_width(statement._op2._reg), statement._op2_width);
+                                        break;
+                                    case Statement::kImm:
+                                        statement._op2._imm = op2._reg_imm;
+                                        break;
+                                    case Statement::kMem:
+                                        statement._op2._mem._seg = (op2._seg[0] ? op2._seg : nullptr);
+                                        statement._op2._mem._base = (op2._base[0] ? op2._base : nullptr);
+                                        statement._op2._mem._index = (op2._index[0] ? op2._index : nullptr);
+                                        statement._op2._mem._scale = char(strtol(op2._scale, nullptr, 0));
+                                        const auto base = (op2._displacement[strlen(op2._displacement) - 1] != 'h') ? 0 : 16;
+                                        statement._op2._mem._displacement = strtol(op2._displacement, nullptr, base);
+                                        break;
+                                    }
+                                }
+
+#if _DEBUG
+                                printstatement(statement);
+#endif
+                            }
+                        }
+
+                        if(!result)
+                            detail::SetError(Error::InvalidInstructionFormat);
+                    }
+                    else if(!right_tokens.empty())
+                    {
+                        result = false;
+                        // "instr , something" is wrong, obviously
+                        detail::SetError(Error::InvalidInstructionFormat);
+                    }
+                }
+                else
+                {
+                    detail::SetError(Error::InvalidInstructionFormat);
+                }
+            }
+
+            if(result)
             {
                 uint8_t buffer[15];
                 const auto instr_len = _assembler_driver->Assemble(statement, buffer);
-                memcpy(const_cast<uint8_t*>(info.Instruction), buffer, instr_len);
-                const_cast<size_t&>(info.InstructionSize) = instr_len;
-                return true;
+                result = instr_len > 0;
+                if(result)
+                {
+                    memcpy(const_cast<uint8_t*>(info.Instruction), buffer, instr_len);
+                    const_cast<size_t&>(info.InstructionSize) = instr_len;
+                }
             }
-            return false;
+            return result;
         }
     }  // namespace assembler
 }  // namespace inasm64

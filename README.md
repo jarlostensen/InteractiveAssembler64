@@ -28,6 +28,7 @@ At the core of the runtime is a debugger (using the Windows DebugAPI) which sing
 
 ## Assembler ``inasm64::assembler``
 The assembler consists of a front end and a back end where the front end is responsible for parsing single line, Intel syntax, assembly statements (strings), and converting these to a generic, but expressive, tokenised format. This format is used by the back end "assembler driver" to generate instruction bytes. The back end is implemented using Intel XED as its driver.
+The assembler accepts input in NASM syntax https://en.wikibooks.org/wiki/X86_Assembly/NASM_Syntax.
 
 ## CLI ``inasm64::cli``
 The CLI provides a simple command line interface for driving the runtime and assembler. It takes commands modelled on the old ``debug.exe`` and the modern ``Windbg``. In architectural terms the CLI provides a sort of "presentation layer", binding and controlling the runtime and assembler.

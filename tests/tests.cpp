@@ -15,7 +15,20 @@ int main()
     using namespace inasm64;
     assembler::Initialise();
     assembler::AssembledInstructionInfo info;
-    //inasm64::assembler::Assemble(" xacquire lock xor dword ptr [edx+0x11] , ecx ", info);
-    assembler::Assemble("add eax , dword ptr fs:[eax + esi * 4 + 0x11223344]", info);
-    assembler::Assemble(" rep cmpsq qword ptr [rsi], qword ptr [rdi]", info);
+    if(!assembler::Assemble("add eax , dword fs:[eax + esi*2 - 11223344h]", info))
+        std::cerr << inasm64::ErrorMessage(inasm64::GetError()) << "\n";
+    if(!assembler::Assemble("add eax , dword fs:[ eax + esi * 4 ]", info))
+        std::cerr << inasm64::ErrorMessage(inasm64::GetError()) << "\n";
+    if(!assembler::Assemble("add rax , dword fs:[eax + esi ]", info))
+        std::cerr << inasm64::ErrorMessage(inasm64::GetError()) << "\n";
+    if(!assembler::Assemble("add eax , dword fs:[eax]", info))
+        std::cerr << inasm64::ErrorMessage(inasm64::GetError()) << "\n";
+    if(!assembler::Assemble("add eax , dword [eax]", info))
+        std::cerr << inasm64::ErrorMessage(inasm64::GetError()) << "\n";
+    if(!assembler::Assemble("add eax, dword es:[rdx - 0x11223344]", info))
+        std::cerr << inasm64::ErrorMessage(inasm64::GetError()) << "\n";
+    if(!assembler::Assemble("jmp dword fs:[0x11223344]", info))
+        std::cerr << inasm64::ErrorMessage(inasm64::GetError()) << "\n";
+    if(!assembler::Assemble("mov ax, word [ebx]", info))
+        std::cerr << inasm64::ErrorMessage(inasm64::GetError()) << "\n";
 }

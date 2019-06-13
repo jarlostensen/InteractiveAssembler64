@@ -37,6 +37,12 @@ namespace inasm64
             return "no more code to execute";
         case Error::UnrecognizedRegisterName:
             return "unrecognized or invalid register name";
+        case Error::InvalidInstructionFormat:
+            return "Invalid instruction format";
+        case Error::InvalidOperandFormat:
+            return "Invalid operand format";
+        case Error::InvalidOperandScale:
+            return "Invalid operand scale";
         case Error::EmptyInput:
             return "invalid, empty, input";
         default:
