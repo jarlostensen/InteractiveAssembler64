@@ -15,6 +15,9 @@ namespace inasm64
             const size_t InstructionSize = 0;
         };
 
+        ///<summary>
+        /// initialise the assembler and the assembler driver
+        ///</summary>
         bool Initialise();
 
         ///<summary>

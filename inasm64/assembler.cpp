@@ -203,7 +203,6 @@ namespace inasm64
             // basic parse step; split instruction into left- and right -parts delmeted by , (if any), convert to lowercase, tokenise
             bool TokeniseAssemblyInstruction(const std::string& assembly, std::vector<char*>& left_tokens, std::vector<char*>& right_tokens, char* buffer)
             {
-                //TODO: error handling
                 const auto input_len = assembly.length();
                 memcpy(buffer, assembly.c_str(), input_len + 1);
                 _strlwr_s(buffer, input_len + 1);
@@ -263,8 +262,6 @@ namespace inasm64
                         tokens->push_back(buffer + ts);
                         buffer[++rp] = 0;
 
-                        //TODO: tokenize sub-expression
-
                         mode = ParseMode::SkipWhitespace;
                         break;
                     }
@@ -299,6 +296,7 @@ namespace inasm64
                 char mul_op_cnt = 0;
 
                 // skip until we find an alphanumeric character, return false if end of string
+                // also counts number of + - and * characters found for error checking
                 const auto skip_until_alphanum = [&rp, operand, &plus_op_cnt, &min_op_cnt, &mul_op_cnt]() -> bool {
                     plus_op_cnt = min_op_cnt = mul_op_cnt = 0;
                     while(operand[rp] && !isalpha(int(operand[rp])) && !isdigit(int(operand[rp])))
@@ -319,6 +317,7 @@ namespace inasm64
                         ++rp;
                 };
 
+                // start by finding either the end of a segment prefix, or the start of the memory operand
                 while(operand[rp] && operand[rp] != ':' && operand[rp] != '[')
                 {
                     ++rp;
@@ -375,7 +374,7 @@ namespace inasm64
                             op._base[rp - rp0] = 0;
                             ++rp;
 
-                            // look for index, but could also be displacement
+                            // look for index (but could also be displacement)
                             if(skip_until_alphanum())
                             {
                                 if((plus_op_cnt && min_op_cnt) || plus_op_cnt > 1 || min_op_cnt > 1 || mul_op_cnt)
@@ -434,7 +433,7 @@ namespace inasm64
                                         }
                                     }
                                 }
-
+                                //NOTE: potentially doing this twice for pure displacements, but that's a sacrifice we can make
                                 if(starts_with_hex_number(operand + rp))
                                 {
                                     // offset, rest of operand
