@@ -63,9 +63,9 @@ namespace inasm64
                         return 2;
                     }
                 }
-                for(auto r = 0; r < std::size(k16BitRegisters); ++r)
+                for(auto r = 0; r < std::size(k8BitRegisters); ++r)
                 {
-                    if(strcmp(reg, k16BitRegisters[r]) == 0)
+                    if(strcmp(reg, k8BitRegisters[r]) == 0)
                     {
                         return 1;
                     }
