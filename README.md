@@ -2,7 +2,7 @@
 
 ``#inasm64``
 
-This project is Work-In-Progress, but the end goal is pretty clear; a simple command line interactive IA 64 assembler inspired by the old DOS debug.exe.
+This project is Work-In-Progress, but the end goal is pretty clear; a simple command line interactive IA 64 assembler inspired by the old DOS debug.exe. With it you can interatively enter and run IA-64 [_64-bit Long Mode_](https://en.wikipedia.org/wiki/Long_mode) assembly for Intel CPUs.
 
 ## Why?
 Because I think it's nice to be able to just write some lines of assembly and see them execute immediately. There are a lot of  instructions available on modern CPUs and being able to try them out and see the effect interactively is nice. 
@@ -23,12 +23,14 @@ The project is broken down into three main components living under the root name
 - The CLI (Command Line Interface)
 
 ## Runtime ``inasm64::runtime``
-The runtime takes assembled IA64 instructions as input and lets you execute them, one by one. 
-At the core of the runtime is a debugger (using the Windows DebugAPI) which single-steps the code to run. It also provides access to the execution context (registers, flags). An interface to allow creation and editing of in-memory data is planned.
+The runtime takes binary IA-64 instructions as input and lets you execute them, one by one. 
+At the core of the runtime is a debugger (using the Windows DebugAPI) which single-steps the code to run. It also provides access to the execution context (registers, flags).
 
 ## Assembler ``inasm64::assembler``
-The assembler consists of a front end and a back end where the front end is responsible for parsing single line, Intel syntax, assembly statements (strings), and converting these to a generic, but expressive, tokenised format. This format is used by the back end "assembler driver" to generate instruction bytes. The back end is implemented using Intel XED as its driver.
-The assembler accepts input in NASM syntax https://en.wikibooks.org/wiki/X86_Assembly/NASM_Syntax.
+The assembler consists of a front end and a back end where the front end (in ``assembler.cpp``) is responsible for parsing single line ([NASM syntax](https://en.wikibooks.org/wiki/X86_Assembly/NASM_Syntax)) assembly statements and converting these to a generic tokenised format (a ``Statement``).
+The ``Statement`` structure encodes information like the operands, instruction, width prefixes (like ``dword``), and the operand types (register, immediate, or memory).
+This format is then used by the back end "assembler driver" to generate instruction bytes. 
+The back end is implemented using Intel XED to generate the actual instruction bytes.
 
 ## CLI ``inasm64::cli``
 The CLI provides a simple command line interface for driving the runtime and assembler. It takes commands modelled on the old ``debug.exe`` and the modern ``Windbg``. In architectural terms the CLI provides a sort of "presentation layer", binding and controlling the runtime and assembler.
