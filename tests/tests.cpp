@@ -15,6 +15,10 @@ int main()
     using namespace inasm64;
     assembler::Initialise();
     assembler::AssembledInstructionInfo info;
+    if(!assembler::Assemble("inc rax", info))
+        std::cerr << inasm64::ErrorMessage(inasm64::GetError()) << "\n";
+    if(!assembler::Assemble("add rax,rbx", info))
+        std::cerr << inasm64::ErrorMessage(inasm64::GetError()) << "\n";
     if(!assembler::Assemble("add eax , dword fs:[eax + esi*2 - 11223344h]", info))
         std::cerr << inasm64::ErrorMessage(inasm64::GetError()) << "\n";
     if(!assembler::Assemble("add eax , dword fs:[ eax + esi * 4 ]", info))

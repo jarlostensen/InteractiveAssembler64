@@ -19,6 +19,8 @@ namespace inasm64
         InvalidInstructionFormat,
         InvalidOperandFormat,
         InvalidOperandScale,
+        InvalidDestRegistername,
+        InvalidInstructionName,
         SystemError,
     };
 

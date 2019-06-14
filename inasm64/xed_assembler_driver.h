@@ -9,7 +9,8 @@ namespace inasm64
         {
             XedAssemblerDriver();
             bool Initialise();
-            size_t Assemble(const Statement& statement, uint8_t* buffer) override;
+            size_t Assemble(const Statement& statement, uint8_t* buffer, const size_t bufferSize) override;
+            size_t MaxInstructionSize() override;
         };
     }  // namespace assembler
 }  // namespace inasm64
