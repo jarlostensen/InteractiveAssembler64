@@ -70,23 +70,23 @@
   </ImportGroup>
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
-    <OutDir>$(SolutionDir)build\$(Configuration)\</OutDir>
-    <IntDir>$(SolutionDir)build\$(Configuration)\</IntDir>
+    <OutDir>$(SolutionDir)build\inasm64\$(Configuration)\</OutDir>
+    <IntDir>$(SolutionDir)build\inasm64\intermediate\$(Configuration)\</IntDir>
     <IncludePath>$(SolutionDir)..\xed\obj;$(SolutionDir)..\xed\include\public\xed;$(IncludePath)</IncludePath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
-    <OutDir>$(SolutionDir)build\$(Configuration)\</OutDir>
-    <IntDir>$(SolutionDir)build\$(Configuration)\</IntDir>
+    <OutDir>$(SolutionDir)build\inasm64\$(Configuration)\</OutDir>
+    <IntDir>$(SolutionDir)build\inasm64\intermediate\$(Configuration)\</IntDir>
     <IncludePath>$(SolutionDir)..\xed\obj;$(SolutionDir)..\xed\include\public\xed;$(IncludePath)</IncludePath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
-    <OutDir>$(SolutionDir)build\$(Configuration)\</OutDir>
-    <IntDir>$(SolutionDir)build\$(Configuration)\</IntDir>
+    <OutDir>$(SolutionDir)build\inasm64\$(Configuration)\</OutDir>
+    <IntDir>$(SolutionDir)build\inasm64\intermediate\$(Configuration)\</IntDir>
     <IncludePath>$(SolutionDir)..\xed\obj;$(SolutionDir)..\xed\include\public\xed;$(IncludePath)</IncludePath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
-    <OutDir>$(SolutionDir)build\$(Configuration)\</OutDir>
-    <IntDir>$(SolutionDir)build\$(Configuration)\</IntDir>
+    <OutDir>$(SolutionDir)build\inasm64\$(Configuration)\</OutDir>
+    <IntDir>$(SolutionDir)build\inasm64\intermediate\$(Configuration)\</IntDir>
     <IncludePath>$(SolutionDir)..\xed\obj;$(SolutionDir)..\xed\include\public\xed;$(IncludePath)</IncludePath>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
@@ -166,6 +166,7 @@
     <ClCompile Include="inasm64\assembler.cpp" />
     <ClCompile Include="inasm64\cli.cpp" />
     <ClCompile Include="inasm64\common.cpp" />
+    <ClCompile Include="inasm64\ia64.cpp" />
     <ClCompile Include="inasm64\runtime.cpp" />
     <ClCompile Include="inasm64\xed_assembler_driver.cpp" />
     <ClCompile Include="stdafx.cpp">
@@ -180,6 +181,7 @@
     <ClInclude Include="inasm64\assembler_driver.h" />
     <ClInclude Include="inasm64\cli.h" />
     <ClInclude Include="inasm64\common.h" />
+    <ClInclude Include="inasm64\ia64.h" />
     <ClInclude Include="inasm64\runtime.h" />
     <ClInclude Include="inasm64\xed_assembler_driver.h" />
     <ClInclude Include="stdafx.h" />

@@ -72,26 +72,26 @@
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <LinkIncremental>true</LinkIncremental>
-    <OutDir>$(SolutionDir)build\$(Configuration)\</OutDir>
-    <IntDir>$(SolutionDir)build\$(Configuration)\</IntDir>
+    <OutDir>$(SolutionDir)build\tests\$(Configuration)\</OutDir>
+    <IntDir>$(SolutionDir)build\tests\intermediate\$(Configuration)\</IntDir>
     <IncludePath>$(SolutionDir)..\xed\obj;$(SolutionDir)..\xed\include\public\xed;$(IncludePath)</IncludePath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <LinkIncremental>true</LinkIncremental>
-    <OutDir>$(SolutionDir)build\$(Configuration)\</OutDir>
-    <IntDir>$(SolutionDir)build\$(Configuration)\</IntDir>
+    <OutDir>$(SolutionDir)build\tests\$(Configuration)\</OutDir>
+    <IntDir>$(SolutionDir)build\tests\intermediate\$(Configuration)\</IntDir>
     <IncludePath>$(SolutionDir)..\xed\obj;$(SolutionDir)..\xed\include\public\xed;$(IncludePath)</IncludePath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <LinkIncremental>false</LinkIncremental>
-    <OutDir>$(SolutionDir)build\$(Configuration)\</OutDir>
-    <IntDir>$(SolutionDir)build\$(Configuration)\</IntDir>
+    <OutDir>$(SolutionDir)build\tests\$(Configuration)\</OutDir>
+    <IntDir>$(SolutionDir)build\tests\intermediate\$(Configuration)\</IntDir>
     <IncludePath>$(SolutionDir)..\xed\obj;$(SolutionDir)..\xed\include\public\xed;$(IncludePath)</IncludePath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <LinkIncremental>false</LinkIncremental>
-    <OutDir>$(SolutionDir)build\$(Configuration)\</OutDir>
-    <IntDir>$(SolutionDir)build\$(Configuration)\</IntDir>
+    <OutDir>$(SolutionDir)build\tests\$(Configuration)\</OutDir>
+    <IntDir>$(SolutionDir)build\tests\intermediate\$(Configuration)\</IntDir>
     <IncludePath>$(SolutionDir)..\xed\obj;$(SolutionDir)..\xed\include\public\xed;$(IncludePath)</IncludePath>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
@@ -170,6 +170,7 @@
     <ClCompile Include="..\inasm64\assembler.cpp" />
     <ClCompile Include="..\inasm64\cli.cpp" />
     <ClCompile Include="..\inasm64\common.cpp" />
+    <ClCompile Include="..\inasm64\ia64.cpp" />
     <ClCompile Include="..\inasm64\runtime.cpp" />
     <ClCompile Include="..\inasm64\xed_assembler_driver.cpp" />
     <ClCompile Include="..\stdafx.cpp">

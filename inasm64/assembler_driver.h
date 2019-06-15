@@ -49,7 +49,7 @@ namespace inasm64
 
             union op {
                 const char* _reg = nullptr;
-                const char* _imm;
+                uint64_t _imm;
                 MemoryOperandTokens _mem;
                 //NOTE: non-trivial default constructor
                 op()
@@ -65,7 +65,8 @@ namespace inasm64
 
         struct IAssemblerDriver
         {
-            virtual size_t Assemble(const Statement&, uint8_t*) = 0;
+            virtual size_t Assemble(const Statement&, uint8_t*, const size_t) = 0;
+            virtual size_t MaxInstructionSize() = 0;
         };
     }  // namespace assembler
 }  // namespace inasm64

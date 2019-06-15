@@ -7,6 +7,7 @@
 #include <iostream>
 
 #include "common.h"
+#include "ia64.h"
 #include "assembler.h"
 #include "xed_assembler_driver.h"
 
@@ -19,60 +20,6 @@ namespace inasm64
 
         namespace
         {
-            const char* k8BitRegisters[] = {
-                "al", "ah", "bl", "bh", "cl", "ch", "dl", "dh", "sil", "dil", "spl", "bpl", "r8b", "r9b", "r10b", "r11b", "r12b", "r13b", "r14b", "r15b"
-            };
-
-            const char* k16BitRegisters[] = {
-                "ax", "bx", "dx", "si", "di", "sp", "bp", "r8w", "r9w", "r10w", "r11w", "r12w", "r13w", "r14w", "r15w"
-            };
-
-            const char* k32BitRegisters[] = {
-                "eax", "ebx", "edx", "esi", "edi", "esp", "ebp", "r8d", "r9d", "r10d", "r11d", "r12d", "r13d", "r14d", "r15d"
-            };
-
-            const char* k64BitRegisters[] = {
-                "rax", "rbx", "rdx", "rsi", "rdi", "rsp", "rbp", "r8", "r9", "r10", "r11", "r12", "r13", "r14", "r15"
-            };
-
-            char register_width(const char* reg)
-            {
-                if(reg[0] == 'r')
-                {
-                    for(auto r = 0; r < std::size(k64BitRegisters); ++r)
-                    {
-                        if(strcmp(reg, k64BitRegisters[r]) == 0)
-                        {
-                            return 8;
-                        }
-                    }
-                }
-
-                for(auto r = 0; r < std::size(k32BitRegisters); ++r)
-                {
-                    if(strcmp(reg, k32BitRegisters[r]) == 0)
-                    {
-                        return 4;
-                    }
-                }
-
-                for(auto r = 0; r < std::size(k16BitRegisters); ++r)
-                {
-                    if(strcmp(reg, k16BitRegisters[r]) == 0)
-                    {
-                        return 2;
-                    }
-                }
-                for(auto r = 0; r < std::size(k8BitRegisters); ++r)
-                {
-                    if(strcmp(reg, k8BitRegisters[r]) == 0)
-                    {
-                        return 1;
-                    }
-                }
-                return 0;
-            }
-
             // either 0x followed by at least one hex digit, or hex digits followed by a 'h'
             bool starts_with_hex_number(const char* at)
             {
@@ -577,15 +524,15 @@ namespace inasm64
                                     case Statement::kReg:
                                         //NOTE: we can safely pass these pointers around here, they'll never leave the scope of the parent function and it's descendants
                                         op._reg = op_info._reg_imm;
-                                        width = register_width(op._reg);
+                                        width = char(GetRegisterInfo(op._reg)._bit_width >> 3);
                                         break;
                                     case Statement::kImm:
                                     {
                                         const auto imm_len = strlen(op_info._reg_imm);
                                         const auto base = (op_info._reg_imm[imm_len - 1] != 'h') ? 0 : 16;
                                         op._imm = strtol(op_info._reg_imm, nullptr, base);
-                                        // simply the number of digits / 2 (minus trailing 'h' or leading '0x')
-                                        width = (base ? imm_len - 1 : imm_len - 2) / 2;
+                                        // simply the number of digits / 2 (minus trailing 'h' or leading '0x'), rounded up
+                                        width = char(((base ? imm_len - 1 : imm_len - 2) + 1) / 2);
                                     }
                                     break;
                                     case Statement::kMem:
@@ -594,8 +541,11 @@ namespace inasm64
                                         op._mem._base = (op_info._base[0] ? op_info._base : nullptr);
                                         op._mem._index = (op_info._index[0] ? op_info._index : nullptr);
                                         op._mem._scale = char(strtol(op_info._scale, nullptr, 0));
-                                        const auto base = (op_info._displacement[strlen(op_info._displacement) - 1] != 'h') ? 0 : 16;
-                                        op._mem._displacement = strtol(op_info._displacement, nullptr, base);
+                                        if(op_info._displacement[0] != 0)
+                                        {
+                                            const auto base = (op_info._displacement[strlen(op_info._displacement) - 1] != 'h') ? 0 : 16;
+                                            op._mem._displacement = strtol(op_info._displacement, nullptr, base);
+                                        }
                                         //NOTE: width of memory operand registers should *not* contribute towards operand width..?
                                     }
                                     break;
