@@ -35,6 +35,12 @@ namespace inasm64
             xed_encoder_request_t req;
             xed_encoder_request_zero_set_mode(&req, &_state64);
             xed_encoder_request_set_effective_operand_width(&req, statement._op1_width << 3);
+            //TODO: not correct, but something is...
+            /*if(statement._op12 && statement._op2_width != statement._op1_width)
+            {
+                detail::SetError(Error::OperandSizesMismatch);
+                return 0;
+            }*/
 
             char uc_buffer[64];
 
@@ -54,48 +60,80 @@ namespace inasm64
 
             xed_encoder_request_set_iclass(&req, xed_instruction);
 
-            switch(statement._op1_type)
-            {
-            case Statement::kReg:
-            {
-                uc_string(statement._op1._reg);
-                const auto op1_xed_reg = str2xed_reg_enum_t(uc_buffer);
-                if(op1_xed_reg == XED_REG_INVALID)
-                {
-                    detail::SetError(Error::InvalidDestRegistername);
-                    return 0;
-                }
-                xed_encoder_request_set_reg(&req, XED_OPERAND_REG0, op1_xed_reg);
-                xed_encoder_request_set_operand_order(&req, 0, XED_OPERAND_REG0);
-            }
-            break;
-            default:
-                break;
-            }
-
-            if(statement._op12)
-            {
-                switch(statement._op2_type)
+            const auto build_xed_op = [&req, &uc_string, &uc_buffer](unsigned op_order, char type, char width, const Statement::op& op) -> bool {
+                switch(type)
                 {
                 case Statement::kReg:
                 {
-                    uc_string(statement._op2._reg);
-                    const auto op2_xed_reg = str2xed_reg_enum_t(uc_buffer);
-                    if(op2_xed_reg == XED_REG_INVALID)
+                    uc_string(op._reg);
+                    const auto op1_xed_reg = str2xed_reg_enum_t(uc_buffer);
+                    if(op1_xed_reg == XED_REG_INVALID)
                     {
                         detail::SetError(Error::InvalidDestRegistername);
-                        return 0;
+                        return false;
                     }
-                    xed_encoder_request_set_reg(&req, XED_OPERAND_REG1, op2_xed_reg);
-                    xed_encoder_request_set_operand_order(&req, 1, XED_OPERAND_REG1);
+                    xed_encoder_request_set_reg(&req, XED_OPERAND_REG0, op1_xed_reg);
+                    xed_encoder_request_set_operand_order(&req, op_order, static_cast<xed_operand_enum_t>(static_cast<char>(XED_OPERAND_REG0) + op_order));
+                }
+                break;
+                case Statement::kMem:
+                {
+                    auto seg = XED_REG_INVALID;
+                    if(op._mem._seg)
+                    {
+                        uc_string(op._mem._seg);
+                        seg = str2xed_reg_enum_t(uc_buffer);
+                    }
+                    xed_encoder_request_set_seg0(&req, seg);
+
+                    uc_string(op._mem._base);
+                    const auto base = str2xed_reg_enum_t(uc_buffer);
+                    if(base == XED_REG_INVALID)
+                    {
+                        detail::SetError(Error::InvalidDestRegistername);
+                        return false;
+                    }
+                    xed_encoder_request_set_base0(&req, base);
+
+                    auto index = XED_REG_INVALID;
+                    if(op._mem._index)
+                    {
+                        uc_string(op._mem._index);
+                        index = str2xed_reg_enum_t(uc_buffer);
+                        if(base == XED_REG_INVALID)
+                        {
+                            detail::SetError(Error::InvalidDestRegistername);
+                            return false;
+                        }
+                    }
+                    xed_encoder_request_set_index(&req, index);
+                    xed_encoder_request_set_scale(&req, op._mem._scale);
+
+                    //TODO: displacement
+
+                    //ZZZ: probably incorrect, see xed-enc-lang.c:454
+                    xed_encoder_request_set_operand_order(&req, op_order, static_cast<xed_operand_enum_t>(static_cast<char>(XED_OPERAND_MEM0) + op_order));
+                }
+                break;
+                case Statement::kImm:
+                {
+                    xed_encoder_request_set_uimm0_bits(&req, op._imm, width << 3);
+                    xed_encoder_request_set_operand_order(&req, op_order, XED_OPERAND_IMM0);
                 }
                 break;
                 default:
                     break;
                 }
-            }
-            else
+                return true;
+            };
+
+            if(!build_xed_op(0, statement._op1_type, statement._op1_width, statement._op1))
+                return 0;
+
+            if(statement._op12)
             {
+                if(!build_xed_op(1, statement._op2_type, statement._op2_width, statement._op2))
+                    return 0;
             }
 
             unsigned char ibuffer[XED_MAX_INSTRUCTION_BYTES];

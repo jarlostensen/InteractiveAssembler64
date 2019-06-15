@@ -271,7 +271,7 @@ namespace inasm64
 
             struct TokenisedOperand
             {
-                char _reg_imm[8] = { 0 };
+                char _reg_imm[20] = { 0 };
                 char _seg[4] = { 0 };
                 char _base[8] = { 0 };
                 char _index[8] = { 0 };
@@ -294,6 +294,7 @@ namespace inasm64
                 char plus_op_cnt = 0;
                 char min_op_cnt = 0;
                 char mul_op_cnt = 0;
+                op._scale[0] = '1';
 
                 // skip until we find an alphanumeric character, return false if end of string
                 // also counts number of + - and * characters found for error checking
@@ -568,47 +569,44 @@ namespace inasm64
                                                                       : Statement::kMem;
                                 statement._op2_type = op2._reg_imm[0] ? (isalpha(op2._reg_imm[0]) ? Statement::kReg : Statement::kImm)
                                                                       : Statement::kMem;
-                                switch(statement._op1_type)
-                                {
-                                case Statement::kReg:
-                                    //NOTE: we can safely pass these pointers around here, they'll never leave the scope of this function and it's descendants
-                                    statement._op1._reg = op1._reg_imm;
-                                    // make sure we're getting the right width, either from prefix or largest register
-                                    statement._op1_width = std::max<char>(register_width(statement._op1._reg), statement._op1_width);
-                                    break;
-                                case Statement::kImm:
-                                    statement._op1._imm = op1._reg_imm;
-                                    break;
-                                case Statement::kMem:
-                                    statement._op1._mem._seg = (op1._seg[0] ? op1._seg : nullptr);
-                                    statement._op2._mem._base = (op1._base[0] ? op1._base : nullptr);
-                                    statement._op2._mem._index = (op1._index[0] ? op1._index : nullptr);
-                                    statement._op1._mem._scale = char(strtol(op1._scale, nullptr, 0));
-                                    const auto base = (op1._displacement[strlen(op1._displacement) - 1] != 'h') ? 0 : 16;
-                                    statement._op1._mem._displacement = strtol(op1._displacement, nullptr, base);
-                                    break;
-                                }
-                                if(statement._op12)
-                                {
-                                    switch(statement._op2_type)
+
+                                const auto setup_statement = [](char type, Statement::op& op, const TokenisedOperand& op_info) -> char {
+                                    char width = 0;
+                                    switch(type)
                                     {
                                     case Statement::kReg:
-                                        //NOTE: we can safely pass these pointers around here, they'll never leave the scope of this function and it's descendants
-                                        statement._op2._reg = op2._reg_imm;
-                                        statement._op2_width = std::max<char>(register_width(statement._op2._reg), statement._op2_width);
+                                        //NOTE: we can safely pass these pointers around here, they'll never leave the scope of the parent function and it's descendants
+                                        op._reg = op_info._reg_imm;
+                                        width = register_width(op._reg);
                                         break;
                                     case Statement::kImm:
-                                        statement._op2._imm = op2._reg_imm;
-                                        break;
-                                    case Statement::kMem:
-                                        statement._op2._mem._seg = (op2._seg[0] ? op2._seg : nullptr);
-                                        statement._op2._mem._base = (op2._base[0] ? op2._base : nullptr);
-                                        statement._op2._mem._index = (op2._index[0] ? op2._index : nullptr);
-                                        statement._op2._mem._scale = char(strtol(op2._scale, nullptr, 0));
-                                        const auto base = (op2._displacement[strlen(op2._displacement) - 1] != 'h') ? 0 : 16;
-                                        statement._op2._mem._displacement = strtol(op2._displacement, nullptr, base);
-                                        break;
+                                    {
+                                        const auto imm_len = strlen(op_info._reg_imm);
+                                        const auto base = (op_info._reg_imm[imm_len - 1] != 'h') ? 0 : 16;
+                                        op._imm = strtol(op_info._reg_imm, nullptr, base);
+                                        // simply the number of digits / 2 (minus trailing 'h' or leading '0x')
+                                        width = (base ? imm_len - 1 : imm_len - 2) / 2;
                                     }
+                                    break;
+                                    case Statement::kMem:
+                                    {
+                                        op._mem._seg = (op_info._seg[0] ? op_info._seg : nullptr);
+                                        op._mem._base = (op_info._base[0] ? op_info._base : nullptr);
+                                        op._mem._index = (op_info._index[0] ? op_info._index : nullptr);
+                                        op._mem._scale = char(strtol(op_info._scale, nullptr, 0));
+                                        const auto base = (op_info._displacement[strlen(op_info._displacement) - 1] != 'h') ? 0 : 16;
+                                        op._mem._displacement = strtol(op_info._displacement, nullptr, base);
+                                        //NOTE: width of memory operand registers should *not* contribute towards operand width..?
+                                    }
+                                    break;
+                                    }
+                                    return width;
+                                };
+
+                                statement._op1_width = std::max<char>(setup_statement(statement._op1_type, statement._op1, op1), statement._op1_width);
+                                if(statement._op12)
+                                {
+                                    statement._op2_width = std::max<char>(setup_statement(statement._op2_type, statement._op2, op2), statement._op2_width);
                                 }
 
 #if _DEBUG
@@ -635,8 +633,8 @@ namespace inasm64
 
             if(result)
             {
-                uint8_t buffer[15];
-                const auto instr_len = _assembler_driver->Assemble(statement, buffer);
+                const auto buffer = reinterpret_cast<uint8_t*>(_alloca(_assembler_driver->MaxInstructionSize()));
+                const auto instr_len = _assembler_driver->Assemble(statement, buffer, _assembler_driver->MaxInstructionSize());
                 result = instr_len > 0;
                 if(result)
                 {

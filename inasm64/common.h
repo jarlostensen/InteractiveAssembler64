@@ -21,6 +21,7 @@ namespace inasm64
         InvalidOperandScale,
         InvalidDestRegistername,
         InvalidInstructionName,
+        OperandSizesMismatch,
         SystemError,
     };
 
