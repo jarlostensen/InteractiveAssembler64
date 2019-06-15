@@ -78,6 +78,12 @@ namespace inasm64
                 break;
                 case Statement::kMem:
                 {
+                    //TODO: there is a mem1 as well, but need to understand exactly how it's used
+                    xed_encoder_request_set_mem0(&req);
+                    xed_encoder_request_set_operand_order(&req, op_order, XED_OPERAND_MEM0);
+                    // what if width isn't specified?
+                    xed_encoder_request_set_effective_address_size(&req, width << 3);
+
                     auto seg = XED_REG_INVALID;
                     if(op._mem._seg)
                     {
@@ -109,10 +115,15 @@ namespace inasm64
                     xed_encoder_request_set_index(&req, index);
                     xed_encoder_request_set_scale(&req, op._mem._scale);
 
-                    //TODO: displacement
+                    //ZZZ: see note above
+                    // bytes
+                    xed_encoder_request_set_memory_operand_length(&req, width);
 
-                    //ZZZ: probably incorrect, see xed-enc-lang.c:454
-                    xed_encoder_request_set_operand_order(&req, op_order, static_cast<xed_operand_enum_t>(static_cast<char>(XED_OPERAND_MEM0) + op_order));
+                    if(op._mem._displacement)
+                    {
+                        //TODO: need displacement width
+                        // xed_encoder_request_set_memory_displacement(&req, op._mem._displacement, op._mem._displacement.disp_width_bits / 8);
+                    }
                 }
                 break;
                 case Statement::kImm:

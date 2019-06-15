@@ -43,6 +43,12 @@ namespace inasm64
             return "Invalid operand format";
         case Error::InvalidOperandScale:
             return "Invalid operand scale";
+        case Error::InvalidDestRegistername:
+            return "Invalid destination register name";
+        case Error::InvalidInstructionName:
+            return "Invalid instruction name";
+        case Error::OperandSizesMismatch:
+            return "Operand sizes mismatch";
         case Error::EmptyInput:
             return "invalid, empty, input";
         default:

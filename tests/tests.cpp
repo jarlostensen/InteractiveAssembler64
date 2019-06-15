@@ -15,9 +15,9 @@ int main()
     using namespace inasm64;
     assembler::Initialise();
     assembler::AssembledInstructionInfo info;
-    if(!assembler::Assemble("add rax, 0x44332211", info))
+    if(!assembler::Assemble("mov eax,[ebx]", info))
         std::cerr << inasm64::ErrorMessage(inasm64::GetError()) << "\n";
-    if(!assembler::Assemble("push qword [eax]", info))
+    if(!assembler::Assemble("add rax, 0x44332211", info))
         std::cerr << inasm64::ErrorMessage(inasm64::GetError()) << "\n";
     if(!assembler::Assemble("inc rax", info))
         std::cerr << inasm64::ErrorMessage(inasm64::GetError()) << "\n";
