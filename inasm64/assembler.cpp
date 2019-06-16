@@ -546,7 +546,6 @@ namespace inasm64
                                             const auto base = (op_info._displacement[strlen(op_info._displacement) - 1] != 'h') ? 0 : 16;
                                             op._mem._displacement = strtol(op_info._displacement, nullptr, base);
                                         }
-                                        //NOTE: width of memory operand registers should *not* contribute towards operand width..?
                                     }
                                     break;
                                     }
@@ -557,6 +556,10 @@ namespace inasm64
                                 if(statement._op12)
                                 {
                                     statement._op2_width = std::max<char>(setup_statement(statement._op2_type, statement._op2, op2), statement._op2_width);
+
+                                    const auto statement_width = std::max<char>(statement._op1_width, statement._op2_width);
+                                    statement._op1_width = std::max<char>(statement._op1_width, statement_width);
+                                    statement._op2_width = std::max<char>(statement._op2_width, statement_width);
                                 }
 
 #if _DEBUG
