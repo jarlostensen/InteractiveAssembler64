@@ -43,6 +43,8 @@ int main()
     test_assemble("mov eax,[ebx]");
     test_assemble("inc rax");
     test_assemble("add rax,rbx");
+    //TODO: support pre-scale format test_assemble("mov edx, dword [esi+4*ebx] ");
+    test_assemble("mov edx, dword [esi+ebx*4] ");
     //test_assemble("add eax , dword fs:[eax + esi*2 - 11223344h]");
     test_assemble("add rax, [eax + esi*2 + 11223344h]");
     test_assemble("add eax, dword fs:[ eax + esi * 4 ]");
