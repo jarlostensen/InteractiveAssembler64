@@ -183,8 +183,7 @@ namespace inasm64
                     case ParseMode::ScanUntilWhitespaceOrComma:
                         while(buffer[rp] && buffer[rp] != ' ' && buffer[rp] != '\t' && buffer[rp] != ',')
                         {
-                            ++rp;
-                            if(buffer[rp] == '[')
+                            if(buffer[rp++] == '[')
                             {
                                 mode = ParseMode::ScanUntilRightBracket;
                                 break;
