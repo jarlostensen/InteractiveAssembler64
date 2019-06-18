@@ -53,8 +53,8 @@ namespace inasm64
                     break;
                 }
 
-                if(statement._op1_width)
-                    std::cout << ", width is " << int(statement._op1_width) << " bytes";
+                if(statement._op1_width_bits)
+                    std::cout << ", width is " << int(statement._op1_width_bits) << " bytes";
 
                 if(statement._op12)
                 {
@@ -71,8 +71,8 @@ namespace inasm64
                         std::cout << "op2 is Memory";
                         break;
                     }
-                    if(statement._op2_width)
-                        std::cout << ", width is " << int(statement._op2_width) << " bytes";
+                    if(statement._op2_width_bits)
+                        std::cout << ", width is " << int(statement._op2_width_bits) << " bits";
                 }
 
                 std::cout << std::endl
@@ -130,11 +130,11 @@ namespace inasm64
                     }
                 };
 
-                coutop(statement._op1_type, statement._op1_width, statement._op1);
+                coutop(statement._op1_type, statement._op1_width_bits, statement._op1);
                 if(statement._op12)
                 {
                     std::cout << ", ";
-                    coutop(statement._op2_type, statement._op2_width, statement._op2);
+                    coutop(statement._op2_type, statement._op2_width_bits, statement._op2);
                 }
                 std::cout << std::endl;
             }
@@ -460,29 +460,30 @@ namespace inasm64
 
                 if(tl < left_tokens.size())
                 {
-                    const auto check_operand_size_prefix = [&tl](const std::vector<char*>& tokens) -> char {
+                    const auto check_operand_bit_size_prefix = [&tl](const std::vector<char*>& tokens) -> char {
                         if((tl + 1) < tokens.size())
                         {
                             if(strncmp(tokens[tl], "byte", 4) == 0)
                             {
                                 ++tl;
-                                return 1;
+                                return 8;
                             }
                             if(strncmp(tokens[tl], "word", 4) == 0)
                             {
                                 ++tl;
-                                return 2;
+                                return 16;
                             }
                             if(strncmp(tokens[tl], "dword", 5) == 0)
                             {
                                 ++tl;
-                                return 4;
+                                return 32;
                             }
                             if(strncmp(tokens[tl], "qword", 5) == 0)
                             {
                                 ++tl;
-                                return 8;
+                                return 64;
                             }
+                            // xmmword etc.
                         }
                         return 0;
                     };
@@ -494,7 +495,7 @@ namespace inasm64
                         result = false;
 
                         // op1
-                        statement._op1_width = check_operand_size_prefix(left_tokens);
+                        statement._op1_width_bits = check_operand_bit_size_prefix(left_tokens);
                         if(TokeniseOperand(left_tokens[tl], op1))
                         {
                             result = (op1._base[0] || op1._reg_imm[0] || op1._displacement[0]);
@@ -502,7 +503,7 @@ namespace inasm64
                             if(result && !right_tokens.empty())
                             {
                                 tl = 0;
-                                statement._op2_width = check_operand_size_prefix(right_tokens);
+                                statement._op2_width_bits = check_operand_bit_size_prefix(right_tokens);
                                 result = TokeniseOperand(right_tokens[tl], op2);
                                 // sanity check; if for example the input has whitespace between the segment register and the :, the segment register would be misread as base.
                                 result = result && (op2._base[0] || op1._displacement[0] || (op2._reg_imm[0] && right_tokens.size() == 1));
@@ -517,22 +518,25 @@ namespace inasm64
                                 statement._op2_type = op2._reg_imm[0] ? (isalpha(op2._reg_imm[0]) ? Statement::kReg : Statement::kImm)
                                                                       : Statement::kMem;
 
-                                const auto setup_statement = [](char type, Statement::op& op, const TokenisedOperand& op_info) -> char {
-                                    char width = 0;
+// 4 * number of digits (minus 1 for trailing h, or 2 for leading 0x
+#define INASM64_ASSEMBLER_NUMBER_BIT_WIDTH(len, base) \
+    char((base ? len - 1 : len - 2) * 4)
+
+                                const auto setup_statement = [](char type, Statement::op& op, const TokenisedOperand& op_info) -> short {
+                                    //NOTE: we can safely pass pointers to op_info fields around here, they'll never leave the scope of the parent function and it's descendants
+                                    short width_bits = 0;
                                     switch(type)
                                     {
                                     case Statement::kReg:
-                                        //NOTE: we can safely pass these pointers around here, they'll never leave the scope of the parent function and it's descendants
                                         op._reg = op_info._reg_imm;
-                                        width = char(GetRegisterInfo(op._reg)._bit_width >> 3);
+                                        width_bits = GetRegisterInfo(op._reg)._bit_width;
                                         break;
                                     case Statement::kImm:
                                     {
                                         const auto imm_len = strlen(op_info._reg_imm);
                                         const auto base = (op_info._reg_imm[imm_len - 1] != 'h') ? 0 : 16;
                                         op._imm = strtol(op_info._reg_imm, nullptr, base);
-                                        // simply the number of digits / 2 (minus trailing 'h' or leading '0x'), rounded up
-                                        width = char(((base ? imm_len - 1 : imm_len - 2) + 1) / 2);
+                                        width_bits = INASM64_ASSEMBLER_NUMBER_BIT_WIDTH(imm_len, base);
                                     }
                                     break;
                                     case Statement::kMem:
@@ -543,28 +547,24 @@ namespace inasm64
                                         op._mem._scale = char(strtol(op_info._scale, nullptr, 0));
                                         if(op_info._displacement[0] != 0)
                                         {
-                                            const auto base = (op_info._displacement[strlen(op_info._displacement) - 1] != 'h') ? 0 : 16;
+                                            const auto disp_len = strlen(op_info._displacement);
+                                            const auto base = (op_info._displacement[disp_len - 1] != 'h') ? 0 : 16;
                                             op._mem._displacement = strtol(op_info._displacement, nullptr, base);
+                                            op._mem._disp_width_bits = INASM64_ASSEMBLER_NUMBER_BIT_WIDTH(disp_len, base);
                                         }
+                                        // implicitly 32 bits, may be overridden by prefix
+                                        width_bits = 32;
                                     }
                                     break;
                                     }
-                                    return width;
+                                    return width_bits;
                                 };
 
-                                statement._op1_width = std::max<char>(setup_statement(statement._op1_type, statement._op1, op1), statement._op1_width);
+                                statement._op1_width_bits = std::max<char>(setup_statement(statement._op1_type, statement._op1, op1), statement._op1_width_bits);
                                 if(statement._op12)
                                 {
-                                    statement._op2_width = std::max<char>(setup_statement(statement._op2_type, statement._op2, op2), statement._op2_width);
-
-                                    const auto statement_width = std::max<char>(statement._op1_width, statement._op2_width);
-                                    statement._op1_width = std::max<char>(statement._op1_width, statement_width);
-                                    statement._op2_width = std::max<char>(statement._op2_width, statement_width);
+                                    statement._op2_width_bits = std::max<char>(setup_statement(statement._op2_type, statement._op2, op2), statement._op2_width_bits);
                                 }
-
-#if _DEBUG
-                                printstatement(statement);
-#endif
                             }
                         }
 

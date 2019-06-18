@@ -9,34 +9,46 @@
 
 #include <iostream>
 
+void cinsout(const inasm64::assembler::AssembledInstructionInfo& info)
+{
+    std::cout << "\tinstruction is " << info.InstructionSize << " bytes\n\t";
+    for(auto i = 0; i < info.InstructionSize; ++i)
+    {
+        std::cout << std::hex << int(info.Instruction[i]) << " ";
+    }
+    std::cout << "\n"
+              << std::endl;
+}
+
+void test_assemble(const std::string& statement)
+{
+    std::cout << statement << "\n";
+    using namespace inasm64;
+    assembler::Initialise();
+    assembler::AssembledInstructionInfo info;
+    if(!assembler::Assemble(statement, info))
+        std::cerr << inasm64::ErrorMessage(inasm64::GetError()) << std::endl;
+    else
+        cinsout(info);
+}
+
 int main()
 {
     //TODO: bespoke tests, this is just to aid development at the moment. Might pull in google test at some point...
     using namespace inasm64;
     assembler::Initialise();
     assembler::AssembledInstructionInfo info;
-    if(!assembler::Assemble("mov eax,[ebx]", info))
-        std::cerr << inasm64::ErrorMessage(inasm64::GetError()) << "\n";
-    if(!assembler::Assemble("add rax, 0x44332211", info))
-        std::cerr << inasm64::ErrorMessage(inasm64::GetError()) << "\n";
-    if(!assembler::Assemble("inc rax", info))
-        std::cerr << inasm64::ErrorMessage(inasm64::GetError()) << "\n";
-    if(!assembler::Assemble("add rax,rbx", info))
-        std::cerr << inasm64::ErrorMessage(inasm64::GetError()) << "\n";
-    if(!assembler::Assemble("add eax , dword fs:[eax + esi*2 - 11223344h]", info))
-        std::cerr << inasm64::ErrorMessage(inasm64::GetError()) << "\n";
-    if(!assembler::Assemble("add eax , dword fs:[ eax + esi * 4 ]", info))
-        std::cerr << inasm64::ErrorMessage(inasm64::GetError()) << "\n";
-    if(!assembler::Assemble("add rax , dword fs:[eax + esi ]", info))
-        std::cerr << inasm64::ErrorMessage(inasm64::GetError()) << "\n";
-    if(!assembler::Assemble("add eax , dword fs:[eax]", info))
-        std::cerr << inasm64::ErrorMessage(inasm64::GetError()) << "\n";
-    if(!assembler::Assemble("add eax , dword [eax]", info))
-        std::cerr << inasm64::ErrorMessage(inasm64::GetError()) << "\n";
-    if(!assembler::Assemble("add eax, dword es:[rdx - 0x11223344]", info))
-        std::cerr << inasm64::ErrorMessage(inasm64::GetError()) << "\n";
-    if(!assembler::Assemble("jmp dword fs:[0x11223344]", info))
-        std::cerr << inasm64::ErrorMessage(inasm64::GetError()) << "\n";
-    if(!assembler::Assemble("mov ax, word [ebx]", info))
-        std::cerr << inasm64::ErrorMessage(inasm64::GetError()) << "\n";
+    test_assemble("add rax, 0x44332211");
+    test_assemble("mov eax,[ebx]");
+    test_assemble("inc rax");
+    test_assemble("add rax,rbx");
+    //test_assemble("add eax , dword fs:[eax + esi*2 - 11223344h]");
+    test_assemble("add rax , [eax + esi*2 + 11223344h]");
+    test_assemble("add eax , dword fs:[ eax + esi * 4 ]");
+    test_assemble("add rax , dword fs:[eax + esi ]");
+    test_assemble("add eax , dword fs:[eax]");
+    test_assemble("add eax , dword [eax]");
+    test_assemble("add eax, dword es:[rdx - 0x11223344]");
+    test_assemble("jmp dword fs:[0x11223344]");
+    test_assemble("mov ax, word [ebx]");
 }

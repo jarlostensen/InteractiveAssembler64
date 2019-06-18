@@ -73,6 +73,7 @@ namespace inasm64
         /// NOTE: register name must be all uppercase
         bool SetReg(const char* regNameUc, int64_t value);
 
+        //TODO: rewrite all of these to use shared enums and code in ia64.h
         enum class ByteReg
         {
             AL,

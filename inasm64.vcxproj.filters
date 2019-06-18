@@ -42,6 +42,9 @@
     <ClCompile Include="inasm64\xed_assembler_driver.cpp">
       <Filter>Source Files\inasm64</Filter>
     </ClCompile>
+    <ClCompile Include="inasm64\ia64.cpp">
+      <Filter>Source Files\inasm64</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="inasm64\runtime.h">
@@ -63,6 +66,9 @@
       <Filter>Source Files\inasm64</Filter>
     </ClInclude>
     <ClInclude Include="inasm64\xed_assembler_driver.h">
+      <Filter>Source Files\inasm64</Filter>
+    </ClInclude>
+    <ClInclude Include="inasm64\ia64.h">
       <Filter>Source Files\inasm64</Filter>
     </ClInclude>
   </ItemGroup>

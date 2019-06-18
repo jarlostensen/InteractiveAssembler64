@@ -14,8 +14,10 @@ namespace inasm64
             const char* _index = nullptr;
             // scale is a factor by which index is to be multipled before being added to base to specify the address of the operand.Scale can have the value of 1, 2, 4, or 8. If scale is not specified, the default value is 1.
             unsigned char _scale = 1;
-            // 32 bit constant displacement
-            int _displacement;
+            // up to 32 bit constant displacement
+            int _displacement = 0;
+            // actual displacement bit width
+            char _disp_width_bits = 0;
 
             MemoryOperandTokens() = default;
         };
@@ -38,10 +40,8 @@ namespace inasm64
             // 0 = reg, 1 = imm, 2 = mem
             char _op2_type;
 
-            // 1,2,4,8,16,32
-            char _op1_width;
-            // 1,2,4,8,16,32
-            char _op2_width;
+            short _op1_width_bits;
+            short _op2_width_bits;
 
             const char* _instruction = nullptr;
 

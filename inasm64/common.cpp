@@ -50,7 +50,9 @@ namespace inasm64
         case Error::OperandSizesMismatch:
             return "Operand sizes mismatch";
         case Error::EmptyInput:
-            return "invalid, empty, input";
+            return "Invalid, empty, input";
+        case Error::EncodeError:
+            return "General encoder error";
         default:
             return "";
         }

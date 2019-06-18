@@ -26,7 +26,7 @@ namespace inasm64
         {
             xed_tables_init();
             _state64.mmode = XED_MACHINE_MODE_LONG_64;
-            //in 64 bit long mode this is ignored; estate.stack_addr_width = XED_ADDRESS_WIDTH_32b;
+            _state64.stack_addr_width = XED_ADDRESS_WIDTH_32b;
             return true;
         }
 
@@ -34,13 +34,7 @@ namespace inasm64
         {
             xed_encoder_request_t req;
             xed_encoder_request_zero_set_mode(&req, &_state64);
-            xed_encoder_request_set_effective_operand_width(&req, statement._op1_width << 3);
-            //TODO: not correct, but something is...
-            /*if(statement._op12 && statement._op2_width != statement._op1_width)
-            {
-                detail::SetError(Error::OperandSizesMismatch);
-                return 0;
-            }*/
+            xed_encoder_request_set_effective_operand_width(&req, statement._op1_width_bits);
 
             char uc_buffer[64];
 
@@ -60,7 +54,7 @@ namespace inasm64
 
             xed_encoder_request_set_iclass(&req, xed_instruction);
 
-            const auto build_xed_op = [&req, &uc_string, &uc_buffer](unsigned op_order, char type, char width, const Statement::op& op) -> bool {
+            const auto build_xed_op = [&req, &uc_string, &uc_buffer](unsigned op_order, char type, short width_bits, const Statement::op& op) -> bool {
                 switch(type)
                 {
                 case Statement::kReg:
@@ -72,8 +66,9 @@ namespace inasm64
                         detail::SetError(Error::InvalidDestRegistername);
                         return false;
                     }
-                    xed_encoder_request_set_reg(&req, XED_OPERAND_REG0, op1_xed_reg);
-                    xed_encoder_request_set_operand_order(&req, op_order, static_cast<xed_operand_enum_t>(static_cast<char>(XED_OPERAND_REG0) + op_order));
+                    const auto operand_reg = static_cast<xed_operand_enum_t>(static_cast<char>(XED_OPERAND_REG0) + op_order);
+                    xed_encoder_request_set_reg(&req, operand_reg, op1_xed_reg);
+                    xed_encoder_request_set_operand_order(&req, op_order, operand_reg);
                 }
                 break;
                 case Statement::kMem:
@@ -81,8 +76,7 @@ namespace inasm64
                     //TODO: there is a mem1 as well, but need to understand exactly how it's used
                     xed_encoder_request_set_mem0(&req);
                     xed_encoder_request_set_operand_order(&req, op_order, XED_OPERAND_MEM0);
-                    // what if width isn't specified?
-                    xed_encoder_request_set_effective_address_size(&req, width << 3);
+                    xed_encoder_request_set_effective_address_size(&req, width_bits);
 
                     auto seg = XED_REG_INVALID;
                     if(op._mem._seg)
@@ -91,13 +85,16 @@ namespace inasm64
                         seg = str2xed_reg_enum_t(uc_buffer);
                     }
                     xed_encoder_request_set_seg0(&req, seg);
-
-                    uc_string(op._mem._base);
-                    const auto base = str2xed_reg_enum_t(uc_buffer);
-                    if(base == XED_REG_INVALID)
+                    auto base = XED_REG_INVALID;
+                    if(op._mem._base)
                     {
-                        detail::SetError(Error::InvalidDestRegistername);
-                        return false;
+                        uc_string(op._mem._base);
+                        base = str2xed_reg_enum_t(uc_buffer);
+                        if(base == XED_REG_INVALID)
+                        {
+                            detail::SetError(Error::InvalidDestRegistername);
+                            return false;
+                        }
                     }
                     xed_encoder_request_set_base0(&req, base);
 
@@ -114,21 +111,17 @@ namespace inasm64
                     }
                     xed_encoder_request_set_index(&req, index);
                     xed_encoder_request_set_scale(&req, op._mem._scale);
-
-                    //ZZZ: see note above
-                    // bytes
-                    xed_encoder_request_set_memory_operand_length(&req, width);
+                    xed_encoder_request_set_memory_operand_length(&req, width_bits >> 3);
 
                     if(op._mem._displacement)
                     {
-                        //TODO: need displacement width
-                        // xed_encoder_request_set_memory_displacement(&req, op._mem._displacement, op._mem._displacement.disp_width_bits / 8);
+                        xed_encoder_request_set_memory_displacement(&req, op._mem._displacement, op._mem._disp_width_bits / 8);
                     }
                 }
                 break;
                 case Statement::kImm:
                 {
-                    xed_encoder_request_set_uimm0_bits(&req, op._imm, width << 3);
+                    xed_encoder_request_set_uimm0_bits(&req, op._imm, width_bits);
                     xed_encoder_request_set_operand_order(&req, op_order, XED_OPERAND_IMM0);
                 }
                 break;
@@ -138,12 +131,12 @@ namespace inasm64
                 return true;
             };
 
-            if(!build_xed_op(0, statement._op1_type, statement._op1_width, statement._op1))
+            if(!build_xed_op(0, statement._op1_type, statement._op1_width_bits, statement._op1))
                 return 0;
 
             if(statement._op12)
             {
-                if(!build_xed_op(1, statement._op2_type, statement._op2_width, statement._op2))
+                if(!build_xed_op(1, statement._op2_type, statement._op2_width_bits, statement._op2))
                     return 0;
             }
 
@@ -160,6 +153,10 @@ namespace inasm64
                     return instruction_size;
                 }
                 detail::SetError(Error::CodeBufferFull);
+            }
+            else
+            {
+                detail::SetError(Error::EncodeError);
             }
             return false;
         }

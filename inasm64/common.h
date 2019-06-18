@@ -22,6 +22,7 @@ namespace inasm64
         InvalidDestRegistername,
         InvalidInstructionName,
         OperandSizesMismatch,
+        EncodeError,
         SystemError,
     };
 
