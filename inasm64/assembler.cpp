@@ -86,7 +86,7 @@ namespace inasm64
                     std::cout << "repne ";
                 std::cout << statement._instruction << " ";
 
-                const auto coutop = [](char type, char width, const Statement::op& op) {
+                const auto coutop = [](char type, short width, const Statement::op& op) {
                     switch(width)
                     {
                     case 1:
@@ -560,10 +560,10 @@ namespace inasm64
                                     return width_bits;
                                 };
 
-                                statement._op1_width_bits = std::max<char>(setup_statement(statement._op1_type, statement._op1, op1), statement._op1_width_bits);
+                                statement._op1_width_bits = std::max<short>(setup_statement(statement._op1_type, statement._op1, op1), statement._op1_width_bits);
                                 if(statement._op12)
                                 {
-                                    statement._op2_width_bits = std::max<char>(setup_statement(statement._op2_type, statement._op2, op2), statement._op2_width_bits);
+                                    statement._op2_width_bits = std::max<short>(setup_statement(statement._op2_type, statement._op2, op2), statement._op2_width_bits);
                                 }
                             }
                         }

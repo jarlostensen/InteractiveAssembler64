@@ -1,12 +1,13 @@
-#include <string>
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
 
+#include <string>
 #include "../inasm64/common.h"
 #include "../inasm64/runtime.h"
 #include "../inasm64/assembler.h"
 #include "../inasm64/cli.h"
 
+#include <iomanip>
 #include <iostream>
 
 void cinsout(const inasm64::assembler::AssembledInstructionInfo& info)
@@ -14,7 +15,7 @@ void cinsout(const inasm64::assembler::AssembledInstructionInfo& info)
     std::cout << "\tinstruction is " << info.InstructionSize << " bytes\n\t";
     for(auto i = 0; i < info.InstructionSize; ++i)
     {
-        std::cout << std::hex << int(info.Instruction[i]) << " ";
+        std::cout << std::setfill('0') << std::setw(2) << std::hex << int(info.Instruction[i]) << " ";
     }
     std::cout << "\n"
               << std::endl;
