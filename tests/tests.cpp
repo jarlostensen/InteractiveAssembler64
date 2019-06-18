@@ -39,6 +39,12 @@ int main()
     using namespace inasm64;
     assembler::Initialise();
     assembler::AssembledInstructionInfo info;
+
+    test_assemble("mov rax,42");
+    test_assemble("xor rax,rax");
+    test_assemble("mov rbx,1");
+    test_assemble("add rax, rbx");
+
     test_assemble("add rax, 0x44332211");
     test_assemble("mov eax,[ebx]");
     test_assemble("inc rax");

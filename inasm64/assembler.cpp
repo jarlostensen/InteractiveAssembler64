@@ -519,10 +519,6 @@ namespace inasm64
                                 statement._op2_type = op2._reg_imm[0] ? (isalpha(op2._reg_imm[0]) ? Statement::kReg : Statement::kImm)
                                                                       : Statement::kMem;
 
-// 4 * number of digits (minus 1 for trailing h, or 2 for leading 0x
-#define INASM64_ASSEMBLER_NUMBER_BIT_WIDTH(len, base) \
-    char((base ? len - 1 : len - 2) * 4)
-
                                 const auto setup_statement = [](char type, Statement::op& op, const TokenisedOperand& op_info) -> short {
                                     //NOTE: we can safely pass pointers to op_info fields around here, they'll never leave the scope of the parent function and it's descendants
                                     short width_bits = 0;
@@ -537,7 +533,9 @@ namespace inasm64
                                         const auto imm_len = strlen(op_info._reg_imm);
                                         const auto base = (op_info._reg_imm[imm_len - 1] != 'h') ? 0 : 16;
                                         op._imm = strtol(op_info._reg_imm, nullptr, base);
-                                        width_bits = INASM64_ASSEMBLER_NUMBER_BIT_WIDTH(imm_len, base);
+                                        unsigned long index;
+                                        _BitScanReverse64(&index, op._imm);
+                                        width_bits = short((index + 8) & ~7);
                                     }
                                     break;
                                     case Statement::kMem:
@@ -551,7 +549,9 @@ namespace inasm64
                                             const auto disp_len = strlen(op_info._displacement);
                                             const auto base = (op_info._displacement[disp_len - 1] != 'h') ? 0 : 16;
                                             op._mem._displacement = strtol(op_info._displacement, nullptr, base);
-                                            op._mem._disp_width_bits = INASM64_ASSEMBLER_NUMBER_BIT_WIDTH(disp_len, base);
+                                            unsigned long index;
+                                            _BitScanReverse64(&index, op._mem._displacement > 0 ? op._mem._displacement : -op._mem._displacement);
+                                            op._mem._disp_width_bits = char((index + 8) & ~7);
                                         }
                                         // implicitly 32 bits, may be overridden by prefix or the size of op1
                                         width_bits = 32;
