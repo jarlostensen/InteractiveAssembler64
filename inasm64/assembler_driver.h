@@ -18,7 +18,6 @@ namespace inasm64
             int _displacement = 0;
             // actual displacement bit width
             char _disp_width_bits = 0;
-
             MemoryOperandTokens() = default;
         };
 
@@ -39,8 +38,9 @@ namespace inasm64
             char _op1_type;
             // 0 = reg, 1 = imm, 2 = mem
             char _op2_type;
-
+            // operand width
             short _op1_width_bits;
+            // operand width
             short _op2_width_bits;
 
             const char* _instruction = nullptr;

@@ -491,7 +491,9 @@ namespace inasm64
                     statement._instruction = left_tokens[tl++];
                     if(tl < left_tokens.size())
                     {
+                        // assume error
                         result = false;
+                        detail::SetError(Error::InvalidInstructionFormat);
 
                         // op1
                         statement._op1_width_bits = check_operand_bit_size_prefix(left_tokens);
@@ -551,7 +553,7 @@ namespace inasm64
                                             op._mem._displacement = strtol(op_info._displacement, nullptr, base);
                                             op._mem._disp_width_bits = INASM64_ASSEMBLER_NUMBER_BIT_WIDTH(disp_len, base);
                                         }
-                                        // implicitly 32 bits, may be overridden by prefix
+                                        // implicitly 32 bits, may be overridden by prefix or the size of op1
                                         width_bits = 32;
                                     }
                                     break;
@@ -563,12 +565,14 @@ namespace inasm64
                                 if(statement._op12)
                                 {
                                     statement._op2_width_bits = std::max<short>(setup_statement(statement._op2_type, statement._op2, op2), statement._op2_width_bits);
+                                    if(statement._op2_type == Statement::kMem && statement._op2_width_bits != statement._op1_width_bits)
+                                    {
+                                        // implicit override by reg size, we don't require a ptr modifier
+                                        statement._op2_width_bits = statement._op1_width_bits;
+                                    }
                                 }
                             }
                         }
-
-                        if(!result)
-                            detail::SetError(Error::InvalidInstructionFormat);
                     }
                     else if(!right_tokens.empty())
                     {

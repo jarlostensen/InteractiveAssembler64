@@ -76,7 +76,6 @@ namespace inasm64
                     //TODO: there is a mem1 as well, but need to understand exactly how it's used
                     xed_encoder_request_set_mem0(&req);
                     xed_encoder_request_set_operand_order(&req, op_order, XED_OPERAND_MEM0);
-                    xed_encoder_request_set_effective_address_size(&req, width_bits);
 
                     auto seg = XED_REG_INVALID;
                     if(op._mem._seg)
@@ -85,6 +84,7 @@ namespace inasm64
                         seg = str2xed_reg_enum_t(uc_buffer);
                     }
                     xed_encoder_request_set_seg0(&req, seg);
+
                     auto base = XED_REG_INVALID;
                     if(op._mem._base)
                     {
@@ -111,6 +111,18 @@ namespace inasm64
                     }
                     xed_encoder_request_set_index(&req, index);
                     xed_encoder_request_set_scale(&req, op._mem._scale);
+
+                    // from xed/examples/xed-enc-lang.c
+                    const auto rc = xed_gpr_reg_class(base);
+                    const auto rci = xed_gpr_reg_class(index);
+                    if(base == XED_REG_EIP)
+                        xed_encoder_request_set_effective_address_size(&req, 32);
+                    else if(rc == XED_REG_CLASS_GPR32 || rci == XED_REG_CLASS_GPR32)
+                        xed_encoder_request_set_effective_address_size(&req, 32);
+                    else if(rc == XED_REG_CLASS_GPR16 || rci == XED_REG_CLASS_GPR16)
+                        xed_encoder_request_set_effective_address_size(&req, 16);
+                    //else, don't set at all?
+
                     xed_encoder_request_set_memory_operand_length(&req, width_bits >> 3);
 
                     if(op._mem._displacement)

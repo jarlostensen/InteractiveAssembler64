@@ -52,6 +52,6 @@ int main()
     test_assemble("add eax, dword fs:[eax]");
     test_assemble("add eax, dword [eax]");
     test_assemble("add eax, dword es:[rdx - 0x11223344]");
-    test_assemble("jmp dword fs:[0x11223344]");
+    test_assemble("jmp qword [0x11223344]");
     test_assemble("mov ax, word [ebx]");
 }
