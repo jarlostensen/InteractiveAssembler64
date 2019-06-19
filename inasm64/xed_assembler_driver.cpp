@@ -133,9 +133,21 @@ namespace inasm64
                 break;
                 case Statement::kImm:
                 {
-                    xed_encoder_request_set_uimm0_bits(&req, op._imm, 32);
-                    //TODO: this isn't working for widths <> 32 for some reason
-                    //  xed_encoder_request_set_uimm0_bits(&req, op._imm, width_bits);
+					//TODO: we need to set the uimm0 bit with based on 
+					// 1. the instruction (some only support 8 bit)
+					// 2. the bit width of op1 (and possibly the value itself)
+                    const auto instr = xed_encoder_request_get_iclass(&req);
+                    switch(instr)
+                    {
+                    case XED_ICLASS_SHL:                        
+                    case XED_ICLASS_SHR:
+                        xed_encoder_request_set_uimm0_bits(&req, op._imm, 8);
+                        break;
+                    default:
+                        xed_encoder_request_set_uimm0_bits(&req, op._imm, 32);
+                        break;
+					}
+                    
                     xed_encoder_request_set_operand_order(&req, op_order, XED_OPERAND_IMM0);
                 }
                 break;
