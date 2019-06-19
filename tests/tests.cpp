@@ -40,7 +40,9 @@ int main()
     assembler::Initialise();
     assembler::AssembledInstructionInfo info;
 
-    test_assemble("mov rax,42");
+    test_assemble("shl ebx,2");
+    test_assemble("sbb rbx,32");
+    test_assemble("mov eax,42");
     test_assemble("xor rax,rax");
     test_assemble("mov rbx,1");
     test_assemble("add rax, rbx");

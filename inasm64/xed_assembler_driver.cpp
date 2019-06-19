@@ -1,5 +1,7 @@
 #include <cstdint>
 #include <memory>
+#include <algorithm>
+
 #include "common.h"
 #include "xed_assembler_driver.h"
 
@@ -54,7 +56,7 @@ namespace inasm64
 
             xed_encoder_request_set_iclass(&req, xed_instruction);
 
-            const auto build_xed_op = [&req, &uc_string, &uc_buffer](unsigned op_order, char type, short width_bits, const Statement::op& op) -> bool {
+            const auto build_xed_op = [&req, &uc_string, &uc_buffer, &statement](unsigned op_order, char type, short width_bits, const Statement::op& op) -> bool {
                 switch(type)
                 {
                 case Statement::kReg:
@@ -133,21 +135,26 @@ namespace inasm64
                 break;
                 case Statement::kImm:
                 {
-					//TODO: we need to set the uimm0 bit with based on 
-					// 1. the instruction (some only support 8 bit)
-					// 2. the bit width of op1 (and possibly the value itself)
                     const auto instr = xed_encoder_request_get_iclass(&req);
+
+                    //TODO: we need to set the uimm0 bit with based on the instruction
+                    // some, like MOV, only support immediate operands of the same width as the r operand
+                    // what's the rule here??
                     switch(instr)
                     {
-                    case XED_ICLASS_SHL:                        
-                    case XED_ICLASS_SHR:
-                        xed_encoder_request_set_uimm0_bits(&req, op._imm, 8);
-                        break;
+                    case XED_ICLASS_MOV:
+                    case XED_ICLASS_SBB:
+                    {
+                        //TODO: derive this generically?
+                        xed_encoder_request_set_uimm0_bits(&req, op._imm, std::min<short>(statement._op1_width_bits, short(32)));
+                    }
+                    break;
                     default:
-                        xed_encoder_request_set_uimm0_bits(&req, op._imm, 32);
+                        // if we don't care (i.e. the instruction can handle any width...)
+                        xed_encoder_request_set_uimm0_bits(&req, op._imm, width_bits);
                         break;
-					}
-                    
+                    }
+
                     xed_encoder_request_set_operand_order(&req, op_order, XED_OPERAND_IMM0);
                 }
                 break;
