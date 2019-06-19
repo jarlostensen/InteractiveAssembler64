@@ -43,3 +43,8 @@ generates the instruction bytes ```B82A000000``` which is equivalent to ```mov e
 
 ## CLI ``inasm64::cli``
 The CLI provides a simple command line interface for driving the runtime and assembler. It takes commands modelled on the old ``debug.exe`` and the modern ``Windbg``. In architectural terms the CLI provides a sort of "presentation layer", binding and controlling the runtime and assembler.
+
+## Tools used
+- [Microsoft Visual Studio 2019 Community Edition] for all the dev.
+- [NASM 2.13 and Ndisasm](https://www.nasm.us/) for correctness checking, comparing generated instruction bytes.
+- [HxD](https://mh-nexus.de/en/hxd/) for correctness checking. Being able to *write* hex bytes as well as viewing them is extremely useful in combination with Ndisasm.
