@@ -6,6 +6,7 @@
 #include <windows.h>
 
 #include "inasm64/common.h"
+#include "inasm64/ia64.h"
 #include "inasm64/runtime.h"
 #include "inasm64/assembler.h"
 #include "inasm64/cli.h"
@@ -131,7 +132,11 @@ int main(int argc, char* argv[])
         }
     }
 
-    std::cout << "inasm64: The IA 64 Interactive Assembler\n";
+    std::cout << "inasm64: The IA 64 Interactive Assembler\n\n";
+
+    if(inasm64::IsSSESupported())
+        std::cout << "SSE supported\n";
+
     DWORD64 featureFlags = GetEnabledXStateFeatures();
     if(featureFlags & (XSTATE_MASK_AVX512 | XSTATE_MASK_AVX))
     {

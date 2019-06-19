@@ -36,13 +36,13 @@ namespace inasm64
 
             int regs[4] = { 0 };
             cpuid(0, 1, regs);
-			// need to check this to know we can use xgetbv at all
+            // need to check this to know we can use xgetbv at all
             if(regs[0] & 2)
             {
-				// check xcr0 register for xmm and/or ymm enabled
+                // check xcr0 register for xmm and/or ymm enabled
                 const auto xcr0 = uint32_t(_xgetbv(0));
                 _supports_sse = (xcr0 & 6) == 6;
-			}
+            }
             _system_checked = true;
         }
     }  // namespace
