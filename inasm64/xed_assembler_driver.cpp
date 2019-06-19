@@ -133,7 +133,9 @@ namespace inasm64
                 break;
                 case Statement::kImm:
                 {
-                    xed_encoder_request_set_uimm0_bits(&req, op._imm, width_bits);
+                    xed_encoder_request_set_uimm0_bits(&req, op._imm, 32);
+                    //TODO: this isn't working for widths <> 32 for some reason
+                    //  xed_encoder_request_set_uimm0_bits(&req, op._imm, width_bits);
                     xed_encoder_request_set_operand_order(&req, op_order, XED_OPERAND_IMM0);
                 }
                 break;
