@@ -2,6 +2,8 @@
 #include <string>
 #include "ia64.h"
 
+#include <intrin.h>
+
 namespace inasm64
 {
     namespace
@@ -19,6 +21,30 @@ namespace inasm64
             "rax", "rbx", "rcx", "rdx", "rsi", "rdi", "rsp", "rbp", "r8", "r9", "r10", "r11", "r12", "r13", "r14", "r15"
         };
 
+        bool _system_checked = false;
+        bool _supports_sse = false;
+
+        void cpuid(int eax, int ecx, int* regs)
+        {
+            __cpuidex(regs, eax, ecx);
+        }
+
+        void check_system()
+        {
+            if(_system_checked)
+                return;
+
+            int regs[4] = { 0 };
+            cpuid(0, 1, regs);
+			// need to check this to know we can use xgetbv at all
+            if(regs[0] & 2)
+            {
+				// check xcr0 register for xmm and/or ymm enabled
+                const auto xcr0 = uint32_t(_xgetbv(0));
+                _supports_sse = (xcr0 & 6) == 6;
+			}
+            _system_checked = true;
+        }
     }  // namespace
 
     RegisterInfo GetRegisterInfo(const char* reg)
@@ -82,5 +108,10 @@ namespace inasm64
             }
         }
         return kInvalidRegister;
+    }
+    bool IsSSESupported()
+    {
+        check_system();
+        return _supports_sse;
     }
 }  // namespace inasm64

@@ -33,4 +33,5 @@ namespace inasm64
     ///</summary>
     RegisterInfo GetRegisterInfo(const char* regName);
 
+	bool IsSSESupported();
 }  // namespace inasm64
