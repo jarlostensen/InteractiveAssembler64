@@ -10,6 +10,7 @@ namespace inasm64
     enum class Error
     {
         NoError,
+        UnsupportedInstructionFormat,
         EmptyInput,
         NoMoreCode,
         CodeBufferFull,

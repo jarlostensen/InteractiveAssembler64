@@ -146,14 +146,14 @@ namespace inasm64
                 ScanUntilWhitespaceOrComma,
                 ScanUntilRightBracket
             };
-
-            // basic parse step; split instruction into left- and right -parts delmeted by , (if any), convert to lowercase, tokenise
-            bool TokeniseAssemblyInstruction(const std::string& assembly, std::vector<char*>& left_tokens, std::vector<char*>& right_tokens, char* buffer)
+            // first pass tokeniser; split on whitespaces and statement parts separated by ','
+            bool Tokenise(const std::string& assembly, std::vector<char*>* part, size_t part_size, char* buffer)
             {
                 const auto input_len = assembly.length();
                 memcpy(buffer, assembly.c_str(), input_len + 1);
                 _strlwr_s(buffer, input_len + 1);
-                std::vector<char*>* tokens = &left_tokens;
+                auto nparts = 0;
+                auto tokens = &part[0];
 
                 auto mode = ParseMode::SkipWhitespace;
                 size_t rp = 0;
@@ -167,10 +167,16 @@ namespace inasm64
                         {
                             ++rp;
                         }
-                        // switch token list when we hit the , (if we do)
+                        // switch token list when we hit a , (if we do)
                         if(buffer[rp] == ',')
                         {
-                            tokens = &right_tokens;
+                            if(nparts < part_size)
+                                tokens = &part[++nparts];
+                            else
+                            {
+                                detail::SetError(Error::InvalidInstructionFormat);
+                                return false;
+                            }
                             ++rp;
                             //and don't switch mode here
                         }
@@ -193,8 +199,13 @@ namespace inasm64
                         {
                             tokens->push_back(buffer + ts);
                             if(buffer[rp] == ',')
-                                // switch to right side when we hit the ,
-                                tokens = &right_tokens;
+                                if(nparts < part_size)
+                                    tokens = &part[++nparts];
+                                else
+                                {
+                                    detail::SetError(Error::InvalidInstructionFormat);
+                                    return false;
+                                }
                             buffer[rp] = 0;
                             mode = ParseMode::SkipWhitespace;
                         }
@@ -212,7 +223,7 @@ namespace inasm64
                         break;
                     }
                 }
-                return buffer;
+                return !part[0].empty();
             }
 
             struct TokenisedOperand
@@ -433,31 +444,36 @@ namespace inasm64
             TokenisedOperand op2;
 
             memset(&statement, 0, sizeof(statement));
-            std::vector<char*> left_tokens;
-            std::vector<char*> right_tokens;
-            if(TokeniseAssemblyInstruction(assembly, left_tokens, right_tokens, statement._input_tokens) && !left_tokens.empty())
+            std::vector<char*> part[3];
+            if(Tokenise(assembly, part, 3, statement._input_tokens))
             {
+                if(!part[2].empty())
+                {
+                    //ZZZ: not supported yet
+                    detail::SetError(Error::UnsupportedInstructionFormat);
+                    return false;
+                }
                 result = true;
 
                 // check for prefixes
                 size_t tl = 0;
-                if(strncmp(left_tokens[tl], "rep", 3) == 0)
+                if(strncmp(part[0][tl], "rep", 3) == 0)
                 {
                     statement._rep = true;
                     ++tl;
                 }
-                else if(strncmp(left_tokens[tl], "repne", 5) == 0)
+                else if(strncmp(part[0][tl], "repne", 5) == 0)
                 {
                     statement._repne = true;
                     ++tl;
                 }
-                else if(strncmp(left_tokens[tl], "lock", 4) == 0)
+                else if(strncmp(part[0][tl], "lock", 4) == 0)
                 {
                     statement._lock = true;
                     ++tl;
                 }
 
-                if(tl < left_tokens.size())
+                if(tl < part[0].size())
                 {
                     const auto check_operand_bit_size_prefix = [&tl](const std::vector<char*>& tokens) -> char {
                         if((tl + 1) < tokens.size())
@@ -488,26 +504,26 @@ namespace inasm64
                     };
 
                     // instruction
-                    statement._instruction = left_tokens[tl++];
-                    if(tl < left_tokens.size())
+                    statement._instruction = part[0][tl++];
+                    if(tl < part[0].size())
                     {
                         // assume error
                         result = false;
                         detail::SetError(Error::InvalidInstructionFormat);
 
                         // op1
-                        statement._op1_width_bits = check_operand_bit_size_prefix(left_tokens);
-                        if(TokeniseOperand(left_tokens[tl], op1))
+                        statement._op1_width_bits = check_operand_bit_size_prefix(part[0]);
+                        if(TokeniseOperand(part[0][tl], op1))
                         {
                             result = (op1._base[0] || op1._reg_imm[0] || op1._displacement[0]);
 
-                            if(result && !right_tokens.empty())
+                            if(result && !part[1].empty())
                             {
                                 tl = 0;
-                                statement._op2_width_bits = check_operand_bit_size_prefix(right_tokens);
-                                result = TokeniseOperand(right_tokens[tl], op2);
+                                statement._op2_width_bits = check_operand_bit_size_prefix(part[1]);
+                                result = TokeniseOperand(part[1][tl], op2);
                                 // sanity check; if for example the input has whitespace between the segment register and the :, the segment register would be misread as base.
-                                result = result && (op2._base[0] || op1._displacement[0] || (op2._reg_imm[0] && right_tokens.size() == 1));
+                                result = result && (op2._base[0] || op1._displacement[0] || (op2._reg_imm[0] && part[1].size() == 1));
                                 statement._op12 = true;
                             }
 
@@ -574,7 +590,7 @@ namespace inasm64
                             }
                         }
                     }
-                    else if(!right_tokens.empty())
+                    else if(!part[1].empty())
                     {
                         result = false;
                         // "instr , something" is wrong, obviously

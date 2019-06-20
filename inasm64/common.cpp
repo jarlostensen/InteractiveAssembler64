@@ -51,6 +51,8 @@ namespace inasm64
             return "Operand sizes mismatch";
         case Error::EmptyInput:
             return "Invalid, empty, input";
+        case Error::UnsupportedInstructionFormat:
+            return "Unsupported instruction format; not implemented yet!";
         case Error::EncodeError:
             return "General encoder error";
         default:
