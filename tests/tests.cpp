@@ -40,6 +40,8 @@ int main()
     assembler::Initialise();
     assembler::AssembledInstructionInfo info;
 
+    test_assemble("divpd xmm0,[0x11223344]");
+    test_assemble("xor rcx,0x34");
     test_assemble("shl ebx,2");
     test_assemble("sbb rbx,32");
     test_assemble("mov eax,42");

@@ -523,7 +523,7 @@ namespace inasm64
                                 statement._op2_width_bits = check_operand_bit_size_prefix(part[1]);
                                 result = TokeniseOperand(part[1][tl], op2);
                                 // sanity check; if for example the input has whitespace between the segment register and the :, the segment register would be misread as base.
-                                result = result && (op2._base[0] || op1._displacement[0] || (op2._reg_imm[0] && part[1].size() == 1));
+                                result = result && (op2._base[0] || op2._displacement[0] || (op2._reg_imm[0] && part[1].size() == 1));
                                 statement._op12 = true;
                             }
 
