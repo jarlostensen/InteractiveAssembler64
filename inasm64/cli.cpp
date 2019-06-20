@@ -50,7 +50,7 @@ namespace inasm64
         std::string Help()
         {
             static const std::string _help =
-                "h\t\tshowh help\na\t\tstart assembling instructions, empty input ends\np\t\tsingle step one instruction\n"
+                "h\t\tshowh help\na\t\tstart assembling instructions, empty input ends\np [addr]\t\tsingle step one instruction\n"
                 "r <reg> [value]\tread or set register value\n"
                 "q\t\tquit";
             return _help;
@@ -170,17 +170,17 @@ namespace inasm64
                     {
                         if(tokens.size() > 1)
                         {
-                            const long long value = ::strtoll(tokens[1].c_str(), nullptr, 16);
-                            if(value != LLONG_MAX && value != LLONG_MIN)
+                            long long value;
+                            if(detail::str_to_ll(tokens[1].c_str(),value))
                             {
                                 if(runtime::SetNextInstruction(reinterpret_cast<const void*>(value)))
                                 {
                                     result = runtime::Step() ? Command::Step : Command::Invalid;
-								}
+                                }
                             }
                         }
                         else
-							result = runtime::Step() ? Command::Step : Command::Invalid;
+                            result = runtime::Step() ? Command::Step : Command::Invalid;
                     }
                     break;
                     case 'h':

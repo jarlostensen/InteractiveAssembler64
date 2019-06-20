@@ -12,6 +12,34 @@ namespace inasm64
             _error = error;
         }
 
+        bool str_to_ll(const char* str, long long& value_)
+        {
+            const auto base = (detail::starts_with_hex_number(str) ? 16 : 0);
+            const long long value = ::strtoll(str, nullptr, base);
+            if(value != LLONG_MAX && value != LLONG_MIN)
+            {
+                value_ = value;
+                return true;
+            }
+            return false;
+        }
+
+        bool starts_with_hex_number(const char* at)
+        {
+            if(at[0] == '0' && at[1] == 'x')
+            {
+                at += 2;
+                return isdigit(at[0]) || (at[0] >= 'a' && at[0] <= 'f');
+            }
+            do
+            {
+                if(!isdigit(at[0]) && (at[0] < 'a' || at[0] > 'f'))
+                    return false;
+                ++at;
+            } while(at[0] && at[0] != 'h');
+            return true;
+        }
+
     }  // namespace detail
 
     Error GetError()

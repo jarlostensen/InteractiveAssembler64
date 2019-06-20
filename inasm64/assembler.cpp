@@ -20,23 +20,7 @@ namespace inasm64
 
         namespace
         {
-            // either 0x followed by at least one hex digit, or hex digits followed by a 'h'
-            bool starts_with_hex_number(const char* at)
-            {
-                if(at[0] == '0' && at[1] == 'x')
-                {
-                    at += 2;
-                    return isdigit(at[0]) || (at[0] >= 'a' && at[0] <= 'f');
-                }
-                do
-                {
-                    if(!isdigit(at[0]) && (at[0] < 'a' || at[0] > 'f'))
-                        return false;
-                    ++at;
-                } while(at[0] && at[0] != 'h');
-                return true;
-            }
-
+            
 #ifdef _DEBUG
             void printstatement(const Statement& statement)
             {
@@ -320,7 +304,7 @@ namespace inasm64
                             skip_until_non_alphanum();
 
                             // check first if this is a pure displacement, i.e. something like [0xabcdef]
-                            if(starts_with_hex_number(operand + rp0))
+                            if(detail::starts_with_hex_number(operand + rp0))
                             {
                                 // special case, we'll just take this value as our displacement and exit
                                 memcpy_s(op._displacement, sizeof(op._displacement), operand + rp0, rp - rp0);
@@ -341,7 +325,7 @@ namespace inasm64
                                     return false;
                                 }
 
-                                if(!starts_with_hex_number(operand + rp))
+                                if(!detail::starts_with_hex_number(operand + rp))
                                 {
                                     // probably an index register
                                     rp0 = rp;
@@ -392,7 +376,7 @@ namespace inasm64
                                     }
                                 }
                                 //NOTE: potentially doing this twice for pure displacements, but that's a sacrifice we can make
-                                if(starts_with_hex_number(operand + rp))
+                                if(detail::starts_with_hex_number(operand + rp))
                                 {
                                     // offset, rest of operand
                                     //BUT first...scan backwards to see if it is signed

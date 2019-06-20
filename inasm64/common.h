@@ -33,6 +33,11 @@ namespace inasm64
     namespace detail
     {
         void SetError(Error error);
+		// converts valid 0x or h representations, as well as whatever stroll supports
+		// does not modify value if str is not a valid number
+        bool str_to_ll(const char* str, long long& value);
+        // either 0x followed by at least one hex digit, or hex digits followed by a 'h'
+        bool starts_with_hex_number(const char* str);
     }
 
 }  // namespace inasm64
