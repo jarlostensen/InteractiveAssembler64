@@ -33,5 +33,18 @@ namespace inasm64
     ///</summary>
     RegisterInfo GetRegisterInfo(const char* regName);
 
-	bool IsSSESupported();
+    enum class SseLevel
+    {
+        kSse = 0,
+        kSse2,
+        kSse3,
+        kSsse3,
+        kSse4_1,
+        kSse4_2,
+        kSse4a,
+        kSse5,
+    };
+
+    bool SseLevelSupported(SseLevel level);
+    bool AvxSupported();
 }  // namespace inasm64

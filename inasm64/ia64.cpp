@@ -6,7 +6,7 @@
 
 namespace inasm64
 {
-    namespace
+    namespace detail
     {
         const char* kGpr8[] = {
             "al", "ah", "bl", "bh", "cl", "ch", "dl", "dh", "sil", "dil", "spl", "bpl", "r8b", "r9b", "r10b", "r11b", "r12b", "r13b", "r14b", "r15b"
@@ -21,8 +21,24 @@ namespace inasm64
             "rax", "rbx", "rcx", "rdx", "rsi", "rdi", "rsp", "rbp", "r8", "r9", "r10", "r11", "r12", "r13", "r14", "r15"
         };
 
-        bool _system_checked = false;
-        bool _supports_sse = false;
+        // all of this checking is based on https://gist.github.com/hi2p-perim/7855506
+
+        struct sys_flags_t
+        {
+            bool _checked : 1;
+            bool _sse : 1;
+            bool _sse2 : 1;
+            bool _sse3 : 1;
+            bool _ssse3 : 1;
+            bool _sse4_1 : 1;
+            bool _sse4_2 : 1;
+            bool _sse4a : 1;
+            bool _sse5 : 1;
+            bool _avx : 1;
+
+            // https://software.intel.com/en-us/blogs/2011/04/14/is-avx-enabled/
+            bool _os_xsave_xstor : 1;
+        } _sys_flags = { 0 };
 
         void cpuid(int eax, int ecx, int* regs)
         {
@@ -31,21 +47,43 @@ namespace inasm64
 
         void check_system()
         {
-            if(_system_checked)
+            if(_sys_flags._checked)
                 return;
 
             int regs[4] = { 0 };
-            cpuid(0, 1, regs);
-            // need to check this to know we can use xgetbv at all
-            if(regs[0] & 2)
+            cpuid(1, 0, regs);
+
+            _sys_flags._sse = (regs[3] & (1 << 25)) != 0;
+            _sys_flags._sse2 = (regs[3] & (1 << 26)) != 0;
+            _sys_flags._sse3 = (regs[2] & 1) != 0;
+            _sys_flags._ssse3 = (regs[2] & (1 << 9)) != 0;
+            _sys_flags._sse4_1 = (regs[2] & (1 << 19)) != 0;
+            _sys_flags._sse4_2 = (regs[2] & (1 << 20)) != 0;
+            _sys_flags._avx = (regs[2] & (1 << 28)) != 0;
+            _sys_flags._os_xsave_xstor = (regs[2] & (1 << 27)) != 0;
+
+            if(_sys_flags._os_xsave_xstor && _sys_flags._avx)
             {
                 // check xcr0 register for xmm and/or ymm enabled
                 const auto xcr0 = uint32_t(_xgetbv(0));
-                _supports_sse = (xcr0 & 6) == 6;
+                // if the OS doesn't support XSAVE/XSTOR we need to disable this
+                _sys_flags._avx = (xcr0 & 6) == 6;
             }
-            _system_checked = true;
+
+            // check for SSE4a and SSE5
+            cpuid(0x80000000,0, regs);
+            const auto num_extended_ids = regs[0];
+            if(num_extended_ids >= 0x80000001)
+            {
+                cpuid(0x80000001,0, regs);
+                _sys_flags._sse4a = (regs[2] & (1 << 6)) != 0;
+                _sys_flags._sse5 = (regs[2] & (1 << 11)) != 0;
+            }
+
+            _sys_flags._checked = true;
         }
-    }  // namespace
+    } 
+	using namespace detail;
 
     RegisterInfo GetRegisterInfo(const char* reg)
     {
@@ -109,9 +147,35 @@ namespace inasm64
         }
         return kInvalidRegister;
     }
-    bool IsSSESupported()
+
+    bool SseLevelSupported(SseLevel level)
     {
         check_system();
-        return _supports_sse;
+        switch(level)
+        {
+        case SseLevel::kSse:
+            return _sys_flags._sse;
+        case SseLevel::kSse2:
+            return _sys_flags._sse2;
+        case SseLevel::kSse3:
+            return _sys_flags._sse3;
+        case SseLevel::kSsse3:
+            return _sys_flags._ssse3;
+        case SseLevel::kSse4_1:
+            return _sys_flags._sse4_1;
+        case SseLevel::kSse4_2:
+            return _sys_flags._sse4_2;
+        case SseLevel::kSse4a:
+            return _sys_flags._sse4a;
+        case SseLevel::kSse5:
+            return _sys_flags._sse5;
+		}
+        return false;
+    }
+
+    bool AvxSupported()
+    {
+        check_system();
+        return _sys_flags._avx;
     }
 }  // namespace inasm64

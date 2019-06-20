@@ -11,6 +11,7 @@
 #include "common.h"
 #include "runtime.h"
 #include "assembler.h"
+#include "globvars.h"
 #include "cli.h"
 
 namespace inasm64
@@ -68,11 +69,6 @@ namespace inasm64
         Command Execute(std::string& commandLine_)
         {
             auto commandLine = commandLine_;
-            //NOTE: this is the only way to do this compiler-correctly for char strings, since toupper operates on ints...
-            std::transform(commandLine.begin(), commandLine.end(), commandLine.begin(), [](char c) -> char {
-                return char(::toupper(c));
-            });
-
             Command result = Command::Invalid;
 
             static std::string _whitespace = " \t";
@@ -126,10 +122,10 @@ namespace inasm64
                 {
                     const auto tokens = split(commandLine, ' ');
                     //TODO: make this more resilient (and bark on invalid commands, like "raaaa"...)
-                    const auto cmd = char(tokens[0][0]);
+                    const auto cmd = char(::tolower(tokens[0][0]));
                     switch(cmd)
                     {
-                    case 'R':
+                    case 'r':
                     {
                         if(tokens.size() == 1)
                         {
@@ -162,18 +158,18 @@ namespace inasm64
                         }
                     }
                     break;
-                    case 'A':
+                    case 'a':
                         _mode = Mode::Assembling;
                         result = Command::Assemble;
                         break;
-                    case 'Q':
+                    case 'q':
                         runtime::Shutdown();
                         result = Command::Quit;
                         break;
-                    case 'P':
+                    case 'p':
                         result = runtime::Step() ? Command::Step : Command::Invalid;
                         break;
-                    case 'H':
+                    case 'h':
                         result = Command::Help;
                         break;
                     default:

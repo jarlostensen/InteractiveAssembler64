@@ -134,9 +134,50 @@ int main(int argc, char* argv[])
 
     std::cout << "inasm64: The IA 64 Interactive Assembler\n\n";
 
-    if(inasm64::IsSSESupported())
-        std::cout << "SSE supported\n";
-
+    auto sse_supported = false;
+    if(inasm64::SseLevelSupported(inasm64::SseLevel::kSse))
+    {
+        std::cout << "SSE ";
+        sse_supported = true;
+    }
+    if(inasm64::SseLevelSupported(inasm64::SseLevel::kSse2))
+    {
+        std::cout << "SSE2 ";
+        sse_supported = true;
+    }
+    if(inasm64::SseLevelSupported(inasm64::SseLevel::kSse3))
+    {
+        std::cout << "SSE3 ";
+        sse_supported = true;
+    }
+    if(inasm64::SseLevelSupported(inasm64::SseLevel::kSsse3))
+    {
+        std::cout << "SSSE3 ";
+        sse_supported = true;
+    }
+    if(inasm64::SseLevelSupported(inasm64::SseLevel::kSse4_1))
+    {
+        std::cout << "SSE4_1 ";
+        sse_supported = true;
+    }
+    if(inasm64::SseLevelSupported(inasm64::SseLevel::kSse4_2))
+    {
+        std::cout << "SSE4_2 ";
+        sse_supported = true;
+    }
+    if(inasm64::SseLevelSupported(inasm64::SseLevel::kSse4a))
+    {
+        std::cout << "SSE4a ";
+        sse_supported = true;
+    }
+    if(inasm64::SseLevelSupported(inasm64::SseLevel::kSse5))
+    {
+        std::cout << "SSE5 ";
+        sse_supported = true;
+    }
+    if(sse_supported)
+        std::cout << "supported\n";
+    
     DWORD64 featureFlags = GetEnabledXStateFeatures();
     if(featureFlags & (XSTATE_MASK_AVX512 | XSTATE_MASK_AVX))
     {

@@ -115,6 +115,7 @@
       <ForcedIncludeFiles>stdafx.h</ForcedIncludeFiles>
       <TreatWarningAsError>true</TreatWarningAsError>
       <LanguageStandard>stdcpp17</LanguageStandard>
+      <ExceptionHandling>Async</ExceptionHandling>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -153,6 +154,7 @@
       <ForcedIncludeFiles>stdafx.h</ForcedIncludeFiles>
       <TreatWarningAsError>true</TreatWarningAsError>
       <LanguageStandard>stdcpp17</LanguageStandard>
+      <ExceptionHandling>Async</ExceptionHandling>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -166,6 +168,7 @@
     <ClCompile Include="inasm64\assembler.cpp" />
     <ClCompile Include="inasm64\cli.cpp" />
     <ClCompile Include="inasm64\common.cpp" />
+    <ClCompile Include="inasm64\globvars.cpp" />
     <ClCompile Include="inasm64\ia64.cpp" />
     <ClCompile Include="inasm64\runtime.cpp" />
     <ClCompile Include="inasm64\xed_assembler_driver.cpp" />
@@ -181,6 +184,7 @@
     <ClInclude Include="inasm64\assembler_driver.h" />
     <ClInclude Include="inasm64\cli.h" />
     <ClInclude Include="inasm64\common.h" />
+    <ClInclude Include="inasm64\globvars.h" />
     <ClInclude Include="inasm64\ia64.h" />
     <ClInclude Include="inasm64\runtime.h" />
     <ClInclude Include="inasm64\xed_assembler_driver.h" />
