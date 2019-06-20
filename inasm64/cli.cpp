@@ -167,8 +167,22 @@ namespace inasm64
                         result = Command::Quit;
                         break;
                     case 'p':
-                        result = runtime::Step() ? Command::Step : Command::Invalid;
-                        break;
+                    {
+                        if(tokens.size() > 1)
+                        {
+                            const long long value = ::strtoll(tokens[1].c_str(), nullptr, 16);
+                            if(value != LLONG_MAX && value != LLONG_MIN)
+                            {
+                                if(runtime::SetNextInstruction(reinterpret_cast<const void*>(value)))
+                                {
+                                    result = runtime::Step() ? Command::Step : Command::Invalid;
+								}
+                            }
+                        }
+                        else
+							result = runtime::Step() ? Command::Step : Command::Invalid;
+                    }
+                    break;
                     case 'h':
                         result = Command::Help;
                         break;
