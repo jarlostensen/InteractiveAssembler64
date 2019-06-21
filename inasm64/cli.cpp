@@ -89,7 +89,8 @@ namespace inasm64
 
             auto result = Command::Invalid;
 
-            const auto cmdLineBuffer = reinterpret_cast<char*>(_malloca(commandLineLength + 1));
+            //NOTE: since we may expand variables into big numbers we need to give ourselves enough headroom
+            const auto cmdLineBuffer = reinterpret_cast<char*>(_malloca(512));
             size_t nv = 0;
             size_t wp = 0;
             const auto cmdLinePtr = commandLine_;
@@ -100,6 +101,8 @@ namespace inasm64
                 cmdLineBuffer[wp++] = cmdLinePtr[nv++];
             }
             auto is_empty = !wp;
+
+            globvars::Set("foo", 0x1122334455667788);
 
             // replace meta variables $<name>
             while(cmdLinePtr[nv])
@@ -128,11 +131,12 @@ namespace inasm64
                         if(globvars::Get(strbuff, val))
                         {
                             char numbuff[64] = { '0', 'x' };
-                            //TODO: sort out long long support...
-                            _ltoa_s(long(val), numbuff + 2, sizeof(numbuff) - 2, 16);
-                            const auto numlen = strlen(numbuff);
-                            memcpy(cmdLineBuffer + wp, numbuff, numlen);
-                            wp += numlen;
+                            const auto conv_count = sprintf_s(numbuff + 2, sizeof(numbuff) - 2, "%llx", val);
+                            if(conv_count)
+                            {
+                                memcpy(cmdLineBuffer + wp, numbuff, conv_count);
+                                wp += conv_count;
+                            }
                         }
                         else
                         {
