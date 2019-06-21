@@ -30,20 +30,32 @@ namespace inasm64
 
         namespace
         {
-            //TODO: helper, could be elsewhere
-            std::vector<std::string> split(const std::string& s, char delimiter)
+            //TODO: helper, could be elsewhere?
+            std::vector<const char*> split_by_space(char* s)
             {
-                std::vector<std::string> tokens;
-                std::string token;
-                std::istringstream tokenStream(s);
-                while(std::getline(tokenStream, token, delimiter))
+                std::vector<const char*> tokens;
+                auto rp = s;
+                auto rp0 = rp;
+                while(rp[0])
                 {
-                    tokens.push_back(token);
+                    rp0 = rp;
+                    while(rp[0] && rp[0] == ' ')
+                        ++rp;
+                    if(rp[0])
+                    {
+                        rp0 = rp;
+                        while(rp[0] && rp[0] != ' ')
+                            ++rp;
+                        if(rp[0])
+                        {
+                            ++rp;
+                            rp[-1] = 0;
+                        }
+                        tokens.push_back(rp0);
+                    }
                 }
                 return tokens;
             }
-
-            //TODO: perhaps this should just be a part of runtime?
 
         }  // namespace
 
@@ -66,18 +78,76 @@ namespace inasm64
             return _mode;
         }
 
-        Command Execute(std::string& commandLine_)
+        Command Execute(const char* commandLine_)
         {
-            auto commandLine = commandLine_;
-            Command result = Command::Invalid;
+            const auto commandLineLength = strlen(commandLine_);
+            if(commandLineLength > kMaxCommandLineLength)
+            {
+                detail::SetError(Error::CliInputLengthExceeded);
+                return Command::Invalid;
+            }
 
-            static std::string _whitespace = " \t";
-            const auto n = commandLine.find_first_not_of(_whitespace);
+            auto result = Command::Invalid;
+
+            const auto cmdLineBuffer = reinterpret_cast<char*>(_malloca(commandLineLength + 1));
+            size_t nv = 0;
+            size_t wp = 0;
+            const auto cmdLinePtr = commandLine_;
+
+            // skip past leading whitespace
+            while(cmdLinePtr[nv] && (cmdLinePtr[nv] != ' ' && cmdLinePtr[nv] != '\t'))
+            {
+                cmdLineBuffer[wp++] = cmdLinePtr[nv++];
+            }
+            auto is_empty = !wp;
+
+            // replace meta variables $<name>
+            while(cmdLinePtr[nv])
+            {
+                while(cmdLinePtr[nv] && cmdLinePtr[nv] != '$')
+                {
+                    cmdLineBuffer[wp++] = cmdLinePtr[nv++];
+                }
+                if(cmdLinePtr[nv])
+                {
+                    auto nv1 = nv + 1;
+                    while(cmdLinePtr[nv] && (cmdLinePtr[nv] != ' ' && cmdLinePtr[nv] != '\t'))
+                        ++nv;
+                    size_t wl = 0;
+                    if(cmdLinePtr[nv])
+                        wl = nv - nv1;
+                    else
+                        wl = commandLineLength - nv1;
+
+                    if(wl)
+                    {
+                        char strbuff[globvars::kMaxVarLength + 1];
+                        memcpy(strbuff, cmdLinePtr + nv1, wl);
+                        strbuff[wl] = 0;
+                        uintptr_t val = 0;
+                        if(globvars::Get(strbuff, val))
+                        {
+                            char numbuff[64] = { '0', 'x' };
+                            //TODO: sort out long long support...
+                            _ltoa_s(long(val), numbuff + 2, sizeof(numbuff) - 2, 16);
+                            const auto numlen = strlen(numbuff);
+                            memcpy(cmdLineBuffer + wp, numbuff, numlen);
+                            wp += numlen;
+                        }
+                        else
+                        {
+                            detail::SetError(Error::UndefinedVariable);
+                            return Command::Invalid;
+                        }
+                    }
+                }
+            }
+            cmdLineBuffer[wp] = 0;
 
             // if we're in assembly mode we treat every non-empty input as an assembly instruction
             if(_mode == Mode::Assembling)
             {
-                if(n == std::string::npos)
+                if(is_empty)
                 {
                     if(_code_buffer_pos)
                     {
@@ -91,7 +161,7 @@ namespace inasm64
                 else
                 {
                     std::pair<uintptr_t, assembler::AssembledInstructionInfo> asm_info;
-                    if(!assembler::Assemble(commandLine, asm_info.second))
+                    if(!assembler::Assemble(cmdLineBuffer, asm_info.second))
                     {
                         //TODO: proper error handling and error reporting
                         _mode = Mode::Processing;
@@ -112,7 +182,7 @@ namespace inasm64
             }
             else
             {
-                if(n == std::string::npos)
+                if(is_empty)
                 {
                     //TODO: proper error handling
                     _mode = Mode::Processing;
@@ -120,7 +190,7 @@ namespace inasm64
                 }
                 else
                 {
-                    const auto tokens = split(commandLine, ' ');
+                    const auto tokens = split_by_space(cmdLineBuffer);
                     //TODO: make this more resilient (and bark on invalid commands, like "raaaa"...)
                     const auto cmd = char(::tolower(tokens[0][0]));
                     switch(cmd)
@@ -129,7 +199,7 @@ namespace inasm64
                     {
                         if(tokens.size() == 1)
                         {
-                            if(tokens[0].length() > 1)
+                            if(strlen(tokens[0]) > 1)
                             {
                                 if(tokens[0][1] == 'F')
                                 {
@@ -153,8 +223,8 @@ namespace inasm64
                         else
                         {
                             //ZZZ: assumes hex input
-                            const int64_t value = ::strtoll(tokens[2].c_str(), nullptr, 16);
-                            result = runtime::SetReg(tokens[1].c_str(), value) ? Command::SetReg : Command::Invalid;
+                            const int64_t value = ::strtoll(tokens[2], nullptr, 16);
+                            result = runtime::SetReg(tokens[1], value) ? Command::SetReg : Command::Invalid;
                         }
                     }
                     break;
@@ -171,7 +241,7 @@ namespace inasm64
                         if(tokens.size() > 1)
                         {
                             long long value;
-                            if(detail::str_to_ll(tokens[1].c_str(),value))
+                            if(detail::str_to_ll(tokens[1], value))
                             {
                                 if(runtime::SetNextInstruction(reinterpret_cast<const void*>(value)))
                                 {
@@ -191,6 +261,7 @@ namespace inasm64
                     }
                 }
             }
+            _freea(cmdLineBuffer);
             return result;
         }
     }  // namespace cli

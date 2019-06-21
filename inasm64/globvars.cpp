@@ -44,14 +44,14 @@ namespace inasm64
             return iter != detail::_glob_map.end();
         }
 
-        bool Get(const char* name, uintptr_t value)
+        bool Get(const char* name, uintptr_t& value)
         {
             const auto iter = detail::_glob_map.find(name);
             if(iter != detail::_glob_map.end())
             {
                 value = iter->second;
                 return true;
-			}
+            }
             return false;
         }
     }  // namespace globvars

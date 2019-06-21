@@ -177,7 +177,7 @@ int main(int argc, char* argv[])
     }
     if(sse_supported)
         std::cout << "supported\n";
-    
+
     DWORD64 featureFlags = GetEnabledXStateFeatures();
     if(featureFlags & (XSTATE_MASK_AVX512 | XSTATE_MASK_AVX))
     {
@@ -206,7 +206,7 @@ int main(int argc, char* argv[])
                 std::cout << "> ";
             std::getline(std::cin, input);
 
-            cmd = cli::Execute(input);
+            cmd = cli::Execute(input.c_str());
             switch(cmd)
             {
             case cli::Command::Step:

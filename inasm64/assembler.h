@@ -23,6 +23,6 @@ namespace inasm64
         ///<summary>
         /// assemble a given, single line, input statement into IA 64 instruction bytes
         ///</summary>
-        bool Assemble(const std::string& assembly, AssembledInstructionInfo& asm_info);
+        bool Assemble(const char* assembly, AssembledInstructionInfo& asm_info);
     }  // namespace assembler
 }  // namespace inasm64

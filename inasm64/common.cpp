@@ -53,6 +53,10 @@ namespace inasm64
         {
         case Error::NoError:
             return "no error";
+        case Error::CliInputLengthExceeded:
+            return "Max CLI input length exceeded";
+        case Error::UndefinedVariable:
+            return "Undefined variable";
         case Error::SystemError:
             return "general system error";
         case Error::CodeBufferFull:

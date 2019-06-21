@@ -2,6 +2,8 @@
 
 namespace inasm64
 {
+    constexpr size_t kMaxCommandLineLength = 256;
+
     ///<summary>
     /// parsing and execution of inasm64 commands and management of the assembler and runtime.
     ///</summary>
@@ -37,7 +39,7 @@ namespace inasm64
         ///<summary>
         /// execute a command line (if valid).
         ///</summary>
-        Command Execute(std::string& commandLine);
+        Command Execute(const char* commandLine);
         ///<summary>
         /// if currently in Assemble mode; returns information about the last instruction assembled.
         ///</summary>

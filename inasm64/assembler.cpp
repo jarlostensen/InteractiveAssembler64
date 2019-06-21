@@ -20,7 +20,6 @@ namespace inasm64
 
         namespace
         {
-            
 #ifdef _DEBUG
             void printstatement(const Statement& statement)
             {
@@ -131,10 +130,10 @@ namespace inasm64
                 ScanUntilRightBracket
             };
             // first pass tokeniser; split on whitespaces and statement parts separated by ','
-            bool Tokenise(const std::string& assembly, std::vector<char*>* part, size_t part_size, char* buffer)
+            bool Tokenise(const char* assembly, std::vector<char*>* part, size_t part_size, char* buffer)
             {
-                const auto input_len = assembly.length();
-                memcpy(buffer, assembly.c_str(), input_len + 1);
+                const auto input_len = strlen(assembly);
+                memcpy(buffer, assembly, input_len + 1);
                 _strlwr_s(buffer, input_len + 1);
                 auto nparts = 0;
                 auto tokens = &part[0];
@@ -419,7 +418,7 @@ namespace inasm64
             return _xed_assembler_driver.Initialise();
         }
 
-        bool Assemble(const std::string& assembly, AssembledInstructionInfo& info)
+        bool Assemble(const char* assembly, AssembledInstructionInfo& info)
         {
             auto result = false;
 
