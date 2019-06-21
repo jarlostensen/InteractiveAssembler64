@@ -102,8 +102,6 @@ namespace inasm64
             }
             auto is_empty = !wp;
 
-            globvars::Set("foo", 0x1122334455667788);
-
             // replace meta variables $<name>
             while(cmdLinePtr[nv])
             {
@@ -188,14 +186,16 @@ namespace inasm64
             {
                 if(is_empty)
                 {
-                    //TODO: proper error handling
+                    // just ignore empty lines
                     _mode = Mode::Processing;
                     result = Command::Invalid;
                 }
                 else
                 {
                     const auto tokens = split_by_space(cmdLineBuffer);
-                    //TODO: make this more resilient (and bark on invalid commands, like "raaaa"...)
+
+                    //TODO: more consistent command handling, types of commands, sizes etc.
+
                     const auto cmd = char(::tolower(tokens[0][0]));
                     switch(cmd)
                     {
