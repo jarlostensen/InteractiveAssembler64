@@ -26,6 +26,8 @@ namespace inasm64
         InvalidInstructionName,
         OperandSizesMismatch,
         EncodeError,
+        MemoryReadSizeMismatch,
+        MemoryWriteSizeMismatch,
         SystemError,
     };
 

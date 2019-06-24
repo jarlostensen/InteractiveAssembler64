@@ -85,6 +85,10 @@ namespace inasm64
             return "Invalid, empty, input";
         case Error::UnsupportedInstructionFormat:
             return "Unsupported instruction format; not implemented yet!";
+        case Error::MemoryWriteSizeMismatch:
+            return "Attempting to overwrite memory";
+        case Error::MemoryReadSizeMismatch:
+            return "Attempting to read more memory than available";
         case Error::EncodeError:
             return "General encoder error";
         default:

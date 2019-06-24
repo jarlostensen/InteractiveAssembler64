@@ -2,6 +2,7 @@
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
 #include <debugapi.h>
+#include <unordered_map>
 
 #include <memory>
 #include "common.h"
@@ -27,6 +28,8 @@ namespace inasm64
         PROCESS_INFORMATION _processinfo = { 0 };
         // process handle with virtual memory access privileges
         HANDLE _process_vm = nullptr;
+        // track allocations in process memory
+        std::unordered_map<uintptr_t, size_t> _allocations;
 
         struct
         {
@@ -361,6 +364,58 @@ namespace inasm64
 
             detail::SetError(Error::SystemError);
             return false;
+        }
+
+        const void* AllocateMemory(size_t size)
+        {
+            const auto handle = VirtualAllocEx(_process_vm, nullptr, SIZE_T(size), MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
+            if(handle)
+            {
+                _allocations[uintptr_t(handle)] = size;
+                return handle;
+            }
+            detail::SetError(Error::SystemError);
+            return nullptr;
+        }
+
+        bool WriteBytes(const void* handle, const void* src, size_t length)
+        {
+            const auto i = _allocations.find(uintptr_t(handle));
+            if(i != _allocations.end())
+            {
+                if(length <= i->second)
+                {
+					SIZE_T written;
+                    WriteProcessMemory(_process_vm, LPVOID(handle), src, length, &written);
+					return written == length;
+				}
+                detail::SetError(Error::MemoryWriteSizeMismatch);
+            }
+            return false;
+        }
+
+        bool ReadBytes(const void* handle, void* dest, size_t length)
+        {
+            const auto i = _allocations.find(uintptr_t(handle));
+            if(i != _allocations.end())
+            {
+                if(length <= i->second)
+                {
+                    SIZE_T read;
+                    ReadProcessMemory(_process_vm, LPVOID(handle), dest, length, &read);
+                    return read == length;
+                }
+                detail::SetError(Error::MemoryReadSizeMismatch);
+            }
+            return false;
+        }
+
+        size_t AllocationSize(const void* handle)
+        {
+            const auto i = _allocations.find(uintptr_t(handle));
+            if(i != _allocations.end())
+                return i->second;
+            return 0;
         }
 
         void SetReg(ByteReg reg, int8_t value)
