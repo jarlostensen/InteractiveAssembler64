@@ -10,6 +10,7 @@
 #include "inasm64/runtime.h"
 #include "inasm64/assembler.h"
 #include "inasm64/cli.h"
+#include "inasm64/globvars.h"
 
 std::ostream& coutreg(const char* reg)
 {

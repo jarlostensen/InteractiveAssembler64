@@ -89,8 +89,8 @@ namespace inasm64
 
             auto result = Command::Invalid;
 
-            //NOTE: since we may expand variables into big numbers we need to give ourselves enough headroom
-            const auto cmdLineBuffer = reinterpret_cast<char*>(_malloca(512));
+            //NOTE: upper bound on a fully expanded string of meta variables, each expanding to a 16 digit hex (16/2 for each meta var "$x")
+            const auto cmdLineBuffer = reinterpret_cast<char*>(_malloca(commandLineLength*8 + 2 + 1));
             size_t nv = 0;
             size_t wp = 0;
             const auto cmdLinePtr = commandLine_;

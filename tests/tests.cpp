@@ -27,7 +27,7 @@ void test_assemble(const std::string& statement)
     using namespace inasm64;
     assembler::Initialise();
     assembler::AssembledInstructionInfo info;
-    if(!assembler::Assemble(statement, info))
+    if(!assembler::Assemble(statement.c_str(), info))
         std::cerr << inasm64::ErrorMessage(inasm64::GetError()) << std::endl;
     else
         cinsout(info);
