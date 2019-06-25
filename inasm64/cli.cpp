@@ -23,6 +23,18 @@ namespace inasm64
 {
     namespace cli
     {
+        std::function<void(const char*, uintptr_t)> OnDataValueSet;
+        std::function<void(const char*, uint64_t)> OnSetGPRegisters;
+        std::function<void(const char*)> OnDisplayGPRegister;
+        std::function<void()> OnDisplayGPRegisters;
+        std::function<void()> OnDisplayXMMRegisters;
+        std::function<void()> OnDisplayYMMRegisters;
+        std::function<void()> OnStep;
+        std::function<void()> OnStartAssembling;
+        std::function<void()> OnAssembling;
+        std::function<void()> OnQuit;
+        std::function<void()> OnHelp;
+
         namespace
         {
             //TODO: determine if this should be dynamic, or if this is even the right approach. Need to get the proper assembler up and running first.
@@ -64,8 +76,8 @@ namespace inasm64
                 return tokens;
             }
 
-            using type_0_handler_t = std::function<void(const char* cmd, const char* params)>;
-            using type_1_handler_t = std::function<void(const char* param0, const char* cmd, const char* params)>;
+            using type_0_handler_t = std::function<void(const char* cmd, char* params)>;
+            using type_1_handler_t = std::function<void(const char* param0, const char* cmd, char* params)>;
 
             struct CommandInfo
             {
@@ -83,7 +95,8 @@ namespace inasm64
                     va_start(vsn, count);
                     for(int n = 0; n < count; ++n)
                     {
-                        total_size += strlen(va_arg(vsn, const char*)) + 1;
+                        const auto arg = va_arg(vsn, const char*);
+                        total_size += strlen(arg) + 1;
                     }
                     va_end(vsn);
                     _names = new char[total_size + 1];
@@ -131,32 +144,36 @@ namespace inasm64
             std::vector<Type0Command> _type_0_handlers;
             std::vector<Type1Command> _type_1_handlers;
 
-            //NOTE: expects that cmdLine is stripped of leading whitespace and terminated by double-0
-            // modifies cmdLine in-place
-            bool process_command(char* cmdLine)
+            //NOTE: expects that cmd1Line is stripped of leading whitespace and terminated by double-0
+            // modifies cmd1Line in-place
+            bool process_command(char* cmd1Line)
             {
-                auto rp = cmdLine;
+                auto rp = cmd1Line;
                 auto rp0 = rp;
                 // first token
                 while(rp[0] && rp[0] != ' ' && rp[0] != '\t')
                     ++rp;
                 rp[0] = 0;
                 auto handled = false;
+
                 for(auto& command : _type_0_handlers)
                 {
-                    auto cmd_name = command._names;
-                    while(cmd_name[0])
+                    auto cmd1_name = command._names;
+                    while(cmd1_name[0])
                     {
-                        if(strcmp(rp0, cmd_name) == 0)
+                        if(strcmp(rp0, cmd1_name) == 0)
                         {
-                            command._handler(cmd_name, rp + 1);
+                            ++rp;
+                            while(rp[0] && (rp[0] == ' ' || rp[0] == '\t'))
+                                ++rp;
+                            command._handler(cmd1_name, rp);
                             handled = true;
                             break;
                         }
                         // skip past next 0
-                        while(cmd_name[0])
-                            ++cmd_name;
-                        ++cmd_name;
+                        while(cmd1_name[0])
+                            ++cmd1_name;
+                        ++cmd1_name;
                     }
                     if(handled)
                         break;
@@ -173,19 +190,22 @@ namespace inasm64
                         rp[0] = 0;
                         for(auto& command : _type_1_handlers)
                         {
-                            auto cmd_name = command._names;
-                            while(cmd_name[0])
+                            auto cmd1_name = command._names;
+                            while(cmd1_name[0])
                             {
-                                if(strcmp(rp0, cmd_name) == 0)
+                                if(strcmp(rp0, cmd1_name) == 0)
                                 {
-                                    command._handler(cmdLine, cmd_name, rp + 1);
+                                    ++rp;
+                                    while(rp[0] && (rp[0] == ' ' || rp[0] == '\t'))
+                                        ++rp;
+                                    command._handler(cmd1Line, cmd1_name, rp);
                                     handled = true;
                                     break;
                                 }
                                 // skip past next 0
-                                while(cmd_name[0])
-                                    ++cmd_name;
-                                ++cmd_name;
+                                while(cmd1_name[0])
+                                    ++cmd1_name;
+                                ++cmd1_name;
                             }
                             if(handled)
                                 break;
@@ -194,22 +214,231 @@ namespace inasm64
                 }
                 return handled;
             }
+
+            enum class ValueType
+            {
+                kByte = 1,
+                kWord = 2,
+                kDWord = 4,
+                kQWord = 8,
+                kUnsupported
+            };
+
+            // 0x12,0x13,...
+            // "hello world",0
+            // 42,44,45,...
+            //
+            // assumes line has no leading whitespace and is 00-terminated
+            void parse_values(ValueType type, const char* line, std::vector<uint8_t>& bytes)
+            {
+                auto rp = line;
+                while(rp[0] || rp[1])
+                {
+                    if(rp[0] == '"')
+                    {
+                        // read string, always interpreted as 8 bit bytes
+                        ++rp;
+                        while((rp[0] || rp[1]) && rp[0] != '"')
+                        {
+                            bytes.push_back(*rp++);
+                        }
+                        if(rp[0] == '"')
+                            ++rp;
+                    }
+                    else
+                    {
+                        char* next;
+                        const auto value = strtoll(rp, &next, 0);
+                        if(value < LLONG_MAX && value > LLONG_MIN)
+                        {
+                            auto value_bytes = reinterpret_cast<const uint8_t*>(&value);
+                            for(unsigned n = 0; n < static_cast<unsigned>(type); ++n)
+                            {
+                                bytes.push_back(*value_bytes++);
+                            }
+                            rp = next;
+                        }
+
+                        while((rp[0] || rp[1]) && !isalpha(int(rp[0])) && !isdigit(int(rp[0])))
+                        {
+                            ++rp;
+                        }
+                    }
+                }
+            }
+
+            bool is_null_or_empty(const char* str)
+            {
+                if(!str)
+                    return true;
+                while(str[0] && (str[0] == ' ' || str[0] == '\t'))
+                    ++str;
+                return !str[0];
+            }
+
+            // command handlers
+            void data_value_handler(const char* argname, const char* cmd, const char* params)
+            {
+                std::vector<uint8_t> data;
+                ValueType type = ValueType::kUnsupported;
+                switch(cmd[1])
+                {
+                case 'b':
+                    type = ValueType::kByte;
+                    break;
+                case 'w':
+                    type = ValueType::kWord;
+                    break;
+                case 'd':
+                    type = ValueType::kDWord;
+                    break;
+                case 'q':
+                    type = ValueType::kQWord;
+                    break;
+                default:;
+                }
+                parse_values(type, params, data);
+                if(!data.empty())
+                {
+                    const auto handle = runtime::AllocateMemory(data.size());
+                    if(handle)
+                    {
+                        runtime::WriteBytes(handle, data.data(), data.size());
+                        //ZZZ: should probably "try", since otherwise any original data is leaked...
+                        globvars::Set(argname, uintptr_t(handle));
+                        if(OnDataValueSet)
+                            OnDataValueSet(argname, uintptr_t(handle));
+                    }
+                }
+                else
+                {
+                    detail::SetError(Error::InvalidCommandFormat);
+                }
+            }
+
+            void register_handler(const char* cmd, char* params)
+            {
+                switch(cmd[1])
+                {
+                case 'X':
+                    if(is_null_or_empty(params))
+                    {
+                        if(OnDisplayXMMRegisters)
+                            OnDisplayXMMRegisters();
+                    }
+                    //TODO: set
+                    break;
+                case 'Y':
+                    if(is_null_or_empty(params))
+                    {
+                        if(OnDisplayYMMRegisters)
+                            OnDisplayYMMRegisters();
+                    }
+                    //TODO: set
+                    break;
+                case 0:
+                    if(is_null_or_empty(params))
+                    {
+                        if(OnDisplayGPRegisters)
+                            OnDisplayGPRegisters();
+                    }
+                    else
+                    {
+                        auto rp = params;
+                        while(rp[0] && rp[0] != ' ' && rp[0] != '\t')
+                            ++rp;
+                        auto display_reg = true;
+                        if(rp[0])
+                        {
+                            *rp++ = 0;
+                            while(rp[0] && (rp[0] == ' ' || rp[0] == '\t'))
+                                ++rp;
+                            if(rp[0])
+                            {
+                                const auto value = ::strtoll(rp, nullptr, 0);
+                                _strupr_s(params, rp - params);
+                                if(runtime::SetReg(params, value))
+                                {
+                                    if(OnSetGPRegisters)
+                                        OnSetGPRegisters(params, value);
+                                    display_reg = false;
+                                }
+                            }
+                        }
+                        if(display_reg)
+                        {
+                            if(OnDisplayGPRegister)
+                                OnDisplayGPRegister(params);
+                        }
+                    }
+                default:;
+                }
+            }
+
+            void step_handler(const char*, char* params)
+            {
+                if(!is_null_or_empty(params))
+                {
+                    const auto value = strtoll(params, nullptr, 0);
+                    if(value < LLONG_MAX && value > LLONG_MIN)
+                    {
+                        if(runtime::SetNextInstruction(reinterpret_cast<const void*>(value)))
+                        {
+                            runtime::Step();
+                        }
+                    }
+                }
+                else
+                    runtime::Step();
+                if(OnStep)
+                    OnStep();
+            }
+
         }  // namespace
 
         bool Initialise()
         {
             if(!_initialised)
             {
-				//TESTING:
                 Type1Command cmd1;
                 cmd1.set_names(4, "db", "dw", "dd", "dq");
-                cmd1._handler = [](const char* param0, const char* cmd, const char* params) {
-                    std::cout << param0 << ", " << cmd << ", " << params << std::endl;
-                };
+                cmd1._handler = data_value_handler;
                 _type_1_handlers.emplace_back(std::move(cmd1));
 
+                Type0Command cmd0;
+                cmd0.set_names(3, "r", "rX", "rY");
+                cmd0._handler = register_handler;
+                _type_0_handlers.emplace_back(std::move(cmd0));
+
+                cmd0.set_names(2, "p", "P");
+                cmd0._handler = step_handler;
+                _type_0_handlers.emplace_back(std::move(cmd0));
+
+                cmd0.set_names(2, "a", "A");
+                cmd0._handler = [](const char*, char*) {
+                    _mode = Mode::Assembling;
+                    if(OnStartAssembling)
+                        OnStartAssembling();
+                };
+                _type_0_handlers.emplace_back(std::move(cmd0));
+
+                cmd0.set_names(2, "q", "Q");
+                cmd0._handler = [](const char*, char*) {
+                    runtime::Shutdown();
+                    if(OnQuit)
+                        OnQuit();
+                };
+                _type_0_handlers.emplace_back(std::move(cmd0));
+
+                cmd0.set_names(3, "h", "H", "?");
+                cmd0._handler = [](const char*, char*) {
+                    if(OnHelp)
+                        OnHelp();
+                };
+                _type_0_handlers.emplace_back(std::move(cmd0));
+
                 _initialised = true;
-            }            
+            }
             return _initialised;
         }
 
@@ -232,22 +461,22 @@ namespace inasm64
             return _mode;
         }
 
-        Command Execute(const char* commandLine_)
+        bool Execute(const char* commandLine_)
         {
             if(!_initialised)
             {
                 detail::SetError(Error::CliUninitialised);
-                return Command::Invalid;
-			}
+                return false;
+            }
 
             const auto commandLineLength = strlen(commandLine_);
             if(commandLineLength > kMaxCommandLineLength)
             {
                 detail::SetError(Error::CliInputLengthExceeded);
-                return Command::Invalid;
+                return false;
             }
 
-            auto result = Command::Invalid;
+            auto result = false;
 
             //NOTE: upper bound on a fully expanded string of meta variables, each expanding to a 16 digit hex (16/2 for each meta var "$x")
             // we perform in-place tokenising, with tokens separated by 0 bytes and a double-0 terminator
@@ -273,7 +502,7 @@ namespace inasm64
                 if(cmdLinePtr[nv])
                 {
                     auto nv1 = nv + 1;
-                    while(cmdLinePtr[nv] && (cmdLinePtr[nv] != ' ' && cmdLinePtr[nv] != '\t'))
+                    while(cmdLinePtr[nv] && (cmdLinePtr[nv] != ' ' && cmdLinePtr[nv] != '\t' && cmdLinePtr[nv] != ',' && cmdLinePtr[nv] != ']'))
                         ++nv;
                     size_t wl = 0;
                     if(cmdLinePtr[nv])
@@ -300,7 +529,7 @@ namespace inasm64
                         else
                         {
                             detail::SetError(Error::UndefinedVariable);
-                            return Command::Invalid;
+                            return false;
                         }
                     }
                 }
@@ -308,9 +537,6 @@ namespace inasm64
             // double-0 terminator
             cmdLineBuffer[wp] = 0;
             cmdLineBuffer[wp + 1] = 0;
-
-			//TESTING:
-            process_command(cmdLineBuffer);
 
             // if we're in assembly mode we treat every non-empty input as an assembly instruction
             if(_mode == Mode::Assembling)
@@ -324,7 +550,7 @@ namespace inasm64
                         _code_buffer_pos = 0;
                     }
                     _mode = Mode::Processing;
-                    result = Command::Assemble;
+                    result = true;
                 }
                 else
                 {
@@ -333,7 +559,6 @@ namespace inasm64
                     {
                         //TODO: proper error handling and error reporting
                         _mode = Mode::Processing;
-                        result = Command::Invalid;
                     }
                     else
                     {
@@ -344,7 +569,9 @@ namespace inasm64
                         const auto at = _asm_map.emplace(asm_info);
                         _last_instr = at.first;
                         _code_buffer_pos += asm_info.second.InstructionSize;
-                        result = Command::Assemble;
+                        if(OnAssembling)
+                            OnAssembling();
+                        result = true;
                     }
                 }
             }
@@ -354,85 +581,14 @@ namespace inasm64
                 {
                     // just ignore empty lines
                     _mode = Mode::Processing;
-                    result = Command::Invalid;
                 }
                 else
                 {
-                    const auto tokens = split_by_space(cmdLineBuffer);
-
-                    //TODO: more consistent command handling, types of commands, sizes etc.
-
-                    const auto cmd = char(::tolower(tokens[0][0]));
-                    switch(cmd)
-                    {
-                    case 'r':
-                    {
-                        if(tokens.size() == 1)
-                        {
-                            if(strlen(tokens[0]) > 1)
-                            {
-                                if(tokens[0][1] == 'F')
-                                {
-                                    result = Command::DisplayFpRegs;
-                                }
-                                else if(tokens[0][1] == 'X')
-                                {
-                                    result = Command::DisplayAvxRegs;
-                                }
-                                else
-                                {
-                                    detail::SetError(Error::InvalidCommandFormat);
-                                    result = Command::Invalid;
-                                }
-                            }
-                            else
-                            {
-                                result = Command::DisplayAllRegs;
-                            }
-                        }
-                        else
-                        {
-                            //ZZZ: assumes hex input
-                            const int64_t value = ::strtoll(tokens[2], nullptr, 16);
-                            result = runtime::SetReg(tokens[1], value) ? Command::SetReg : Command::Invalid;
-                        }
-                    }
-                    break;
-                    case 'a':
-                        _mode = Mode::Assembling;
-                        result = Command::Assemble;
-                        break;
-                    case 'q':
-                        runtime::Shutdown();
-                        result = Command::Quit;
-                        break;
-                    case 'p':
-                    {
-                        if(tokens.size() > 1)
-                        {
-                            long long value;
-                            if(detail::str_to_ll(tokens[1], value))
-                            {
-                                if(runtime::SetNextInstruction(reinterpret_cast<const void*>(value)))
-                                {
-                                    result = runtime::Step() ? Command::Step : Command::Invalid;
-                                }
-                            }
-                        }
-                        else
-                            result = runtime::Step() ? Command::Step : Command::Invalid;
-                    }
-                    break;
-                    case 'h':
-                        result = Command::Help;
-                        break;
-                    default:
-                        break;
-                    }
+                    result = process_command(cmdLineBuffer);
                 }
             }
             _freea(cmdLineBuffer);
             return result;
-        }
-    }  // namespace cli
+        }  // namespace cli
+    }      // namespace cli
 }  // namespace inasm64

@@ -31,16 +31,28 @@ namespace inasm64
                 }
             };
 
-            // pointers to data elsewhere
+            // pointers to data in the backup string store
             using glob_map_t = std::unordered_map<const char*, uintptr_t, hash_32_fnv1a, striequal>;
             glob_map_t _glob_map;
 
         }  // namespace detail
 
+        void ClearAll()
+        {
+            for(auto& kv : detail::_glob_map)
+            {
+                delete[] kv.first;
+            }
+            detail::_glob_map.clear();
+        }
+
         bool Set(const char* name, const uintptr_t value)
         {
             const auto iter = detail::_glob_map.find(name);
-            detail::_glob_map[name] = value;
+            const auto name_len = strlen(name) + 1;
+            const auto name_c = new char[name_len];
+            strcpy_s(name_c, name_len, name);
+            detail::_glob_map[name_c] = value;
             return iter != detail::_glob_map.end();
         }
 

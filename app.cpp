@@ -47,7 +47,12 @@ void DumpRegs()
     //TODO: XMM, FP, make it selectable, etc.
 }
 
-void DumpFpRegisters()
+void DumpReg(const char*)
+{
+    //TODO:
+}
+
+void DumpXmmRegisters()
 {
     const auto ctx = inasm64::runtime::Context();
 
@@ -69,7 +74,7 @@ void DumpFpRegisters()
     coutreg("xmm15") << ctx->OsContext->Xmm15.Low << ctx->OsContext->Xmm15.High << std::endl;
 }
 
-void DumpAvxRegisters()
+void DumpYmmRegisters()
 {
     const auto ctx = inasm64::runtime::Context();
     DWORD64 featuremask;
@@ -194,50 +199,41 @@ int main(int argc, char* argv[])
 
     if(assembler::Initialise() && runtime::Start() && cli::Initialise())
     {
-        std::cout << "started, enter a command or \'h\' for help\\n\n";
-        cli::Command cmd = cli::Command::Invalid;
+        cli::OnDataValueSet = [](const char* name, uintptr_t value) {
+            std::cout << "\t$" << name << " is set to 0x" << std::hex << value << std::endl;
+        };
 
-        while(cmd != cli::Command::Quit)
+        std::cout
+            << "started, enter a command or \'h\' for help\\n\n";
+
+        auto done = false;
+        cli::OnQuit = [&done]() { done = true; };
+        cli::OnHelp = []() {
+            std::cout << cli::Help() << std::endl;
+        };
+        cli::OnStep = []() {
+            DumpRegs();
+            DumpInstructionInfo();
+        };
+        cli::OnDisplayGPRegisters = DumpRegs;
+        cli::OnDisplayXMMRegisters = DumpXmmRegisters;
+        cli::OnDisplayYMMRegisters = DumpYmmRegisters;
+
+        while(!done)
         {
             std::string input;
-
             if(cli::ActiveMode() == cli::Mode::Assembling)
                 std::cout << std::hex << cli::LastAssembledInstructionAddress() << " ";
             else
                 std::cout << "> ";
             std::getline(std::cin, input);
-
-            cmd = cli::Execute(input.c_str());
-            switch(cmd)
-            {
-            case cli::Command::Step:
-                DumpRegs();
-                DumpInstructionInfo();
-                break;
-            case cli::Command::DisplayAllRegs:
-                DumpRegs();
-                break;
-            case cli::Command::DisplayFpRegs:
-                DumpFpRegisters();
-                break;
-            case cli::Command::DisplayAvxRegs:
-                DumpAvxRegisters();
-                break;
-            case cli::Command::Help:
-                std::cout << cli::Help() << std::endl;
-                break;
-            case cli::Command::Invalid:
+            if(!cli::Execute(input.c_str()))
                 std::cerr << "error: " << inasm64::ErrorMessage(inasm64::GetError()) << std::endl;
-                break;
-            default:
-                break;
-            }
         }
     }
     else
     {
         std::cerr << "*failed to start inasm64 runtime!\n";
     }
-
     return 0;
 }

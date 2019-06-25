@@ -10,21 +10,6 @@ namespace inasm64
     namespace cli
     {
         ///<summary>
-        /// the last command
-        ///</summary>
-        enum class Command
-        {
-            Invalid,
-            Quit,
-            Step,
-            Assemble,
-            DisplayAllRegs,
-            DisplayFpRegs,
-            DisplayAvxRegs,
-            SetReg,
-            Help,
-        };
-        ///<summary>
         /// command mode; processing ordinary commands or assembling
         ///</summary>
         enum class Mode
@@ -35,7 +20,7 @@ namespace inasm64
         ///<summary>
         /// initialise the CLI
         ///</summary>
-		bool Initialise();
+        bool Initialise();
         ///<summary>
         /// the active command mode
         ///</summary>
@@ -43,7 +28,7 @@ namespace inasm64
         ///<summary>
         /// execute a command line (if valid).
         ///</summary>
-        Command Execute(const char* commandLine);
+        bool Execute(const char* commandLine);
         ///<summary>
         /// if currently in Assemble mode; returns information about the last instruction assembled.
         ///</summary>
@@ -52,5 +37,18 @@ namespace inasm64
         /// exactly that; a list of available command and their use
         ///</summary>
         std::string Help();
+
+        extern std::function<void(const char*, uintptr_t)> OnDataValueSet;
+        extern std::function<void(const char*, uint64_t)> OnSetGPRegisters;
+        extern std::function<void(const char*)> OnDisplayGPRegister;
+        extern std::function<void()> OnDisplayGPRegisters;
+        extern std::function<void()> OnDisplayXMMRegisters;
+        extern std::function<void()> OnDisplayYMMRegisters;
+        extern std::function<void()> OnStep;
+        extern std::function<void()> OnStartAssembling;
+        extern std::function<void()> OnAssembling;
+        extern std::function<void()> OnQuit;
+        extern std::function<void()> OnHelp;
+
     }  // namespace cli
 }  // namespace inasm64
