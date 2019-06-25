@@ -192,7 +192,7 @@ int main(int argc, char* argv[])
 
     using namespace inasm64;
 
-    if(assembler::Initialise() && runtime::Start())
+    if(assembler::Initialise() && runtime::Start() && cli::Initialise())
     {
         std::cout << "started, enter a command or \'h\' for help\\n\n";
         cli::Command cmd = cli::Command::Invalid;

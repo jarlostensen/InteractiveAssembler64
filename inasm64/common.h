@@ -10,6 +10,7 @@ namespace inasm64
     enum class Error
     {
         NoError,
+        CliUninitialised,
         CliInputLengthExceeded,
         UndefinedVariable,
         UnsupportedInstructionFormat,

@@ -33,6 +33,10 @@ namespace inasm64
             Assembling,
         };
         ///<summary>
+        /// initialise the CLI
+        ///</summary>
+		bool Initialise();
+        ///<summary>
         /// the active command mode
         ///</summary>
         Mode ActiveMode();

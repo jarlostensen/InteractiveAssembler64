@@ -89,7 +89,9 @@ namespace inasm64
             return "Attempting to overwrite memory";
         case Error::MemoryReadSizeMismatch:
             return "Attempting to read more memory than available";
-        case Error::EncodeError:
+        case Error::CliUninitialised:
+            return "CLI hasn't been properly initialised";
+            case Error::EncodeError:
             return "General encoder error";
         default:
             return "";

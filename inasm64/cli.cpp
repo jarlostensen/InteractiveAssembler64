@@ -5,8 +5,13 @@
 #include <string>
 #include <sstream>
 #include <vector>
+#include <functional>
 #include <unordered_map>
 #include <algorithm>
+#include <varargs.h>
+
+//TESTING
+#include <iostream>
 
 #include "common.h"
 #include "runtime.h"
@@ -18,18 +23,20 @@ namespace inasm64
 {
     namespace cli
     {
-        //TODO: determine if this should be dynamic, or if this is even the right approach. Need to get the proper assembler up and running first.
-        uint8_t _code_buffer[kMaxAssembledInstructionSize * 128];
-        size_t _code_buffer_pos = 0;
-        //TODO: error handling and error paths
-        Mode _mode = Mode::Processing;
-
-        using asm_map_t = std::unordered_map<uintptr_t, assembler::AssembledInstructionInfo>;
-        asm_map_t _asm_map;
-        asm_map_t::iterator _last_instr = _asm_map.end();
-
         namespace
         {
+            //TODO: determine if this should be dynamic, or if this is even the right approach. Need to get the proper assembler up and running first.
+            uint8_t _code_buffer[kMaxAssembledInstructionSize * 128];
+            size_t _code_buffer_pos = 0;
+            //TODO: error handling and error paths
+            Mode _mode = Mode::Processing;
+
+            using asm_map_t = std::unordered_map<uintptr_t, assembler::AssembledInstructionInfo>;
+            asm_map_t _asm_map;
+            asm_map_t::iterator _last_instr = _asm_map.end();
+
+            auto _initialised = false;
+
             //TODO: helper, could be elsewhere?
             std::vector<const char*> split_by_space(char* s)
             {
@@ -57,7 +64,154 @@ namespace inasm64
                 return tokens;
             }
 
+            using type_0_handler_t = std::function<void(const char* cmd, const char* params)>;
+            using type_1_handler_t = std::function<void(const char* param0, const char* cmd, const char* params)>;
+
+            struct CommandInfo
+            {
+                // 0 delimeted, 00-terminated
+                const char* _names;
+                virtual ~CommandInfo()
+                {
+                    delete[] _names;
+                }
+
+                void set_names(int count, ...)
+                {
+                    va_list vsn;
+                    size_t total_size = 0;
+                    va_start(vsn, count);
+                    for(int n = 0; n < count; ++n)
+                    {
+                        total_size += strlen(va_arg(vsn, const char*)) + 1;
+                    }
+                    va_end(vsn);
+                    _names = new char[total_size + 1];
+                    va_start(vsn, count);
+                    auto wp = const_cast<char*>(_names);
+                    for(int n = 0; n < count; ++n)
+                    {
+                        const auto name = va_arg(vsn, const char*);
+                        const auto name_len = strlen(name) + 1;
+                        memcpy(wp, name, name_len);
+                        wp += name_len;
+                    }
+                    va_end(vsn);
+                    // double-0
+                    wp[0] = 0;
+                }
+            };
+
+            struct Type0Command : CommandInfo
+            {
+                type_0_handler_t _handler;
+
+                Type0Command() = default;
+                Type0Command(Type0Command&& rhs)
+                {
+                    _names = rhs._names;
+                    _handler = std::move(rhs._handler);
+                    rhs._names = nullptr;
+                }
+            };
+
+            struct Type1Command : CommandInfo
+            {
+                type_1_handler_t _handler;
+
+                Type1Command() = default;
+                Type1Command(Type1Command&& rhs)
+                {
+                    _names = rhs._names;
+                    _handler = std::move(rhs._handler);
+                    rhs._names = nullptr;
+                }
+            };
+
+            std::vector<Type0Command> _type_0_handlers;
+            std::vector<Type1Command> _type_1_handlers;
+
+            //NOTE: expects that cmdLine is stripped of leading whitespace and terminated by double-0
+            // modifies cmdLine in-place
+            bool process_command(char* cmdLine)
+            {
+                auto rp = cmdLine;
+                auto rp0 = rp;
+                // first token
+                while(rp[0] && rp[0] != ' ' && rp[0] != '\t')
+                    ++rp;
+                rp[0] = 0;
+                auto handled = false;
+                for(auto& command : _type_0_handlers)
+                {
+                    auto cmd_name = command._names;
+                    while(cmd_name[0])
+                    {
+                        if(strcmp(rp0, cmd_name) == 0)
+                        {
+                            command._handler(cmd_name, rp + 1);
+                            handled = true;
+                            break;
+                        }
+                        // skip past next 0
+                        while(cmd_name[0])
+                            ++cmd_name;
+                        ++cmd_name;
+                    }
+                    if(handled)
+                        break;
+                }
+
+                if(!handled)
+                {
+                    rp0 = ++rp;
+                    // second token
+                    while(rp[0] && rp[0] != ' ' && rp[0] != '\t')
+                        ++rp;
+                    if(rp[0])
+                    {
+                        rp[0] = 0;
+                        for(auto& command : _type_1_handlers)
+                        {
+                            auto cmd_name = command._names;
+                            while(cmd_name[0])
+                            {
+                                if(strcmp(rp0, cmd_name) == 0)
+                                {
+                                    command._handler(cmdLine, cmd_name, rp + 1);
+                                    handled = true;
+                                    break;
+                                }
+                                // skip past next 0
+                                while(cmd_name[0])
+                                    ++cmd_name;
+                                ++cmd_name;
+                            }
+                            if(handled)
+                                break;
+                        }
+                    }
+                }
+                return handled;
+            }
         }  // namespace
+
+        bool Initialise()
+        {
+            if(!_initialised)
+            {
+				//TESTING:
+                Type1Command cmd1;
+                cmd1.set_names(4, "db", "dw", "dd", "dq");
+                cmd1._handler = [](const char* param0, const char* cmd, const char* params) {
+                    std::cout << param0 << ", " << cmd << ", " << params << std::endl;
+                };
+                _type_1_handlers.emplace_back(std::move(cmd1));
+
+                _initialised = true;
+            }            
+            return _initialised;
+        }
 
         std::string Help()
         {
@@ -80,6 +234,12 @@ namespace inasm64
 
         Command Execute(const char* commandLine_)
         {
+            if(!_initialised)
+            {
+                detail::SetError(Error::CliUninitialised);
+                return Command::Invalid;
+			}
+
             const auto commandLineLength = strlen(commandLine_);
             if(commandLineLength > kMaxCommandLineLength)
             {
@@ -90,7 +250,8 @@ namespace inasm64
             auto result = Command::Invalid;
 
             //NOTE: upper bound on a fully expanded string of meta variables, each expanding to a 16 digit hex (16/2 for each meta var "$x")
-            const auto cmdLineBuffer = reinterpret_cast<char*>(_malloca(commandLineLength*8 + 2 + 1));
+            // we perform in-place tokenising, with tokens separated by 0 bytes and a double-0 terminator
+            const auto cmdLineBuffer = reinterpret_cast<char*>(_malloca(commandLineLength * 8 + 2 + 2));
             size_t nv = 0;
             size_t wp = 0;
             const auto cmdLinePtr = commandLine_;
@@ -144,7 +305,12 @@ namespace inasm64
                     }
                 }
             }
+            // double-0 terminator
             cmdLineBuffer[wp] = 0;
+            cmdLineBuffer[wp + 1] = 0;
+
+			//TESTING:
+            process_command(cmdLineBuffer);
 
             // if we're in assembly mode we treat every non-empty input as an assembly instruction
             if(_mode == Mode::Assembling)
