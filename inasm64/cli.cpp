@@ -407,19 +407,21 @@ namespace inasm64
                 if(!OnDumpMemory)
                     return;
 
+                const auto has_params = !is_null_or_empty(params);
                 const void* address = _last_dump_address;
-                if(!address && is_null_or_empty(params))
+                if(!address && !has_params)
                 {
                     return;
                 }
-                else if(!address)
+
+                if(has_params)
                 {
                     const auto arg = strtoll(params, nullptr, 0);
                     if(arg == LLONG_MAX || arg == LLONG_MIN)
                         return;
                     _last_dump_address = address = (const void*)(arg);
                 }
-                
+
                 const auto size = runtime::AllocationSize((const void*)(address));
                 if(size)
                 {
@@ -455,7 +457,7 @@ namespace inasm64
                     }
                     break;
                     }
-					
+
                     OnDumpMemory(type, address, size);
                 }
             }
@@ -592,8 +594,8 @@ namespace inasm64
                             const auto conv_count = sprintf_s(numbuff + 2, sizeof(numbuff) - 2, "%llx", val);
                             if(conv_count)
                             {
-                                memcpy(cmdLineBuffer + wp, numbuff, conv_count);
-                                wp += conv_count;
+                                memcpy(cmdLineBuffer + wp, numbuff, conv_count + 2);
+                                wp += conv_count + 2;
                             }
                         }
                         else

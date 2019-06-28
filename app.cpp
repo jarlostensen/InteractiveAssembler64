@@ -282,27 +282,40 @@ void DumpInstructionInfo()
 
 void DumpMemory(inasm64::cli::DataType, const void* remote_address, size_t size_)
 {
-    // mvp; max 4 rows, 16 columns of data
+    // mvp; max 4 rows, 8 columns of data
+    constexpr auto kCols = 8;
+    constexpr auto kRows = 4;
 
-    auto size = std::min<size_t>(16 * 4, size_);
+    auto size = std::min<size_t>(kCols * kRows, size_);
     const auto local_buffer = new char[size];
     inasm64::runtime::ReadBytes(remote_address, local_buffer, size);
-    auto rows = size / 16;
+    auto rows = size / kCols;
     auto n = 0;
-    while(rows)
+    auto address = reinterpret_cast<const uint8_t*>(remote_address);
+
+    while(size)
     {
-        std::cout << std::hex << uintptr_t(remote_address) << " ";
-        auto cols = std::min<size_t>(16, size);
-        for(unsigned c = 0; c < cols; ++c)
+        std::cout << std::hex << uintptr_t(address) << " ";
+        auto cols = std::min<size_t>(kCols, size);
+        for(unsigned c = 0; c < kCols; ++c)
         {
-            std::cout << std::hex << std::setw(2) << std::setfill('0') << int(local_buffer[n + c]) << " ";
+            if(c < cols)
+                std::cout << std::hex << std::setw(2) << std::setfill('0') << int(local_buffer[n + c]) << " ";
+            else
+                std::cout << "   ";
         }
         for(unsigned c = 0; c < cols; ++c)
         {
-            std::cout << local_buffer[n++];
+            const auto ic = local_buffer[n++];
+            if(ic >= 0x21 && ic <= 0x7e)
+                std::cout << ic;
+            else
+                std::cout << ".";
         }
         std::cout << std::endl;
         size -= cols;
+        --rows;
+        address += kCols;
     }
 }
 
