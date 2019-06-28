@@ -29,6 +29,7 @@ namespace inasm64
         EncodeError,
         MemoryReadSizeMismatch,
         MemoryWriteSizeMismatch,
+        AccessViolation,
         SystemError,
     };
 

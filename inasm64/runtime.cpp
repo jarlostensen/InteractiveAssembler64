@@ -273,7 +273,7 @@ namespace inasm64
                     _continue_status = DBG_EXCEPTION_HANDLED;
                     switch(_dbg_event.u.Exception.ExceptionRecord.ExceptionCode)
                     {
-                    // this is the only one we care about
+                    // the ones we care about
                     case EXCEPTION_SINGLE_STEP:
                     {
                         const auto thread = ActiveThread();
@@ -305,8 +305,18 @@ namespace inasm64
                         stepped = true;
                     }
                     break;
+                    case STATUS_ACCESS_VIOLATION:
+                        //TODO: handle this nicely, report back etc.
+                        detail::SetError(Error::AccessViolation);
+                        _flags._running = false;
+                        break;
+                    case STATUS_SEGMENT_NOTIFICATION:
+                        /*
+                        {SEGMENT LOAD}A VIRTUAL DOS MACHINE (VDM) IS LOADING, UNLOADING, OR MOVING AN MS-DOS OR WIN16 PROGRAM SEGMENT IMAGE.
+                        AN EXCEPTION IS RAISED SO A DEBUGGER CAN LOAD, UNLOAD OR TRACK SYMBOLS AND BREAKPOINTS WITHIN THESE 16-BIT SEGMENTS.
+                        */
                     default:
-                        // ignore all else....
+                        _continue_status = DBG_CONTINUE;
                         break;
                     }
                 }
@@ -385,10 +395,10 @@ namespace inasm64
             {
                 if(length <= i->second)
                 {
-					SIZE_T written;
+                    SIZE_T written;
                     WriteProcessMemory(_process_vm, LPVOID(handle), src, length, &written);
-					return written == length;
-				}
+                    return written == length;
+                }
                 detail::SetError(Error::MemoryWriteSizeMismatch);
             }
             return false;

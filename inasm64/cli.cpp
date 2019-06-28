@@ -379,6 +379,7 @@ namespace inasm64
 
             void step_handler(const char*, char* params)
             {
+                auto stepped = false;
                 if(!is_null_or_empty(params))
                 {
                     const auto value = strtoll(params, nullptr, 0);
@@ -386,14 +387,19 @@ namespace inasm64
                     {
                         if(runtime::SetNextInstruction(reinterpret_cast<const void*>(value)))
                         {
-                            runtime::Step();
+                            stepped = runtime::Step();
                         }
                     }
                 }
                 else
-                    runtime::Step();
-                if(OnStep)
-                    OnStep();
+                {
+                    stepped = runtime::Step();
+                }
+                if(stepped)
+                {
+                    if(OnStep)
+                        OnStep();
+                }
             }
 
             void dump_memory_handler(const char* cmd, char* params)

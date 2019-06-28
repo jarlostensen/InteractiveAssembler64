@@ -63,6 +63,8 @@ namespace inasm64
             return "code buffer is full; unable to assemble more instructions";
         case Error::InvalidAddress:
             return "invalid address";
+        case Error::AccessViolation:
+            return "access violation";
         case Error::InvalidCommandFormat:
             return "invalid or unrecognized command format";
         case Error::NoMoreCode:
@@ -91,7 +93,7 @@ namespace inasm64
             return "Attempting to read more memory than available";
         case Error::CliUninitialised:
             return "CLI hasn't been properly initialised";
-            case Error::EncodeError:
+        case Error::EncodeError:
             return "General encoder error";
         default:
             return "";
