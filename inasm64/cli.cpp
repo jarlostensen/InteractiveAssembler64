@@ -34,6 +34,7 @@ namespace inasm64
         std::function<void()> OnAssembling;
         std::function<void()> OnQuit;
         std::function<void()> OnHelp;
+        std::function<void(DataType, const void*, size_t)> OnDumpMemory;
 
         namespace
         {
@@ -47,6 +48,7 @@ namespace inasm64
             asm_map_t _asm_map;
             asm_map_t::iterator _last_instr = _asm_map.end();
 
+            const void* _last_dump_address = nullptr;
             auto _initialised = false;
 
             //TODO: helper, could be elsewhere?
@@ -394,6 +396,63 @@ namespace inasm64
                     OnStep();
             }
 
+            void dump_memory_handler(const char* cmd, char* params)
+            {
+                if(!OnDumpMemory)
+                    return;
+
+                const void* address = _last_dump_address;
+                if(!address && is_null_or_empty(params))
+                {
+                    return;
+                }
+                else if(!address)
+                {
+                    const auto arg = strtoll(params, nullptr, 0);
+                    if(arg == LLONG_MAX || arg == LLONG_MIN)
+                        return;
+                    _last_dump_address = address = (const void*)(arg);
+                }
+                
+                const auto size = runtime::AllocationSize((const void*)(address));
+                if(size)
+                {
+                    DataType type = DataType::kUnknown;
+                    switch(cmd[1])
+                    {
+                    case 'b':
+                        type = DataType::kByte;
+                        break;
+                    case 'w':
+                        type = DataType::kWord;
+                        break;
+                    case 'd':
+                        type = DataType::kDWord;
+                        break;
+                    case 'q':
+                        type = DataType::kQWord;
+                        break;
+                    case 'f':
+                    {
+                        if(cmd[2])
+                        {
+                            switch(cmd[2])
+                            {
+                            case '3':
+                                type = DataType::kFloat32;
+                                break;
+                            case '6':
+                                type = DataType::kFloat64;
+                            default:;
+                            }
+                        }
+                    }
+                    break;
+                    }
+					
+                    OnDumpMemory(type, address, size);
+                }
+            }
         }  // namespace
 
         bool Initialise()
@@ -408,6 +467,11 @@ namespace inasm64
                 Type0Command cmd0;
                 cmd0.set_names(3, "r", "rX", "rY");
                 cmd0._handler = register_handler;
+                _type_0_handlers.emplace_back(std::move(cmd0));
+
+                //NOTE: not the same as the type-1 above, this is for display
+                cmd0.set_names(4, "db", "dw", "dd", "dq");
+                cmd0._handler = dump_memory_handler;
                 _type_0_handlers.emplace_back(std::move(cmd0));
 
                 cmd0.set_names(2, "p", "P");
@@ -589,6 +653,6 @@ namespace inasm64
             }
             _freea(cmdLineBuffer);
             return result;
-        }  // namespace cli
-    }      // namespace cli
+        }
+    }  // namespace cli
 }  // namespace inasm64

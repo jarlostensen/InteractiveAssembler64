@@ -38,8 +38,20 @@ namespace inasm64
         ///</summary>
         std::string Help();
 
+        enum class DataType
+        {
+			kUnknown,
+			kByte,
+			kWord,
+			kDWord,
+			kQWord,
+            kFloat32,
+			kFloat64,
+		};
+
         extern std::function<void(const char*, uintptr_t)> OnDataValueSet;
         extern std::function<void(const char*, uint64_t)> OnSetGPRegisters;
+        extern std::function<void(DataType, const void*, size_t)> OnDumpMemory;
         extern std::function<void(const char*)> OnDisplayGPRegister;
         extern std::function<void()> OnDisplayGPRegisters;
         extern std::function<void()> OnDisplayXMMRegisters;

@@ -2,6 +2,7 @@
 #include <iostream>
 #include <iomanip>
 #include <string>
+#include <algorithm>
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
 
@@ -125,6 +126,32 @@ void DumpInstructionInfo()
     std::cout << std::endl;
 }
 
+void DumpMemory(inasm64::cli::DataType, const void* remote_address, size_t size_)
+{
+    // mvp; max 4 rows, 16 columns of data
+
+    auto size = std::min<size_t>(16 * 4, size_);
+    const auto local_buffer = new char[size];
+    inasm64::runtime::ReadBytes(remote_address, local_buffer, size);
+    auto rows = size / 16;
+	auto n = 0;
+    while(rows)
+    {
+        std::cout << std::hex << uintptr_t(remote_address) << " ";
+        auto cols = std::min<size_t>(16, size);
+        for(unsigned c=0; c < cols; ++c)
+        {
+            std::cout << std::hex << std::setw(2) << std::setfill('0') << int(local_buffer[n+c]) << " ";
+		}	
+		for(unsigned c = 0; c < cols; ++c)
+        {
+            std::cout << local_buffer[n++];
+        }	
+		std::cout << std::endl;
+        size -= cols;
+    }
+}
+
 int main(int argc, char* argv[])
 {
     if(argc == 2)
@@ -218,6 +245,7 @@ int main(int argc, char* argv[])
         cli::OnDisplayGPRegisters = DumpRegs;
         cli::OnDisplayXMMRegisters = DumpXmmRegisters;
         cli::OnDisplayYMMRegisters = DumpYmmRegisters;
+        cli::OnDumpMemory = DumpMemory;
 
         while(!done)
         {
