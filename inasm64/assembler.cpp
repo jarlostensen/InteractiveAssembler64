@@ -531,7 +531,7 @@ namespace inasm64
                                     {
                                         const auto imm_len = strlen(op_info._reg_imm);
                                         const auto base = (op_info._reg_imm[imm_len - 1] != 'h') ? 0 : 16;
-                                        op._imm = strtol(op_info._reg_imm, nullptr, base);
+                                        op._imm = ::strtoll(op_info._reg_imm, nullptr, base);
                                         unsigned long index;
                                         _BitScanReverse64(&index, op._imm);
                                         width_bits = short((index + 8) & ~7);
@@ -542,12 +542,13 @@ namespace inasm64
                                         op._mem._seg = (op_info._seg[0] ? op_info._seg : nullptr);
                                         op._mem._base = (op_info._base[0] ? op_info._base : nullptr);
                                         op._mem._index = (op_info._index[0] ? op_info._index : nullptr);
-                                        op._mem._scale = char(strtol(op_info._scale, nullptr, 0));
+                                        op._mem._scale = char(::strtol(op_info._scale, nullptr, 0));
                                         if(op_info._displacement[0] != 0)
                                         {
                                             const auto disp_len = strlen(op_info._displacement);
                                             const auto base = (op_info._displacement[disp_len - 1] != 'h') ? 0 : 16;
-                                            op._mem._displacement = strtol(op_info._displacement, nullptr, base);
+                                            //NOTE: we can use strtol here because the displacement can never be > 32 bits
+                                            op._mem._displacement = ::strtol(op_info._displacement, nullptr, base);
                                             unsigned long index;
                                             _BitScanReverse64(&index, op._mem._displacement > 0 ? op._mem._displacement : -op._mem._displacement);
                                             op._mem._disp_width_bits = char((index + 8) & ~7);

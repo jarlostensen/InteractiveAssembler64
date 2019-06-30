@@ -135,26 +135,62 @@ namespace inasm64
                 break;
                 case Statement::kImm:
                 {
-                    const auto instr = xed_encoder_request_get_iclass(&req);
+                    // firstly clamp to allowed bit widths, regardless of what the actual bit width of the immediate is
+                    if(width_bits > 32)
+                        width_bits = 64;
+                    else if(width_bits > 16)
+                        width_bits = 32;
+                    else if(width_bits > 8)
+                        width_bits = 16;
+                    else
+                        width_bits = 8;
 
-                    //TODO: we need to set the uimm0 bit with based on the instruction
-                    // some, like MOV, only support immediate operands of the same width as the r operand
-                    // what's the rule here??
+                    //NOTE: furthermore there are special cases of what widths are allowed for immediate operands depending on instructions
+                    //      Intel® 64 and IA-32 Architectures Software Developer’s Manual Vol.2B 4 - 35
+                    // SEE notes about sign extension http://home.myfairpoint.net/fbkotler/nasmdocc.html#section-A.4.3
+                    // -> should probably follow the same model, i.e. you need the BYTE modifier on the immediate value to generate the sign extension version,
+                    //    otherwise it does what we're doing in the code below (i.e. mov ax,0x80 -> ax = 0x0080, instead of 0xff80)
+
+                    const auto instr = xed_encoder_request_get_iclass(&req);
                     switch(instr)
                     {
                     case XED_ICLASS_MOV:
-                    case XED_ICLASS_SBB:
-                    {
-                        //TODO: derive this generically?
-                        xed_encoder_request_set_uimm0_bits(&req, op._imm, std::min<short>(statement._op1_width_bits, short(32)));
-                    }
-                    break;
-                    default:
-                        // if we don't care (i.e. the instruction can handle any width...)
-                        xed_encoder_request_set_uimm0_bits(&req, op._imm, width_bits);
+                        switch(statement._op1_width_bits)
+                        {
+                        case 8:
+                            if(width_bits > 8)
+                            {
+                                detail::SetError(Error::InvalidImmediateOperandBitWidth);
+                                return false;
+                            }
+                            break;
+                        case 16:
+                            if(width_bits > 16)
+                            {
+                                detail::SetError(Error::InvalidImmediateOperandBitWidth);
+                                return false;
+                            }
+                            //has to be clamped to 16
+                            width_bits = 16;
+                            break;
+                        case 32:
+                            if(width_bits > 32)
+                            {
+                                detail::SetError(Error::InvalidImmediateOperandBitWidth);
+                                return false;
+                            }
+                            width_bits = 32;
+                        case 64:
+                            // can be either 64- or 32-bits in long mode (REX byte controlled)
+                            width_bits = std::max<short>(width_bits, 32);
+                            break;
+                        }
+
                         break;
+                    default:;
                     }
 
+                    xed_encoder_request_set_uimm0_bits(&req, op._imm, width_bits);
                     xed_encoder_request_set_operand_order(&req, op_order, XED_OPERAND_IMM0);
                 }
                 break;

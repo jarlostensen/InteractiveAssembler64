@@ -91,6 +91,8 @@ namespace inasm64
             return "Attempting to overwrite memory";
         case Error::MemoryReadSizeMismatch:
             return "Attempting to read more memory than available";
+        case Error::InvalidImmediateOperandBitWidth:
+            return "Immediate operand bit width is incorrect for this instruction";
         case Error::CliUninitialised:
             return "CLI hasn't been properly initialised";
         case Error::EncodeError:
