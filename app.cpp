@@ -13,6 +13,101 @@
 #include "inasm64/cli.h"
 #include "inasm64/globvars.h"
 
+namespace console
+{
+    // for CONSOLE handling
+
+    HANDLE _std_in, _std_out;
+    CONSOLE_SCREEN_BUFFER_INFO _csbiInfo;
+
+    void Initialise()
+    {
+        _std_in = GetStdHandle(STD_INPUT_HANDLE);
+        _std_out = GetStdHandle(STD_OUTPUT_HANDLE);
+	}
+
+    //based on https://docs.microsoft.com/en-us/windows/console/reading-input-buffer-events
+
+    void ScrollScreenBuffer(HANDLE h, INT lines)
+    {
+        SMALL_RECT srctScrollRect, srctClipRect;
+        CHAR_INFO chiFill;
+        COORD coordDest;
+
+        srctScrollRect.Left = 0;
+        srctScrollRect.Top = 1;
+        srctScrollRect.Right = _csbiInfo.dwSize.X - (SHORT)lines;
+        srctScrollRect.Bottom = _csbiInfo.dwSize.Y - (SHORT)lines;
+
+        // The destination for the scroll rectangle is one row up.
+
+        coordDest.X = 0;
+        coordDest.Y = 0;
+
+        // The clipping rectangle is the same as the scrolling rectangle.
+        // The destination row is left unchanged.
+
+        srctClipRect = srctScrollRect;
+
+        // Set the fill character and attributes.
+
+        chiFill.Attributes = FOREGROUND_RED | FOREGROUND_INTENSITY;
+        chiFill.Char.AsciiChar = (char)' ';
+
+        // Scroll up one line.
+
+        ScrollConsoleScreenBuffer(
+            h,                // screen buffer handle
+            &srctScrollRect,  // scrolling rectangle
+            &srctClipRect,    // clipping rectangle
+            coordDest,        // top left destination cell
+            &chiFill);        // fill character and color
+    }
+
+    void NewLine(void)
+    {
+        //TODO: error handling...can this realistically ever fail?
+        GetConsoleScreenBufferInfo(_std_out, &_csbiInfo);
+        _csbiInfo.dwCursorPosition.X = 0;
+
+        // If it is the last line in the screen buffer, scroll
+        // the buffer up.
+        if((_csbiInfo.dwSize.Y - 1) == _csbiInfo.dwCursorPosition.Y)
+        {
+            ScrollScreenBuffer(_std_out, 1);
+        }
+
+        // Otherwise, advance the cursor to the next line.
+
+        else
+            _csbiInfo.dwCursorPosition.Y += 1;
+
+        SetConsoleCursorPosition(_std_out, _csbiInfo.dwCursorPosition);
+        //TODO: failure..?
+    }
+
+    void CursorLeft(void)
+    {
+        GetConsoleScreenBufferInfo(_std_out, &_csbiInfo);
+        if(_csbiInfo.dwCursorPosition.X)
+        {
+            _csbiInfo.dwCursorPosition.X -= 1;
+            SetConsoleCursorPosition(_std_out, _csbiInfo.dwCursorPosition);
+        }
+    }
+
+    void CursorRight(void)
+    {
+        GetConsoleScreenBufferInfo(_std_out, &_csbiInfo);
+        if(_csbiInfo.dwCursorPosition.X < _csbiInfo.dwSize.X)
+        {
+            _csbiInfo.dwCursorPosition.X += 1;
+            SetConsoleCursorPosition(_std_out, _csbiInfo.dwCursorPosition);
+        }
+    }
+
+}  // namespace console
+
 std::ostream& coutreg(const char* reg)
 {
     // perhaps I should just have used printf....
@@ -134,20 +229,20 @@ void DumpMemory(inasm64::cli::DataType, const void* remote_address, size_t size_
     const auto local_buffer = new char[size];
     inasm64::runtime::ReadBytes(remote_address, local_buffer, size);
     auto rows = size / 16;
-	auto n = 0;
+    auto n = 0;
     while(rows)
     {
         std::cout << std::hex << uintptr_t(remote_address) << " ";
         auto cols = std::min<size_t>(16, size);
-        for(unsigned c=0; c < cols; ++c)
+        for(unsigned c = 0; c < cols; ++c)
         {
-            std::cout << std::hex << std::setw(2) << std::setfill('0') << int(local_buffer[n+c]) << " ";
-		}	
-		for(unsigned c = 0; c < cols; ++c)
+            std::cout << std::hex << std::setw(2) << std::setfill('0') << int(local_buffer[n + c]) << " ";
+        }
+        for(unsigned c = 0; c < cols; ++c)
         {
             std::cout << local_buffer[n++];
-        }	
-		std::cout << std::endl;
+        }
+        std::cout << std::endl;
         size -= cols;
     }
 }
@@ -164,6 +259,8 @@ int main(int argc, char* argv[])
             return -1;
         }
     }
+
+    console::Initialise();
 
     std::cout << "inasm64: The IA 64 Interactive Assembler\n\n";
 
