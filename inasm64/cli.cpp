@@ -31,7 +31,8 @@ namespace inasm64
         std::function<void()> OnDisplayYMMRegisters;
         std::function<void()> OnStep;
         std::function<void()> OnStartAssembling;
-        std::function<void()> OnAssembling;
+        std::function<void()> OnStopAssembling;
+        std::function<void(const assembler::AssembledInstructionInfo&)> OnAssembling;
         std::function<void()> OnQuit;
         std::function<void()> OnHelp;
         std::function<void(DataType, const void*, size_t)> OnDumpMemory;
@@ -623,6 +624,8 @@ namespace inasm64
                     }
                     _mode = Mode::Processing;
                     result = true;
+                    if(OnStopAssembling)
+                        OnStopAssembling();
                 }
                 else
                 {
@@ -642,7 +645,7 @@ namespace inasm64
                         _last_instr = at.first;
                         _code_buffer_pos += asm_info.second.InstructionSize;
                         if(OnAssembling)
-                            OnAssembling();
+                            OnAssembling(asm_info.second);
                         result = true;
                     }
                 }

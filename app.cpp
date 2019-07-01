@@ -15,12 +15,12 @@
 
 namespace console
 {
-    // for CONSOLE handling
-
     HANDLE _std_in, _std_out;
     CONSOLE_SCREEN_BUFFER_INFO _std_out_info;
     CONSOLE_SCREEN_BUFFER_INFO _csbiInfo;
     DWORD _std_in_mode;
+
+    constexpr auto kMaxLineLength = 256;
 
     void Initialise()
     {
@@ -60,111 +60,125 @@ namespace console
         return os;
     }
 
-    void read_line(std::string&)
+    void read_line(std::string& line)
     {
         const auto mode = _std_in_mode & ~(ENABLE_LINE_INPUT | ENABLE_ECHO_INPUT | ENABLE_WINDOW_INPUT | ENABLE_MOUSE_INPUT);
         SetConsoleMode(_std_in, mode);
-        while(true)
+
+        char line_buffer[kMaxLineLength];
+        auto line_wp = 0;
+        auto max_read = 0;
+
+        CONSOLE_SCREEN_BUFFER_INFO start_cs_info;
+        GetConsoleScreenBufferInfo(_std_out, &start_cs_info);
+
+        const auto move_cursor_pos = [](short dX) {
+            CONSOLE_SCREEN_BUFFER_INFO cs_info;
+            GetConsoleScreenBufferInfo(_std_out, &cs_info);
+            cs_info.dwCursorPosition.X += dX;
+            SetConsoleCursorPosition(_std_out, cs_info.dwCursorPosition);
+        };
+
+        auto done = false;
+        while(!done)
         {
-            INPUT_RECORD buffer[128];
+            INPUT_RECORD input_record;
             DWORD read;
-            ReadConsoleInput(_std_in, buffer, DWORD(std::size(buffer)), &read);
-            for(unsigned i = 0; i < read; i++)
+            ReadConsoleInputA(_std_in, &input_record, 1, &read);
+            switch(input_record.EventType)
             {
-                switch(buffer[i].EventType)
+            case KEY_EVENT:
+            {
+                if(input_record.Event.KeyEvent.bKeyDown)
                 {
-                case KEY_EVENT:
-                    //TODO:
-                    break;
-                default:
-					//ZZZ:
-                    break;
+                    const auto vcode = input_record.Event.KeyEvent.wVirtualKeyCode;
+                    // numbers
+                    if((vcode >= 0x30 && vcode <= 0x39) ||
+                        // letters
+                        (vcode >= 0x41 && vcode <= 0x5A) ||
+                        // *+- etc...
+                        (vcode >= 0x6a && vcode <= 0x6f) ||
+                        // OEM character keys
+                        (vcode >= 0xba && vcode <= 0xe2) ||
+                        vcode == VK_SPACE)
+                    {
+                        std::cout << input_record.Event.KeyEvent.uChar.AsciiChar;
+                        line_buffer[line_wp++] = input_record.Event.KeyEvent.uChar.AsciiChar;
+                        max_read = std::max<decltype(max_read)>(max_read, line_wp);
+                    }
+                    else
+                    {
+                        switch(vcode)
+                        {
+                        case VK_LEFT:
+                        {
+                            if(line_wp)
+                            {
+                                --line_wp;
+                                move_cursor_pos(-1);
+                            }
+                        }
+                        break;
+                        case VK_RIGHT:
+                        {
+                            if(max_read > line_wp)
+                            {
+                                ++line_wp;
+                                move_cursor_pos(+1);
+                            }
+                        }
+                        break;
+                        case VK_HOME:
+                        {
+                            line_wp = 0;
+                            SetConsoleCursorPosition(_std_out, start_cs_info.dwCursorPosition);
+                        }
+                        break;
+                        case VK_END:
+                        {
+                            line_wp = max_read;
+                            COORD dpos = start_cs_info.dwCursorPosition;
+                            dpos.X += short(max_read);
+                            SetConsoleCursorPosition(_std_out, dpos);
+                        }
+                        break;
+                        case VK_DELETE:
+                            break;
+                        case VK_BACK:
+                        {
+                            // I'm lazy; only allow this from the back of the line
+                            if(line_wp == max_read)
+                            {
+                                --max_read;
+                                --line_wp;
+                                move_cursor_pos(-1);
+                                std::cout << " ";
+                                move_cursor_pos(-1);
+                            }
+                        }
+                        break;
+                        case VK_RETURN:
+                            line_buffer[line_wp] = 0;
+                            line = std::string(line_buffer);
+                            done = true;
+                            break;
+                        case VK_TAB:
+                            break;
+                        case VK_UP:
+                            break;
+                        case VK_DOWN:
+                            break;
+                        default:;
+                        }
+                    }
                 }
             }
-		}
+            break;
+            default:;
+            }
+        }
         SetConsoleMode(_std_in, _std_in_mode);
     }
-
-    //based on https://docs.microsoft.com/en-us/windows/console/reading-input-buffer-events
-
-    void ScrollScreenBuffer(HANDLE h, INT lines)
-    {
-        SMALL_RECT srctScrollRect, srctClipRect;
-        CHAR_INFO chiFill;
-        COORD coordDest;
-
-        srctScrollRect.Left = 0;
-        srctScrollRect.Top = 1;
-        srctScrollRect.Right = _csbiInfo.dwSize.X - (SHORT)lines;
-        srctScrollRect.Bottom = _csbiInfo.dwSize.Y - (SHORT)lines;
-
-        // The destination for the scroll rectangle is one row up.
-
-        coordDest.X = 0;
-        coordDest.Y = 0;
-
-        // The clipping rectangle is the same as the scrolling rectangle.
-        // The destination row is left unchanged.
-
-        srctClipRect = srctScrollRect;
-
-        // Set the fill character and attributes.
-
-        chiFill.Attributes = FOREGROUND_RED | FOREGROUND_INTENSITY;
-        chiFill.Char.AsciiChar = (char)' ';
-
-        // Scroll up one line.
-
-        ScrollConsoleScreenBuffer(
-            h,                // screen buffer handle
-            &srctScrollRect,  // scrolling rectangle
-            &srctClipRect,    // clipping rectangle
-            coordDest,        // top left destination cell
-            &chiFill);        // fill character and color
-    }
-
-    void NewLine(void)
-    {
-        //TODO: error handling...can this realistically ever fail?
-        GetConsoleScreenBufferInfo(_std_out, &_csbiInfo);
-        _csbiInfo.dwCursorPosition.X = 0;
-
-        // If it is the last line in the screen buffer, scroll
-        // the buffer up.
-        if((_csbiInfo.dwSize.Y - 1) == _csbiInfo.dwCursorPosition.Y)
-        {
-            ScrollScreenBuffer(_std_out, 1);
-        }
-
-        // Otherwise, advance the cursor to the next line.
-
-        else
-            _csbiInfo.dwCursorPosition.Y += 1;
-
-        SetConsoleCursorPosition(_std_out, _csbiInfo.dwCursorPosition);
-        //TODO: failure..?
-    }
-
-    void CursorLeft(void)
-    {
-        GetConsoleScreenBufferInfo(_std_out, &_csbiInfo);
-        if(_csbiInfo.dwCursorPosition.X)
-        {
-            _csbiInfo.dwCursorPosition.X -= 1;
-            SetConsoleCursorPosition(_std_out, _csbiInfo.dwCursorPosition);
-        }
-    }
-
-    void CursorRight(void)
-    {
-        GetConsoleScreenBufferInfo(_std_out, &_csbiInfo);
-        if(_csbiInfo.dwCursorPosition.X < _csbiInfo.dwSize.X)
-        {
-            _csbiInfo.dwCursorPosition.X += 1;
-            SetConsoleCursorPosition(_std_out, _csbiInfo.dwCursorPosition);
-        }
-    }
-
 }  // namespace console
 
 std::ostream& coutreg(const char* reg)
@@ -417,17 +431,42 @@ int main(int argc, char* argv[])
         cli::OnDisplayYMMRegisters = DumpYmmRegisters;
         cli::OnDumpMemory = DumpMemory;
 
+        auto assembling = false;
+        cli::OnStartAssembling = [&assembling]() {
+            assembling = true;
+        };
+        cli::OnAssembling = [](const assembler::AssembledInstructionInfo& asm_info) {
+            //TODO: this doesn't really work; need a better (full) console approach to divide the window into a couple of columns so that this can be nicely aligned
+            std::cout << "\t\t\t\t";
+            for(unsigned n = 0; n < asm_info.InstructionSize; ++n)
+            {
+                std::cout << console::green << std::hex << std::setw(2) << std::setfill('0') << int(asm_info.Instruction[n]);
+            }
+            std::cout << std::endl
+                      << console::reset_colours;
+        };
+        cli::OnStopAssembling = []() {
+            std::cout << std::endl;
+        };
+
         while(!done)
         {
             std::string input;
             if(cli::ActiveMode() == cli::Mode::Assembling)
                 std::cout << std::hex << cli::LastAssembledInstructionAddress() << " ";
             else
+            {
+                assembling = false;
                 std::cout << "> ";
+            }
 
-            std::getline(std::cin, input);
+            console::read_line(input);
+            if(!assembling)
+                std::cout << std::endl;
+
             if(!cli::Execute(input.c_str()))
-                std::cerr << console::red << "error: " << inasm64::ErrorMessage(inasm64::GetError()) << console::reset_colours << std::endl;
+                std::cerr << console::red << "\n"
+                          << inasm64::ErrorMessage(inasm64::GetError()) << console::reset_colours << std::endl;
         }
     }
     else

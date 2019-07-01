@@ -40,14 +40,14 @@ namespace inasm64
 
         enum class DataType
         {
-			kUnknown,
-			kByte,
-			kWord,
-			kDWord,
-			kQWord,
+            kUnknown,
+            kByte,
+            kWord,
+            kDWord,
+            kQWord,
             kFloat32,
-			kFloat64,
-		};
+            kFloat64,
+        };
 
         extern std::function<void(const char*, uintptr_t)> OnDataValueSet;
         extern std::function<void(const char*, uint64_t)> OnSetGPRegisters;
@@ -57,8 +57,18 @@ namespace inasm64
         extern std::function<void()> OnDisplayXMMRegisters;
         extern std::function<void()> OnDisplayYMMRegisters;
         extern std::function<void()> OnStep;
+        ///<summary>
+        /// invoked when assembly mode is invoked
+        ///</summary>
         extern std::function<void()> OnStartAssembling;
-        extern std::function<void()> OnAssembling;
+        ///<summary>
+        /// invoked when leaving assembly mode
+        ///</summary>
+        extern std::function<void()> OnStopAssembling;
+        ///<summary>
+        /// invoked when a line of assembly input has been succesfully converted to instruction bytes and uploaded to the runtime
+        ///<summary>
+        extern std::function<void(const assembler::AssembledInstructionInfo&)> OnAssembling;
         extern std::function<void()> OnQuit;
         extern std::function<void()> OnHelp;
 
