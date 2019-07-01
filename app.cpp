@@ -18,13 +18,45 @@ namespace console
     // for CONSOLE handling
 
     HANDLE _std_in, _std_out;
+    CONSOLE_SCREEN_BUFFER_INFO _std_out_info;
     CONSOLE_SCREEN_BUFFER_INFO _csbiInfo;
 
     void Initialise()
     {
         _std_in = GetStdHandle(STD_INPUT_HANDLE);
         _std_out = GetStdHandle(STD_OUTPUT_HANDLE);
-	}
+        GetConsoleScreenBufferInfo(_std_out, &_std_out_info);
+    }
+
+	std::ostream& reset_colours(std::ostream& os)
+    {
+        SetConsoleTextAttribute(_std_out, _std_out_info.wAttributes);
+        return os;
+    }
+
+    std::ostream& red(std::ostream& os)
+    {
+        SetConsoleTextAttribute(_std_out, FOREGROUND_RED | FOREGROUND_INTENSITY);
+        return os;
+    }
+
+    std::ostream& green(std::ostream& os)
+    {
+        SetConsoleTextAttribute(_std_out, FOREGROUND_GREEN | FOREGROUND_INTENSITY);
+        return os;
+    }
+
+    std::ostream& blue(std::ostream& os)
+    {
+        SetConsoleTextAttribute(_std_out, FOREGROUND_BLUE | FOREGROUND_INTENSITY);
+        return os;
+    }
+
+    std::ostream& yellow(std::ostream& os)
+    {
+        SetConsoleTextAttribute(_std_out, FOREGROUND_RED | FOREGROUND_GREEN | FOREGROUND_INTENSITY);
+        return os;
+    }
 
     //based on https://docs.microsoft.com/en-us/windows/console/reading-input-buffer-events
 
@@ -255,14 +287,14 @@ int main(int argc, char* argv[])
         const auto key = ::strtoll(argv[1], nullptr, 10);
         if(key == inasm64::kTrapModeArgumentValue)
         {
-            std::cerr << "Fatal runtime error: faulty trap\n";
+            std::cerr << console::red << "Fatal runtime error: faulty trap\n";
             return -1;
         }
     }
 
     console::Initialise();
 
-    std::cout << "inasm64: The IA 64 Interactive Assembler\n\n";
+    std::cout << console::yellow << "inasm64: The IA 64 Interactive Assembler\n\n" << console::reset_colours;
 
     auto sse_supported = false;
     if(inasm64::SseLevelSupported(inasm64::SseLevel::kSse))
@@ -327,8 +359,7 @@ int main(int argc, char* argv[])
             std::cout << "\t$" << name << " is set to 0x" << std::hex << value << std::endl;
         };
 
-        std::cout
-            << "started, enter a command or \'h\' for help\\n\n";
+        std::cout << console::green << "started, enter a command or \'h\' for help\n\n" << console::reset_colours;
 
         auto done = false;
         cli::OnQuit = [&done]() { done = true; };
@@ -353,12 +384,15 @@ int main(int argc, char* argv[])
                 std::cout << "> ";
             std::getline(std::cin, input);
             if(!cli::Execute(input.c_str()))
-                std::cerr << "error: " << inasm64::ErrorMessage(inasm64::GetError()) << std::endl;
+                std::cerr << console::red << "error: " << inasm64::ErrorMessage(inasm64::GetError()) << console::reset_colours << std::endl;
         }
     }
     else
     {
-        std::cerr << "*failed to start inasm64 runtime!\n";
+        std::cerr << console::red << "*failed to start inasm64 runtime!\n";
     }
+
+	std::cout << console::reset_colours;
+
     return 0;
 }
