@@ -20,15 +20,17 @@ namespace console
     HANDLE _std_in, _std_out;
     CONSOLE_SCREEN_BUFFER_INFO _std_out_info;
     CONSOLE_SCREEN_BUFFER_INFO _csbiInfo;
+    DWORD _std_in_mode;
 
     void Initialise()
     {
         _std_in = GetStdHandle(STD_INPUT_HANDLE);
         _std_out = GetStdHandle(STD_OUTPUT_HANDLE);
         GetConsoleScreenBufferInfo(_std_out, &_std_out_info);
+        GetConsoleMode(_std_in, &_std_in_mode);
     }
 
-	std::ostream& reset_colours(std::ostream& os)
+    std::ostream& reset_colours(std::ostream& os)
     {
         SetConsoleTextAttribute(_std_out, _std_out_info.wAttributes);
         return os;
@@ -56,6 +58,31 @@ namespace console
     {
         SetConsoleTextAttribute(_std_out, FOREGROUND_RED | FOREGROUND_GREEN | FOREGROUND_INTENSITY);
         return os;
+    }
+
+    void read_line(std::string&)
+    {
+        const auto mode = _std_in_mode & ~(ENABLE_LINE_INPUT | ENABLE_ECHO_INPUT | ENABLE_WINDOW_INPUT | ENABLE_MOUSE_INPUT);
+        SetConsoleMode(_std_in, mode);
+        while(true)
+        {
+            INPUT_RECORD buffer[128];
+            DWORD read;
+            ReadConsoleInput(_std_in, buffer, DWORD(std::size(buffer)), &read);
+            for(unsigned i = 0; i < read; i++)
+            {
+                switch(buffer[i].EventType)
+                {
+                case KEY_EVENT:
+                    //TODO:
+                    break;
+                default:
+					//ZZZ:
+                    break;
+                }
+            }
+		}
+        SetConsoleMode(_std_in, _std_in_mode);
     }
 
     //based on https://docs.microsoft.com/en-us/windows/console/reading-input-buffer-events
@@ -294,7 +321,8 @@ int main(int argc, char* argv[])
 
     console::Initialise();
 
-    std::cout << console::yellow << "inasm64: The IA 64 Interactive Assembler\n\n" << console::reset_colours;
+    std::cout << console::yellow << "inasm64: The IA 64 Interactive Assembler\n\n"
+              << console::reset_colours;
 
     auto sse_supported = false;
     if(inasm64::SseLevelSupported(inasm64::SseLevel::kSse))
@@ -359,7 +387,8 @@ int main(int argc, char* argv[])
             std::cout << "\t$" << name << " is set to 0x" << std::hex << value << std::endl;
         };
 
-        std::cout << console::green << "started, enter a command or \'h\' for help\n\n" << console::reset_colours;
+        std::cout << console::green << "started, enter a command or \'h\' for help\n\n"
+                  << console::reset_colours;
 
         auto done = false;
         cli::OnQuit = [&done]() { done = true; };
@@ -382,6 +411,7 @@ int main(int argc, char* argv[])
                 std::cout << std::hex << cli::LastAssembledInstructionAddress() << " ";
             else
                 std::cout << "> ";
+
             std::getline(std::cin, input);
             if(!cli::Execute(input.c_str()))
                 std::cerr << console::red << "error: " << inasm64::ErrorMessage(inasm64::GetError()) << console::reset_colours << std::endl;
@@ -392,7 +422,7 @@ int main(int argc, char* argv[])
         std::cerr << console::red << "*failed to start inasm64 runtime!\n";
     }
 
-	std::cout << console::reset_colours;
+    std::cout << console::reset_colours;
 
     return 0;
 }
