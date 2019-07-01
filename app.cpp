@@ -17,7 +17,6 @@ namespace console
 {
     HANDLE _std_in, _std_out;
     CONSOLE_SCREEN_BUFFER_INFO _std_out_info;
-    CONSOLE_SCREEN_BUFFER_INFO _csbiInfo;
     DWORD _std_in_mode;
 
     constexpr auto kMaxLineLength = 256;
@@ -28,6 +27,16 @@ namespace console
         _std_out = GetStdHandle(STD_OUTPUT_HANDLE);
         GetConsoleScreenBufferInfo(_std_out, &_std_out_info);
         GetConsoleMode(_std_in, &_std_in_mode);
+    }
+
+    short Width()
+    {
+        return short(_std_out_info.dwSize.X);
+    }
+
+    short Height()
+    {
+        return short(_std_out_info.dwSize.Y);
     }
 
     std::ostream& reset_colours(std::ostream& os)
@@ -60,7 +69,15 @@ namespace console
         return os;
     }
 
-    void read_line(std::string& line)
+    void SetCursorX(short x)
+    {
+        CONSOLE_SCREEN_BUFFER_INFO cs_info;
+        GetConsoleScreenBufferInfo(_std_out, &cs_info);
+        cs_info.dwCursorPosition.X = x;
+        SetConsoleCursorPosition(_std_out, cs_info.dwCursorPosition);
+    }
+
+    void ReadLine(std::string& line)
     {
         const auto mode = _std_in_mode & ~(ENABLE_LINE_INPUT | ENABLE_ECHO_INPUT | ENABLE_WINDOW_INPUT | ENABLE_MOUSE_INPUT);
         SetConsoleMode(_std_in, mode);
@@ -172,6 +189,11 @@ namespace console
                         }
                     }
                 }
+            }
+            break;
+            case WINDOW_BUFFER_SIZE_EVENT:
+            {
+                _std_out_info.dwSize = input_record.Event.WindowBufferSizeEvent.dwSize;
             }
             break;
             default:;
@@ -436,8 +458,8 @@ int main(int argc, char* argv[])
             assembling = true;
         };
         cli::OnAssembling = [](const assembler::AssembledInstructionInfo& asm_info) {
-            //TODO: this doesn't really work; need a better (full) console approach to divide the window into a couple of columns so that this can be nicely aligned
-            std::cout << "\t\t\t\t";
+            const auto cw = console::Width();
+            console::SetCursorX(cw - cw / 2);
             for(unsigned n = 0; n < asm_info.InstructionSize; ++n)
             {
                 std::cout << console::green << std::hex << std::setw(2) << std::setfill('0') << int(asm_info.Instruction[n]);
@@ -460,7 +482,7 @@ int main(int argc, char* argv[])
                 std::cout << "> ";
             }
 
-            console::read_line(input);
+            console::ReadLine(input);
             if(!assembling)
                 std::cout << std::endl;
 
