@@ -75,9 +75,21 @@ namespace inasm64
                 break;
                 case Statement::kMem:
                 {
-                    //TODO: there is a mem1 as well, but need to understand exactly how it's used
-                    xed_encoder_request_set_mem0(&req);
-                    xed_encoder_request_set_operand_order(&req, op_order, XED_OPERAND_MEM0);
+                    const auto instr = xed_encoder_request_get_iclass(&req);
+                    //ZZZ: this is what XED calls an "AGEN" (Address Generation) but it's not at all clear to me
+                    //	   and also...what other instructions use this?
+                    if(instr == XED_ICLASS_LEA)
+                    {
+                        xed_encoder_request_set_agen(&req);
+                        xed_encoder_request_set_operand_order(
+                            &req, op_order, XED_OPERAND_AGEN);
+                    }
+                    else
+                    {
+                        //TODO: there is a mem1 as well, but need to understand exactly how it's used
+                        xed_encoder_request_set_mem0(&req);
+                        xed_encoder_request_set_operand_order(&req, op_order, XED_OPERAND_MEM0);
+                    }
 
                     auto seg = XED_REG_INVALID;
                     if(op._mem._seg)
