@@ -23,7 +23,7 @@ namespace inasm64
 #ifdef _DEBUG
             void printstatement(const Statement& statement)
             {
-                switch(statement._op1_type)
+                switch(statement._op1._type)
                 {
                 case Statement::kReg:
                     std::cout << "op1 is Register";
@@ -36,13 +36,13 @@ namespace inasm64
                     break;
                 }
 
-                if(statement._op1_width_bits)
-                    std::cout << ", width is " << int(statement._op1_width_bits) << " bytes";
+                if(statement._op1._width_bits)
+                    std::cout << ", width is " << int(statement._op1._width_bits) << " bytes";
 
-                if(statement._op12)
+                if(statement._operand_count == 2)
                 {
                     std::cout << " ";
-                    switch(statement._op2_type)
+                    switch(statement._op2._type)
                     {
                     case Statement::kReg:
                         std::cout << "op2 is Register";
@@ -54,8 +54,8 @@ namespace inasm64
                         std::cout << "op2 is Memory";
                         break;
                     }
-                    if(statement._op2_width_bits)
-                        std::cout << ", width is " << int(statement._op2_width_bits) << " bits";
+                    if(statement._op2._width_bits)
+                        std::cout << ", width is " << int(statement._op2._width_bits) << " bits";
                 }
 
                 std::cout << std::endl
@@ -69,7 +69,7 @@ namespace inasm64
                     std::cout << "repne ";
                 std::cout << statement._instruction << " ";
 
-                const auto coutop = [](char type, short width, const Statement::op& op) {
+                const auto coutop = [](char type, short width, const Statement::operand& op) {
                     switch(width)
                     {
                     case 1:
@@ -91,33 +91,33 @@ namespace inasm64
                     switch(type)
                     {
                     case Statement::kReg:
-                        std::cout << op._reg;
+                        std::cout << op._op._reg;
                         break;
                     case Statement::kImm:
-                        std::cout << op._imm;
+                        std::cout << op._op._imm;
                         break;
                     case Statement::kMem:
-                        if(op._mem._seg)
-                            std::cout << op._mem._seg << ":";
+                        if(op._op._mem._seg)
+                            std::cout << op._op._mem._seg << ":";
                         std::cout << "[";
-                        if(op._mem._base)
-                            std::cout << op._mem._base;
-                        if(op._mem._index)
-                            std::cout << "+" << op._mem._index;
-                        if(op._mem._scale)
-                            std::cout << "*" << int(op._mem._scale) << " ";
-                        if(op._mem._displacement)
-                            std::cout << "+" << std::hex << op._mem._displacement;
+                        if(op._op._mem._base)
+                            std::cout << op._op._mem._base;
+                        if(op._op._mem._index)
+                            std::cout << "+" << op._op._mem._index;
+                        if(op._op._mem._scale)
+                            std::cout << "*" << int(op._op._mem._scale) << " ";
+                        if(op._op._mem._displacement)
+                            std::cout << "+" << std::hex << op._op._mem._displacement;
                         std::cout << "]";
                         break;
                     }
                 };
 
-                coutop(statement._op1_type, statement._op1_width_bits, statement._op1);
-                if(statement._op12)
+                coutop(statement._op1._type, statement._op1._width_bits, statement._op1);
+                for(auto on = 1; on < statement._operand_count; ++on)
                 {
                     std::cout << ", ";
-                    coutop(statement._op2_type, statement._op2_width_bits, statement._op2);
+                    coutop(statement._op2._type, statement._op2._width_bits, statement._op2);
                 }
                 std::cout << std::endl;
             }
@@ -495,63 +495,64 @@ namespace inasm64
                         detail::SetError(Error::InvalidInstructionFormat);
 
                         // op1
-                        statement._op1_width_bits = check_operand_bit_size_prefix(part[0]);
+                        statement._op1._width_bits = check_operand_bit_size_prefix(part[0]);
                         if(TokeniseOperand(part[0][tl], op1))
                         {
+                            statement._operand_count = 1;
                             result = (op1._base[0] || op1._reg_imm[0] || op1._displacement[0]);
 
                             if(result && !part[1].empty())
                             {
                                 tl = 0;
-                                statement._op2_width_bits = check_operand_bit_size_prefix(part[1]);
+                                statement._op2._width_bits = check_operand_bit_size_prefix(part[1]);
                                 result = TokeniseOperand(part[1][tl], op2);
                                 // sanity check; if for example the input has whitespace between the segment register and the :, the segment register would be misread as base.
                                 result = result && (op2._base[0] || op2._displacement[0] || (op2._reg_imm[0] && part[1].size() == 1));
-                                statement._op12 = true;
+                                statement._operand_count = 2;
                             }
 
                             if(result)
                             {
                                 // simple heuristic for each operand (the assembler driver will have the final say in verifying this)
-                                statement._op1_type = op1._reg_imm[0] ? (isalpha(op1._reg_imm[0]) ? Statement::kReg : Statement::kImm)
-                                                                      : Statement::kMem;
-                                statement._op2_type = op2._reg_imm[0] ? (isalpha(op2._reg_imm[0]) ? Statement::kReg : Statement::kImm)
-                                                                      : Statement::kMem;
+                                statement._op1._type = op1._reg_imm[0] ? (isalpha(op1._reg_imm[0]) ? Statement::kReg : Statement::kImm)
+                                                                       : Statement::kMem;
+                                statement._op2._type = op2._reg_imm[0] ? (isalpha(op2._reg_imm[0]) ? Statement::kReg : Statement::kImm)
+                                                                       : Statement::kMem;
 
-                                const auto setup_statement = [](char type, Statement::op& op, const TokenisedOperand& op_info) -> short {
+                                const auto setup_statement = [](char type, Statement::operand& op, const TokenisedOperand& op_info) -> short {
                                     //NOTE: we can safely pass pointers to op_info fields around here, they'll never leave the scope of the parent function and it's descendants
                                     short width_bits = 0;
                                     switch(type)
                                     {
                                     case Statement::kReg:
-                                        op._reg = op_info._reg_imm;
-                                        width_bits = GetRegisterInfo(op._reg)._bit_width;
+                                        op._op._reg = op_info._reg_imm;
+                                        width_bits = GetRegisterInfo(op._op._reg)._bit_width;
                                         break;
                                     case Statement::kImm:
                                     {
                                         const auto imm_len = strlen(op_info._reg_imm);
                                         const auto base = (op_info._reg_imm[imm_len - 1] != 'h') ? 0 : 16;
-                                        op._imm = ::strtoll(op_info._reg_imm, nullptr, base);
+                                        op._op._imm = ::strtoll(op_info._reg_imm, nullptr, base);
                                         unsigned long index;
-                                        _BitScanReverse64(&index, op._imm);
+                                        _BitScanReverse64(&index, op._op._imm);
                                         width_bits = short((index + 8) & ~7);
                                     }
                                     break;
                                     case Statement::kMem:
                                     {
-                                        op._mem._seg = (op_info._seg[0] ? op_info._seg : nullptr);
-                                        op._mem._base = (op_info._base[0] ? op_info._base : nullptr);
-                                        op._mem._index = (op_info._index[0] ? op_info._index : nullptr);
-                                        op._mem._scale = char(::strtol(op_info._scale, nullptr, 0));
+                                        op._op._mem._seg = (op_info._seg[0] ? op_info._seg : nullptr);
+                                        op._op._mem._base = (op_info._base[0] ? op_info._base : nullptr);
+                                        op._op._mem._index = (op_info._index[0] ? op_info._index : nullptr);
+                                        op._op._mem._scale = char(::strtol(op_info._scale, nullptr, 0));
                                         if(op_info._displacement[0] != 0)
                                         {
                                             const auto disp_len = strlen(op_info._displacement);
                                             const auto base = (op_info._displacement[disp_len - 1] != 'h') ? 0 : 16;
                                             //NOTE: we can use strtol here because the displacement can never be > 32 bits
-                                            op._mem._displacement = ::strtol(op_info._displacement, nullptr, base);
+                                            op._op._mem._displacement = ::strtol(op_info._displacement, nullptr, base);
                                             unsigned long index;
-                                            _BitScanReverse64(&index, op._mem._displacement > 0 ? op._mem._displacement : -op._mem._displacement);
-                                            op._mem._disp_width_bits = char((index + 8) & ~7);
+                                            _BitScanReverse64(&index, op._op._mem._displacement > 0 ? op._op._mem._displacement : -op._op._mem._displacement);
+                                            op._op._mem._disp_width_bits = char((index + 8) & ~7);
                                         }
                                         // implicitly 32 bits, may be overridden by prefix or the size of op1
                                         width_bits = 32;
@@ -561,14 +562,14 @@ namespace inasm64
                                     return width_bits;
                                 };
 
-                                statement._op1_width_bits = std::max<short>(setup_statement(statement._op1_type, statement._op1, op1), statement._op1_width_bits);
-                                if(statement._op12)
+                                statement._op1._width_bits = std::max<short>(setup_statement(statement._op1._type, statement._op1, op1), statement._op1._width_bits);
+                                if(statement._operand_count == 2)
                                 {
-                                    statement._op2_width_bits = std::max<short>(setup_statement(statement._op2_type, statement._op2, op2), statement._op2_width_bits);
-                                    if(statement._op2_type == Statement::kMem && statement._op2_width_bits != statement._op1_width_bits)
+                                    statement._op2._width_bits = std::max<short>(setup_statement(statement._op2._type, statement._op2, op2), statement._op2._width_bits);
+                                    if(statement._op2._type == Statement::kMem && statement._op2._width_bits != statement._op1._width_bits)
                                     {
                                         // implicit override by reg size, we don't require a ptr modifier
-                                        statement._op2_width_bits = statement._op1_width_bits;
+                                        statement._op2._width_bits = statement._op1._width_bits;
                                     }
                                 }
                             }

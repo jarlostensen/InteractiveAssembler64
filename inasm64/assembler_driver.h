@@ -29,33 +29,31 @@ namespace inasm64
             bool _repne : 1;
             // lock prefix
             bool _lock : 1;
-            // true if both op1 and op2 are used
-            bool _op12 : 1;
-            static constexpr char kReg = 0;
-            static constexpr char kImm = 1;
-            static constexpr char kMem = 2;
-            // 0 = reg, 1 = imm, 2 = mem
-            char _op1_type;
-            // 0 = reg, 1 = imm, 2 = mem
-            char _op2_type;
-            // operand width
-            short _op1_width_bits;
-            // operand width
-            short _op2_width_bits;
+            // 3 is currently max
+            char _operand_count;
 
             const char* _instruction = nullptr;
 
-            //TODO: what about "dword ptr" etc, do they contribute in any other way than changing a mode somewhere...?
+            static constexpr char kReg = 0;
+            static constexpr char kImm = 1;
+            static constexpr char kMem = 2;
 
-            union op {
-                const char* _reg = nullptr;
-                uint64_t _imm;
-                MemoryOperandTokens _mem;
-                //NOTE: non-trivial default constructor
-                op()
-                {
-                }
-            } _op1, _op2;
+            struct operand
+            {
+                // 0 = reg, 1 = imm, 2 = mem
+                char _type;
+                short _width_bits;
+
+                union op_ {
+                    const char* _reg = nullptr;
+                    uint64_t _imm;
+                    MemoryOperandTokens _mem;
+                    //NOTE: non-trivial default constructor
+                    op_()
+                    {
+                    }
+                } _op;
+            } _op1, _op2, _op3;
 
             static constexpr size_t kMaxStatementLength = 256;
             char _input_tokens[kMaxStatementLength] = { 0 };

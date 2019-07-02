@@ -36,7 +36,7 @@ namespace inasm64
         {
             xed_encoder_request_t req;
             xed_encoder_request_zero_set_mode(&req, &_state64);
-            xed_encoder_request_set_effective_operand_width(&req, statement._op1_width_bits);
+            xed_encoder_request_set_effective_operand_width(&req, statement._op1._width_bits);
 
             char uc_buffer[64];
 
@@ -56,12 +56,12 @@ namespace inasm64
 
             xed_encoder_request_set_iclass(&req, xed_instruction);
 
-            const auto build_xed_op = [&req, &uc_string, &uc_buffer, &statement](unsigned op_order, char type, short width_bits, const Statement::op& op) -> bool {
+            const auto build_xed_op = [&req, &uc_string, &uc_buffer, &statement](unsigned op_order, char type, short width_bits, const Statement::operand& op) -> bool {
                 switch(type)
                 {
                 case Statement::kReg:
                 {
-                    uc_string(op._reg);
+                    uc_string(op._op._reg);
                     const auto op1_xed_reg = str2xed_reg_enum_t(uc_buffer);
                     if(op1_xed_reg == XED_REG_INVALID)
                     {
@@ -92,17 +92,17 @@ namespace inasm64
                     }
 
                     auto seg = XED_REG_INVALID;
-                    if(op._mem._seg)
+                    if(op._op._mem._seg)
                     {
-                        uc_string(op._mem._seg);
+                        uc_string(op._op._mem._seg);
                         seg = str2xed_reg_enum_t(uc_buffer);
                     }
                     xed_encoder_request_set_seg0(&req, seg);
 
                     auto base = XED_REG_INVALID;
-                    if(op._mem._base)
+                    if(op._op._mem._base)
                     {
-                        uc_string(op._mem._base);
+                        uc_string(op._op._mem._base);
                         base = str2xed_reg_enum_t(uc_buffer);
                         if(base == XED_REG_INVALID)
                         {
@@ -113,9 +113,9 @@ namespace inasm64
                     xed_encoder_request_set_base0(&req, base);
 
                     auto index = XED_REG_INVALID;
-                    if(op._mem._index)
+                    if(op._op._mem._index)
                     {
-                        uc_string(op._mem._index);
+                        uc_string(op._op._mem._index);
                         index = str2xed_reg_enum_t(uc_buffer);
                         if(base == XED_REG_INVALID)
                         {
@@ -124,7 +124,7 @@ namespace inasm64
                         }
                     }
                     xed_encoder_request_set_index(&req, index);
-                    xed_encoder_request_set_scale(&req, op._mem._scale);
+                    xed_encoder_request_set_scale(&req, op._op._mem._scale);
 
                     // from xed/examples/xed-enc-lang.c
                     const auto rc = xed_gpr_reg_class(base);
@@ -139,9 +139,9 @@ namespace inasm64
 
                     xed_encoder_request_set_memory_operand_length(&req, width_bits >> 3);
 
-                    if(op._mem._displacement)
+                    if(op._op._mem._displacement)
                     {
-                        xed_encoder_request_set_memory_displacement(&req, op._mem._displacement, op._mem._disp_width_bits / 8);
+                        xed_encoder_request_set_memory_displacement(&req, op._op._mem._displacement, op._op._mem._disp_width_bits / 8);
                     }
                 }
                 break;
@@ -167,7 +167,7 @@ namespace inasm64
                     switch(instr)
                     {
                     case XED_ICLASS_MOV:
-                        switch(statement._op1_width_bits)
+                        switch(statement._op1._width_bits)
                         {
                         case 8:
                             if(width_bits > 8)
@@ -202,7 +202,7 @@ namespace inasm64
                     default:;
                     }
 
-                    xed_encoder_request_set_uimm0_bits(&req, op._imm, width_bits);
+                    xed_encoder_request_set_uimm0_bits(&req, op._op._imm, width_bits);
                     xed_encoder_request_set_operand_order(&req, op_order, XED_OPERAND_IMM0);
                 }
                 break;
@@ -212,13 +212,18 @@ namespace inasm64
                 return true;
             };
 
-            if(!build_xed_op(0, statement._op1_type, statement._op1_width_bits, statement._op1))
+            if(!build_xed_op(0, statement._op1._type, statement._op1._width_bits, statement._op1))
                 return 0;
 
-            if(statement._op12)
+            if(statement._operand_count == 2)
             {
-                if(!build_xed_op(1, statement._op2_type, statement._op2_width_bits, statement._op2))
+                if(!build_xed_op(1, statement._op2._type, statement._op2._width_bits, statement._op2))
                     return 0;
+            }
+            else if(statement._operand_count > 3)
+            {
+                detail::SetError(Error::UnsupportedInstructionFormat);
+                return 0;
             }
 
             unsigned char ibuffer[XED_MAX_INSTRUCTION_BYTES];
