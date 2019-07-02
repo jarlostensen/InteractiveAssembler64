@@ -27,6 +27,8 @@ namespace inasm64
             bool _rep : 1;
             // repne prefix
             bool _repne : 1;
+            // repe prefix
+            bool _repe : 1;
             // lock prefix
             bool _lock : 1;
             // 3 is currently max

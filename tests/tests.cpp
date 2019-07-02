@@ -49,7 +49,8 @@ int main()
     test_assemble("xor rax,rax");
     test_assemble("mov rbx,1");
     test_assemble("add rax, rbx");
-
+    test_assemble("rep stosb");
+    test_assemble("repne scasw");
     test_assemble("add rax, 0x44332211");
     test_assemble("mov eax,[ebx]");
     test_assemble("inc rax");

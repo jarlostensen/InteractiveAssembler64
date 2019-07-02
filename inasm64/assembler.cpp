@@ -442,12 +442,17 @@ namespace inasm64
                 size_t tl = 0;
                 if(strncmp(part[0][tl], "rep", 3) == 0)
                 {
-                    statement._rep = true;
-                    ++tl;
-                }
-                else if(strncmp(part[0][tl], "repne", 5) == 0)
-                {
-                    statement._repne = true;
+                    if(!part[0][tl][3])
+                        statement._rep = true;
+                    else if(part[0][tl][3] == 'e' && !part[0][tl][4])
+                        statement._repe = true;
+                    else if(part[0][tl][3] == 'n' && part[0][tl][4] == 'e')
+                        statement._repne = true;
+                    else
+                    {
+                        detail::SetError(Error::UnsupportedInstructionFormat);
+                        return false;
+                    }
                     ++tl;
                 }
                 else if(strncmp(part[0][tl], "lock", 4) == 0)
@@ -487,6 +492,7 @@ namespace inasm64
                     };
 
                     // instruction
+                    statement._operand_count = 0;
                     statement._instruction = part[0][tl++];
                     if(tl < part[0].size())
                     {

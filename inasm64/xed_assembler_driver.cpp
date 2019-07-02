@@ -38,15 +38,48 @@ namespace inasm64
             xed_encoder_request_zero_set_mode(&req, &_state64);
             xed_encoder_request_set_effective_operand_width(&req, statement._op1._width_bits);
 
-            char uc_buffer[64];
+            //ZZZ: this doesn't seem to work, or have the intended effect, the 0xf2 or 0xf3 prefixes don't get emitted by XED by just setting these
+            //     instead we have to use the special rep/ne_ instruction prefix for the iclass (see below)
+            /*if(statement._rep)
+                xed_encoder_request_set_rep(&req);
+            else if(statement._repne)
+                xed_encoder_request_set_repne(&req);*/
 
-            const auto uc_string = [&uc_buffer](const char* str) {
-                const auto rname_len = strlen(str) + 1;
-                memcpy(uc_buffer, str, rname_len);
+            char uc_buffer[64];
+            const auto uc_string = [&uc_buffer](const char* str, const char* prefix = nullptr) {
+                auto rname_len = strlen(str) + 1;
+                if(prefix)
+                {
+                    const auto pf_len = strlen(prefix);
+                    memcpy(uc_buffer + pf_len, str, rname_len);
+                    memcpy(uc_buffer, prefix, pf_len);
+                    rname_len += pf_len;
+                }
+                else
+                {
+                    memcpy(uc_buffer, str, rname_len);
+                }
                 _strupr_s(uc_buffer, rname_len);
             };
 
-            uc_string(statement._instruction);
+            // add prefix code to the instruction if needed (XED requires this)
+            if(statement._rep)
+            {
+                uc_string(statement._instruction, "rep_");
+            }
+            else if(statement._repe)
+            {
+                uc_string(statement._instruction, "repe_");
+            }
+            else if(statement._repne)
+            {
+                uc_string(statement._instruction, "repne_");
+            }
+            else
+            {
+                uc_string(statement._instruction);
+            }
+
             const auto xed_instruction = str2xed_iclass_enum_t(uc_buffer);
             if(xed_instruction == XED_ICLASS_INVALID)
             {
@@ -212,18 +245,21 @@ namespace inasm64
                 return true;
             };
 
-            if(!build_xed_op(0, statement._op1._type, statement._op1._width_bits, statement._op1))
-                return 0;
-
-            if(statement._operand_count == 2)
+            if(statement._operand_count)
             {
-                if(!build_xed_op(1, statement._op2._type, statement._op2._width_bits, statement._op2))
+                if(!build_xed_op(0, statement._op1._type, statement._op1._width_bits, statement._op1))
                     return 0;
-            }
-            else if(statement._operand_count > 3)
-            {
-                detail::SetError(Error::UnsupportedInstructionFormat);
-                return 0;
+
+                if(statement._operand_count == 2)
+                {
+                    if(!build_xed_op(1, statement._op2._type, statement._op2._width_bits, statement._op2))
+                        return 0;
+                }
+                else if(statement._operand_count > 3)
+                {
+                    detail::SetError(Error::UnsupportedInstructionFormat);
+                    return 0;
+                }
             }
 
             unsigned char ibuffer[XED_MAX_INSTRUCTION_BYTES];
