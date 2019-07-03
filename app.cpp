@@ -3,6 +3,7 @@
 #include <iomanip>
 #include <string>
 #include <algorithm>
+#include <cassert>
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
 
@@ -420,9 +421,15 @@ void DumpDeltaRegs()
     memcpy(&_prev_context, ctx->OsContext, sizeof(_prev_context));
 }
 
-void DumpReg(const char*)
+void DumpReg(const char* regName_, uint64_t value)
 {
-    //TODO:
+    char regName[64];
+    const auto regNameLen = strlen(regName_);
+    assert(regNameLen < std::size(regName));
+    memcpy(regName, regName_, regNameLen + 1);
+    _strlwr_s(regName, regNameLen + 1);
+    std::cout << console::green << regName << " = " << std::hex << value << std::endl
+              << console::reset_colours;
 }
 
 void DumpXmmRegisters()
@@ -488,16 +495,6 @@ void DumpYmmRegisters()
     }
 }
 
-void DumpInstructionInfo()
-{
-    const auto ctx = inasm64::runtime::Context();
-    for(auto n = 0; n < ctx->InstructionSize; ++n)
-    {
-        std::cout << std::hex << int(ctx->Instruction[n]) << " ";
-    }
-    std::cout << std::endl;
-}
-
 void DumpMemory(inasm64::cli::DataType, const void* remote_address, size_t size_)
 {
     // mvp; max 4 rows, 16 columns of data
@@ -517,8 +514,9 @@ void DumpMemory(inasm64::cli::DataType, const void* remote_address, size_t size_
         auto cols = std::min<size_t>(kCols, size);
         for(unsigned c = 0; c < kCols; ++c)
         {
+            unsigned val = local_buffer[n + c] & 0xff;
             if(c < cols)
-                std::cout << std::hex << std::setw(2) << std::setfill('0') << int(local_buffer[n + c]) << " ";
+                std::cout << std::hex << std::setw(2) << std::setfill('0') << val << " ";
             else
                 std::cout << "   ";
         }
@@ -634,6 +632,7 @@ int main(int argc, char* argv[])
         cli::OnDisplayXMMRegisters = DumpXmmRegisters;
         cli::OnDisplayYMMRegisters = DumpYmmRegisters;
         cli::OnDumpMemory = DumpMemory;
+        cli::OnSetGPRegister = DumpReg;
 
         std::string input;
 

@@ -9,9 +9,7 @@
 #include <unordered_map>
 #include <algorithm>
 #include <varargs.h>
-
-//TESTING
-#include <iostream>
+#include <cerrno>
 
 #include "common.h"
 #include "runtime.h"
@@ -24,7 +22,7 @@ namespace inasm64
     namespace cli
     {
         std::function<void(const char*, uintptr_t)> OnDataValueSet;
-        std::function<void(const char*, uint64_t)> OnSetGPRegisters;
+        std::function<void(const char*, uint64_t)> OnSetGPRegister;
         std::function<void(const char*)> OnDisplayGPRegister;
         std::function<void()> OnDisplayGPRegisters;
         std::function<void()> OnDisplayXMMRegisters;
@@ -215,7 +213,7 @@ namespace inasm64
                         }
                     }
                 }
-                return handled;
+                return handled && GetError() == Error::NoError;
             }
 
             enum class ValueType
@@ -224,6 +222,8 @@ namespace inasm64
                 kWord = 2,
                 kDWord = 4,
                 kQWord = 8,
+                kF32 = 0x40,
+                kF64 = 0x80,
                 kUnsupported
             };
 
@@ -250,22 +250,59 @@ namespace inasm64
                     }
                     else
                     {
-                        char* next;
-                        const auto value = strtoll(rp, &next, 0);
-                        if(value < LLONG_MAX && value > LLONG_MIN)
+                        char* next = nullptr;
+                        long long value;
+                        size_t byte_count = 0;
+
+                        switch(type)
+                        {
+                        case ValueType::kF32:
+                        {
+                            float fval = std::strtof(rp, &next);
+                            if(!errno)
+                            {
+                                memcpy(&value, &fval, 4);
+                                byte_count = 4;
+                            }
+                        }
+                        break;
+                        case ValueType::kF64:
+                        {
+                            if(!errno)
+                            {
+                                double dval = std::strtod(rp, &next);
+                                memcpy(&value, &dval, 8);
+                                byte_count = 8;
+                            }
+                        }
+                        break;
+                        default:
+                        {
+                            value = strtoll(rp, &next, 0);
+                            if(!errno)
+                                byte_count = static_cast<unsigned>(type);
+                        }
+                        break;
+                        }
+
+                        if(byte_count)
                         {
                             auto value_bytes = reinterpret_cast<const uint8_t*>(&value);
-                            for(unsigned n = 0; n < static_cast<unsigned>(type); ++n)
+                            for(unsigned n = 0; n < byte_count; ++n)
                             {
                                 bytes.push_back(*value_bytes++);
                             }
                             rp = next;
-                        }
 
-                        while((rp[0] || rp[1]) && !isalpha(int(rp[0])) && !isdigit(int(rp[0])))
-                        {
-                            ++rp;
+                            // move on to the next value
+                            while((rp[0] || rp[1]) && !isalpha(int(rp[0])) && !isdigit(int(rp[0])))
+                            {
+                                ++rp;
+                            }
                         }
+                        else
+                            //TODO: should really set an error here
+                            break;
                     }
                 }
             }
@@ -298,6 +335,27 @@ namespace inasm64
                 case 'q':
                     type = ValueType::kQWord;
                     break;
+                case 'f':
+                {
+                    switch(cmd[2])
+                    {
+                    // fs = 32 bit
+                    case 's':
+                        type = ValueType::kF32;
+                        break;
+                    // fd = 64 bit
+                    case 'd':
+                        type = ValueType::kF64;
+                        break;
+                    case 0:
+                    default:
+                    {
+                        detail::SetError(Error::InvalidCommandFormat);
+                    }
+                    break;
+                    }
+                }
+                break;
                 default:;
                 }
                 parse_values(type, params, data);
@@ -362,8 +420,8 @@ namespace inasm64
                                 _strupr_s(params, rp - params);
                                 if(runtime::SetReg(params, value))
                                 {
-                                    if(OnSetGPRegisters)
-                                        OnSetGPRegisters(params, value);
+                                    if(OnSetGPRegister)
+                                        OnSetGPRegister(params, value);
                                     display_reg = false;
                                 }
                             }
@@ -448,10 +506,10 @@ namespace inasm64
                         {
                             switch(cmd[2])
                             {
-                            case '3':
+                            case 's':
                                 type = DataType::kFloat32;
                                 break;
-                            case '6':
+                            case 'd':
                                 type = DataType::kFloat64;
                             default:;
                             }
@@ -470,7 +528,7 @@ namespace inasm64
             if(!_initialised)
             {
                 Type1Command cmd1;
-                cmd1.set_names(4, "db", "dw", "dd", "dq");
+                cmd1.set_names(6, "db", "dw", "dd", "dq", "dfs", "dfd");
                 cmd1._handler = data_value_handler;
                 _type_1_handlers.emplace_back(std::move(cmd1));
 

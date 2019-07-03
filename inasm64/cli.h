@@ -57,7 +57,7 @@ namespace inasm64
         extern std::function<void(const char* varname, uintptr_t value)> OnDataValueSet;
 
         // registerName has been set to value
-        extern std::function<void(const char* registerName, uint64_t value)> OnSetGPRegisters;
+        extern std::function<void(const char* registerName, uint64_t value)> OnSetGPRegister;
 
         // dump information about the given address, in the given format
         extern std::function<void(DataType, const void* address, size_t bytes)> OnDumpMemory;
