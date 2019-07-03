@@ -29,10 +29,10 @@ namespace inasm64
         std::function<void()> OnDisplayGPRegisters;
         std::function<void()> OnDisplayXMMRegisters;
         std::function<void()> OnDisplayYMMRegisters;
-        std::function<void()> OnStep;
+        std::function<void(const void*)> OnStep;
         std::function<void()> OnStartAssembling;
         std::function<void()> OnStopAssembling;
-        std::function<void(const assembler::AssembledInstructionInfo&)> OnAssembling;
+        std::function<void(const void*, const assembler::AssembledInstructionInfo&)> OnAssembling;
         std::function<void()> OnQuit;
         std::function<void()> OnHelp;
         std::function<void(DataType, const void*, size_t)> OnDumpMemory;
@@ -380,13 +380,15 @@ namespace inasm64
 
             void step_handler(const char*, char* params)
             {
+                auto address = runtime::InstructionPointer();
                 auto stepped = false;
                 if(!is_null_or_empty(params))
                 {
                     const auto value = strtoll(params, nullptr, 0);
                     if(value < LLONG_MAX && value > LLONG_MIN)
                     {
-                        if(runtime::SetNextInstruction(reinterpret_cast<const void*>(value)))
+                        address = reinterpret_cast<const void*>(value);
+                        if(runtime::SetNextInstruction(address))
                         {
                             stepped = runtime::Step();
                         }
@@ -396,10 +398,9 @@ namespace inasm64
                 {
                     stepped = runtime::Step();
                 }
-                if(stepped)
+                if(stepped && OnStep)
                 {
-                    if(OnStep)
-                        OnStep();
+                    OnStep(address);
                 }
             }
 
@@ -524,7 +525,7 @@ namespace inasm64
             return _help;
         }
 
-        const void* inasm64::cli::LastAssembledInstructionAddress()
+        const void* inasm64::cli::NextInstructionAssemblyAddress()
         {
             return reinterpret_cast<const void*>(reinterpret_cast<const uint8_t*>(runtime::InstructionWriteAddress()) + _code_buffer_pos);
         }
@@ -639,13 +640,14 @@ namespace inasm64
                     {
                         // cache instructions while they are being entered, we'll submit them to the runtime when we exit assembly mode
                         //TODO: error/overflow handling
-                        memcpy(_code_buffer + _code_buffer_pos, asm_info.second.Instruction, asm_info.second.InstructionSize);
+                        const auto instruction_address = _code_buffer + _code_buffer_pos;
+                        memcpy(instruction_address, asm_info.second.Instruction, asm_info.second.InstructionSize);
                         asm_info.first = uintptr_t((reinterpret_cast<const uint8_t*>(runtime::InstructionWriteAddress()) + _code_buffer_pos));
                         const auto at = _asm_map.emplace(asm_info);
                         _last_instr = at.first;
                         _code_buffer_pos += asm_info.second.InstructionSize;
                         if(OnAssembling)
-                            OnAssembling(asm_info.second);
+                            OnAssembling(reinterpret_cast<const void*>(asm_info.first), asm_info.second);
                         result = true;
                     }
                 }

@@ -69,6 +69,30 @@ namespace console
         return os;
     }
 
+    std::ostream& red_lo(std::ostream& os)
+    {
+        SetConsoleTextAttribute(_std_out, FOREGROUND_RED);
+        return os;
+    }
+
+    std::ostream& green_lo(std::ostream& os)
+    {
+        SetConsoleTextAttribute(_std_out, FOREGROUND_GREEN);
+        return os;
+    }
+
+    std::ostream& blue_lo(std::ostream& os)
+    {
+        SetConsoleTextAttribute(_std_out, FOREGROUND_BLUE);
+        return os;
+    }
+
+    std::ostream& yellow_lo(std::ostream& os)
+    {
+        SetConsoleTextAttribute(_std_out, FOREGROUND_RED | FOREGROUND_GREEN | FOREGROUND_INTENSITY);
+        return os;
+    }
+
     void SetCursorX(short x)
     {
         CONSOLE_SCREEN_BUFFER_INFO cs_info;
@@ -203,10 +227,37 @@ namespace console
     }
 }  // namespace console
 
+// ====================================================================================
+//
+
+// each line of assembled input, against its address.
+std::unordered_map<uintptr_t, std::string> _asm_history;
+
 std::ostream& coutreg(const char* reg)
 {
     // perhaps I should just have used printf....
     return std::cout << std::setfill(' ') << std::setw(4) << reg << std::setw(1) << " = 0x" << std::setfill('0') << std::setw(16) << std::hex;
+}
+
+std::ostream& coutflags(DWORD flags, DWORD prev = 0)
+{
+    // https://en.wikipedia.org/wiki/FLAGS_register
+#define INASM_IF_EFLAG_DIFF(bitmask, name)    \
+    if((flags & bitmask) != (prev & bitmask)) \
+    std::cout << name
+
+    INASM_IF_EFLAG_DIFF(0x01, "CF ");
+    INASM_IF_EFLAG_DIFF(0x04, "PF ");
+    INASM_IF_EFLAG_DIFF(0x10, "AF ");
+    INASM_IF_EFLAG_DIFF(0x40, "ZF ");
+    INASM_IF_EFLAG_DIFF(0x80, "SF ");
+    INASM_IF_EFLAG_DIFF(0x100, "TF ");
+    INASM_IF_EFLAG_DIFF(0x200, "IF ");
+    INASM_IF_EFLAG_DIFF(0x400, "DF ");
+    INASM_IF_EFLAG_DIFF(0x800, "OF ");
+    //INASM_IF_EFLAG_DIFF(0x10000, "RF ");
+    //INASM_IF_EFLAG_DIFF(0x20000, "VM ");
+    return std::cout;
 }
 
 void DumpRegs()
@@ -232,10 +283,136 @@ void DumpRegs()
     coutreg("r14") << ctx->OsContext->R14 << " ";
     coutreg("r15") << ctx->OsContext->R15 << std::endl;
 
-    std::cout << "\n";
-    coutreg("eflags") << ctx->OsContext->EFlags << std::endl;
+    std::cout << "\n   ";
+    coutflags(ctx->OsContext->EFlags) << std::endl;
+}
 
-    //TODO: XMM, FP, make it selectable, etc.
+void DumpDeltaRegs()
+{
+    static CONTEXT _prev_context = { 0 };
+    static bool _first = true;
+    const auto ctx = inasm64::runtime::Context();
+
+    if(_first)
+    {
+        DumpRegs();
+        _first = false;
+    }
+    else
+    {
+        std::cout << console::green_lo;
+
+        auto newline = false;
+        if(ctx->OsContext->Rax != _prev_context.Rax)
+        {
+            coutreg("rax") << ctx->OsContext->Rax << " ";
+            newline = true;
+        }
+        if(ctx->OsContext->Rbx != _prev_context.Rbx)
+        {
+            coutreg("rbx") << ctx->OsContext->Rbx << " ";
+            newline = true;
+        }
+        if(ctx->OsContext->Rcx != _prev_context.Rcx)
+        {
+            coutreg("rcx") << ctx->OsContext->Rcx << " ";
+            newline = true;
+        }
+        if(ctx->OsContext->Rdx != _prev_context.Rdx)
+        {
+            coutreg("rdx") << ctx->OsContext->Rdx;
+            newline = true;
+        }
+
+        if(newline)
+        {
+            std::cout << std::endl;
+            newline = false;
+        }
+
+        if(ctx->OsContext->Rsi != _prev_context.Rsi)
+        {
+            coutreg("rsi") << ctx->OsContext->Rsi << " ";
+            newline = true;
+        }
+        if(ctx->OsContext->Rdi != _prev_context.Rdi)
+        {
+            coutreg("rdi") << ctx->OsContext->Rdi << " ";
+            newline = true;
+        }
+        if(ctx->OsContext->Rbp != _prev_context.Rbp)
+        {
+            coutreg("rbp") << ctx->OsContext->Rbp << " ";
+            newline = true;
+        }
+        if(ctx->OsContext->Rsp != _prev_context.Rsp)
+        {
+            coutreg("rsp") << ctx->OsContext->Rsp;
+            newline = true;
+        }
+
+        if(newline)
+        {
+            std::cout << std::endl;
+            newline = false;
+        }
+
+        if(ctx->OsContext->R8 != _prev_context.R8)
+        {
+            coutreg("r8") << ctx->OsContext->R8 << " ";
+            newline = true;
+        }
+        if(ctx->OsContext->R9 != _prev_context.R9)
+        {
+            coutreg("r9") << ctx->OsContext->R9 << " ";
+            newline = true;
+        }
+        if(ctx->OsContext->R10 != _prev_context.R10)
+        {
+            coutreg("r10") << ctx->OsContext->R10 << " ";
+            newline = true;
+        }
+        if(ctx->OsContext->R11 != _prev_context.R11)
+        {
+            coutreg("r11") << ctx->OsContext->R11;
+            newline = true;
+        }
+
+        if(newline)
+        {
+            std::cout << std::endl;
+            newline = false;
+        }
+
+        if(ctx->OsContext->R12 != _prev_context.R12)
+        {
+            coutreg("r12") << ctx->OsContext->R12 << " ";
+            newline = true;
+        }
+        if(ctx->OsContext->R13 != _prev_context.R13)
+        {
+            coutreg("r13") << ctx->OsContext->R13 << " ";
+            newline = true;
+        }
+        if(ctx->OsContext->R14 != _prev_context.R14)
+        {
+            coutreg("r14") << ctx->OsContext->R14 << " ";
+            newline = true;
+        }
+        if(ctx->OsContext->R15 != _prev_context.R15)
+        {
+            coutreg("r15") << ctx->OsContext->R15;
+            newline = true;
+        }
+
+        if(newline)
+            std::cout << std::endl;
+        std::cout << "   ";
+        coutflags(ctx->OsContext->EFlags, _prev_context.EFlags) << std::endl;
+
+        std::cout << console::reset_colours;
+    }
+    memcpy(&_prev_context, ctx->OsContext, sizeof(_prev_context));
 }
 
 void DumpReg(const char*)
@@ -318,8 +495,8 @@ void DumpInstructionInfo()
 
 void DumpMemory(inasm64::cli::DataType, const void* remote_address, size_t size_)
 {
-    // mvp; max 4 rows, 8 columns of data
-    constexpr auto kCols = 8;
+    // mvp; max 4 rows, 16 columns of data
+    constexpr auto kCols = 16;
     constexpr auto kRows = 4;
 
     auto size = std::min<size_t>(kCols * kRows, size_);
@@ -444,20 +621,24 @@ int main(int argc, char* argv[])
         cli::OnHelp = []() {
             std::cout << cli::Help() << std::endl;
         };
-        cli::OnStep = []() {
-            DumpRegs();
-            DumpInstructionInfo();
+        cli::OnStep = [](const void* address) {
+            std::cout << std::hex << address << " " << _asm_history[uintptr_t(address)] << "\n";
+            DumpDeltaRegs();
         };
         cli::OnDisplayGPRegisters = DumpRegs;
         cli::OnDisplayXMMRegisters = DumpXmmRegisters;
         cli::OnDisplayYMMRegisters = DumpYmmRegisters;
         cli::OnDumpMemory = DumpMemory;
 
+        std::string input;
+
         auto assembling = false;
         cli::OnStartAssembling = [&assembling]() {
             assembling = true;
         };
-        cli::OnAssembling = [](const assembler::AssembledInstructionInfo& asm_info) {
+        cli::OnAssembling = [&input](const void* address, const assembler::AssembledInstructionInfo& asm_info) {
+            _asm_history[uintptr_t(address)] = input;
+
             const auto cw = console::Width();
             console::SetCursorX(cw - cw / 2);
             for(unsigned n = 0; n < asm_info.InstructionSize; ++n)
@@ -473,9 +654,10 @@ int main(int argc, char* argv[])
 
         while(!done)
         {
-            std::string input;
             if(cli::ActiveMode() == cli::Mode::Assembling)
-                std::cout << std::hex << cli::LastAssembledInstructionAddress() << " ";
+            {
+                std::cout << std::hex << uintptr_t(cli::NextInstructionAssemblyAddress()) << " ";
+            }
             else
             {
                 assembling = false;

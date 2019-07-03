@@ -32,12 +32,17 @@ namespace inasm64
         ///<summary>
         /// if currently in Assemble mode; returns information about the last instruction assembled.
         ///</summary>
-        const void* LastAssembledInstructionAddress();
+        const void* NextInstructionAssemblyAddress();
         ///<summary>
         /// exactly that; a list of available command and their use
         ///</summary>
         std::string Help();
 
+        // The following is a set of callbacks invoked by the CLI in response to commands, such as requesting
+        // a register display, or as instructions are assembled etc.
+        ///<summary>
+        /// Data type used by value set and dump calllbacks
+        ///</summary>
         enum class DataType
         {
             kUnknown,
@@ -48,28 +53,43 @@ namespace inasm64
             kFloat32,
             kFloat64,
         };
+        // varname has been set to value (in globvars)
+        extern std::function<void(const char* varname, uintptr_t value)> OnDataValueSet;
 
-        extern std::function<void(const char*, uintptr_t)> OnDataValueSet;
-        extern std::function<void(const char*, uint64_t)> OnSetGPRegisters;
-        extern std::function<void(DataType, const void*, size_t)> OnDumpMemory;
-        extern std::function<void(const char*)> OnDisplayGPRegister;
+        // registerName has been set to value
+        extern std::function<void(const char* registerName, uint64_t value)> OnSetGPRegisters;
+
+        // dump information about the given address, in the given format
+        extern std::function<void(DataType, const void* address, size_t bytes)> OnDumpMemory;
+
+        // display contents of registerName
+        extern std::function<void(const char* registerName)> OnDisplayGPRegister;
+
+        // display all GPRs
         extern std::function<void()> OnDisplayGPRegisters;
+
+        // display all XMMs
         extern std::function<void()> OnDisplayXMMRegisters;
+
+        // display all YMMs
         extern std::function<void()> OnDisplayYMMRegisters;
-        extern std::function<void()> OnStep;
-        ///<summary>
-        /// invoked when assembly mode is invoked
-        ///</summary>
+
+        // instruction at address has been executed
+        extern std::function<void(const void* address)> OnStep;
+
+        // assembly mode begins
         extern std::function<void()> OnStartAssembling;
-        ///<summary>
-        /// invoked when leaving assembly mode
-        ///</summary>
+
+        // assembly mode ends
         extern std::function<void()> OnStopAssembling;
-        ///<summary>
-        /// invoked when a line of assembly input has been succesfully converted to instruction bytes and uploaded to the runtime
-        ///<summary>
-        extern std::function<void(const assembler::AssembledInstructionInfo&)> OnAssembling;
+
+        // input has been assembled and converted to instruction bytes, at runtime address
+        extern std::function<void(const void* address, const assembler::AssembledInstructionInfo&)> OnAssembling;
+
+        // CLI quit
         extern std::function<void()> OnQuit;
+
+        // display help
         extern std::function<void()> OnHelp;
 
     }  // namespace cli
