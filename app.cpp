@@ -123,104 +123,109 @@ namespace console
         auto done = false;
         while(!done)
         {
-            INPUT_RECORD input_record;
+            INPUT_RECORD input_records[128];
             DWORD read;
-            ReadConsoleInputA(_std_in, &input_record, 1, &read);
-            switch(input_record.EventType)
+            ReadConsoleInputA(_std_in, input_records, DWORD(std::size(input_records)), &read);
+
+            for(unsigned r = 0; r < read; ++r)
             {
-            case KEY_EVENT:
-            {
-                if(input_record.Event.KeyEvent.bKeyDown)
+                const auto& input_record = input_records[r];
+                switch(input_record.EventType)
                 {
-                    const auto vcode = input_record.Event.KeyEvent.wVirtualKeyCode;
-                    // numbers
-                    if((vcode >= 0x30 && vcode <= 0x39) ||
-                        // letters
-                        (vcode >= 0x41 && vcode <= 0x5A) ||
-                        // *+- etc...
-                        (vcode >= 0x6a && vcode <= 0x6f) ||
-                        // OEM character keys
-                        (vcode >= 0xba && vcode <= 0xe2) ||
-                        vcode == VK_SPACE)
+                case KEY_EVENT:
+                {
+                    if(input_record.Event.KeyEvent.bKeyDown)
                     {
-                        std::cout << input_record.Event.KeyEvent.uChar.AsciiChar;
-                        line_buffer[line_wp++] = input_record.Event.KeyEvent.uChar.AsciiChar;
-                        max_read = std::max<decltype(max_read)>(max_read, line_wp);
-                    }
-                    else
-                    {
-                        switch(vcode)
+                        const auto vcode = input_record.Event.KeyEvent.wVirtualKeyCode;
+                        // numbers
+                        if((vcode >= 0x30 && vcode <= 0x39) ||
+                            // letters
+                            (vcode >= 0x41 && vcode <= 0x5A) ||
+                            // *+- etc...
+                            (vcode >= 0x6a && vcode <= 0x6f) ||
+                            // OEM character keys
+                            (vcode >= 0xba && vcode <= 0xe2) ||
+                            vcode == VK_SPACE)
                         {
-                        case VK_LEFT:
+                            std::cout << input_record.Event.KeyEvent.uChar.AsciiChar;
+                            line_buffer[line_wp++] = input_record.Event.KeyEvent.uChar.AsciiChar;
+                            max_read = std::max<decltype(max_read)>(max_read, line_wp);
+                        }
+                        else
                         {
-                            if(line_wp)
+                            switch(vcode)
                             {
-                                --line_wp;
-                                move_cursor_pos(-1);
-                            }
-                        }
-                        break;
-                        case VK_RIGHT:
-                        {
-                            if(max_read > line_wp)
+                            case VK_LEFT:
                             {
-                                ++line_wp;
-                                move_cursor_pos(+1);
+                                if(line_wp)
+                                {
+                                    --line_wp;
+                                    move_cursor_pos(-1);
+                                }
                             }
-                        }
-                        break;
-                        case VK_HOME:
-                        {
-                            line_wp = 0;
-                            SetConsoleCursorPosition(_std_out, start_cs_info.dwCursorPosition);
-                        }
-                        break;
-                        case VK_END:
-                        {
-                            line_wp = max_read;
-                            COORD dpos = start_cs_info.dwCursorPosition;
-                            dpos.X += short(max_read);
-                            SetConsoleCursorPosition(_std_out, dpos);
-                        }
-                        break;
-                        case VK_DELETE:
                             break;
-                        case VK_BACK:
-                        {
-                            // I'm lazy; only allow this from the back of the line
-                            if(line_wp == max_read)
+                            case VK_RIGHT:
                             {
-                                --max_read;
-                                --line_wp;
-                                move_cursor_pos(-1);
-                                std::cout << " ";
-                                move_cursor_pos(-1);
+                                if(max_read > line_wp)
+                                {
+                                    ++line_wp;
+                                    move_cursor_pos(+1);
+                                }
                             }
-                        }
-                        break;
-                        case VK_RETURN:
-                            line_buffer[line_wp] = 0;
-                            line = std::string(line_buffer);
-                            done = true;
                             break;
-                        case VK_TAB:
+                            case VK_HOME:
+                            {
+                                line_wp = 0;
+                                SetConsoleCursorPosition(_std_out, start_cs_info.dwCursorPosition);
+                            }
                             break;
-                        case VK_UP:
+                            case VK_END:
+                            {
+                                line_wp = max_read;
+                                COORD dpos = start_cs_info.dwCursorPosition;
+                                dpos.X += short(max_read);
+                                SetConsoleCursorPosition(_std_out, dpos);
+                            }
                             break;
-                        case VK_DOWN:
+                            case VK_DELETE:
+                                break;
+                            case VK_BACK:
+                            {
+                                // I'm lazy; only allow this from the back of the line
+                                if(line_wp == max_read)
+                                {
+                                    --max_read;
+                                    --line_wp;
+                                    move_cursor_pos(-1);
+                                    std::cout << " ";
+                                    move_cursor_pos(-1);
+                                }
+                            }
                             break;
-                        default:;
+                            case VK_RETURN:
+                                line_buffer[line_wp] = 0;
+                                line = std::string(line_buffer);
+                                done = true;
+                                break;
+                            case VK_TAB:
+                                break;
+                            case VK_UP:
+                                break;
+                            case VK_DOWN:
+                                break;
+                            default:;
+                            }
                         }
                     }
                 }
-            }
-            break;
-            case WINDOW_BUFFER_SIZE_EVENT:
-            {
-                _std_out_info.dwSize = input_record.Event.WindowBufferSizeEvent.dwSize;
-            }
-            break;
-            default:;
+                break;
+                case WINDOW_BUFFER_SIZE_EVENT:
+                {
+                    _std_out_info.dwSize = input_record.Event.WindowBufferSizeEvent.dwSize;
+                }
+                break;
+                default:;
+                }
             }
         }
         SetConsoleMode(_std_in, _std_in_mode);
