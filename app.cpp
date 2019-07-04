@@ -193,7 +193,7 @@ namespace console
                             case VK_BACK:
                             {
                                 // I'm lazy; only allow this from the back of the line
-                                if(line_wp == max_read)
+                                if(line_wp && line_wp == max_read)
                                 {
                                     --max_read;
                                     --line_wp;
