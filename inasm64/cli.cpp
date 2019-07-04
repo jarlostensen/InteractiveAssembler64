@@ -608,6 +608,7 @@ namespace inasm64
                 return false;
             }
 
+            detail::SetError(Error::NoError);
             auto result = false;
 
             //NOTE: upper bound on a fully expanded string of meta variables, each expanding to a 16 digit hex (16/2 for each meta var "$x")
