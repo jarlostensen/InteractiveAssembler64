@@ -1,4 +1,4 @@
-![basic_use](https://github.com/jarlostensen/InteractiveAssembler64/assets/basic_use.png)
+![basic_use](assets/basic_use.PNG)
 
 # InteractiveAssembler64
 
