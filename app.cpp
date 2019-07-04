@@ -621,8 +621,14 @@ int main(int argc, char* argv[])
 
         auto done = false;
         cli::OnQuit = [&done]() { done = true; };
-        cli::OnHelp = []() {
-            std::cout << cli::Help() << std::endl;
+        cli::OnHelp = [](const cli::help_texts_t& help_texts) {
+            const auto cw = console::Width();
+            for(const auto& help : help_texts)
+            {
+                std::cout << help.first;
+                console::SetCursorX(cw - cw / 2);
+                std::cout << help.second << std::endl;
+            }
         };
         cli::OnStep = [](const void* address) {
             std::cout << std::hex << address << " " << _asm_history[uintptr_t(address)] << "\n";

@@ -20,6 +20,10 @@ namespace inasm64
         ///</summary>
         void Shutdown();
         ///<summary>
+        /// reset all existing code (but does not discard allocated memory)
+        ///</summary>
+        void Reset();
+        ///<summary>
         /// add code in the form of valid IA 64 instructions to be executed.
         ///</summary>
         bool AddCode(const void* code, size_t size);
@@ -64,24 +68,24 @@ namespace inasm64
         /// set the next instruction address. This MUST be based on a valid runtime address obtained by calling InstructionPointer/WriteAddress
         ///</summary>
         bool SetNextInstruction(const void*);
-		///<summary>
-		/// allocates a block of memory in the execution context and returns a handle to it
-		///</summary>
-		///NOTE: use WriteBytes/ReadBytes to access, the handle itself is not usable
-		const void* AllocateMemory(size_t);
         ///<summary>
-		/// write length bytes from src into the memory location managed by handle
-		///</summary>
-		bool WriteBytes(const void* handle, const void* src, size_t length);
+        /// allocates a block of memory in the execution context and returns a handle to it
+        ///</summary>
+        ///NOTE: use WriteBytes/ReadBytes to access, the handle itself is not usable
+        const void* AllocateMemory(size_t);
+        ///<summary>
+        /// write length bytes from src into the memory location managed by handle
+        ///</summary>
+        bool WriteBytes(const void* handle, const void* src, size_t length);
         ///<summary>
         /// read length bytes into dest into the memory location managed by handle
         ///</summary>
-		bool ReadBytes(const void* handle, void* dest, size_t length);
-		///<summary>
-		/// returns the size of the given allocation, or 0 if not found
-		///</summary>
-		size_t AllocationSize(const void* handle);
-        
+        bool ReadBytes(const void* handle, void* dest, size_t length);
+        ///<summary>
+        /// returns the size of the given allocation, or 0 if not found
+        ///</summary>
+        size_t AllocationSize(const void* handle);
+
         ///<summary>
         /// set a named register value
         ///</summary>

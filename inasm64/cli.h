@@ -33,10 +33,6 @@ namespace inasm64
         /// if currently in Assemble mode; returns information about the last instruction assembled.
         ///</summary>
         const void* NextInstructionAssemblyAddress();
-        ///<summary>
-        /// exactly that; a list of available command and their use
-        ///</summary>
-        std::string Help();
 
         // The following is a set of callbacks invoked by the CLI in response to commands, such as requesting
         // a register display, or as instructions are assembled etc.
@@ -89,8 +85,11 @@ namespace inasm64
         // CLI quit
         extern std::function<void()> OnQuit;
 
+        // format + description
+        using help_texts_t = std::vector<std::pair<const char*, const char*>>;
+
         // display help
-        extern std::function<void()> OnHelp;
+        extern std::function<void(const help_texts_t&)> OnHelp;
 
     }  // namespace cli
 }  // namespace inasm64

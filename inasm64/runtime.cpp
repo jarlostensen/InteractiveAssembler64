@@ -210,6 +210,14 @@ namespace inasm64
             ZeroMemory(&_flags, sizeof(_flags));
         }
 
+        void Reset()
+        {
+            if(!_flags._started)
+                return;
+
+            _scratch_wp = _code = _scratch_memory;
+        }
+
         bool AddCode(const void* code, size_t size)
         {
             if(!_flags._started)

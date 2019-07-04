@@ -32,7 +32,7 @@ namespace inasm64
         std::function<void()> OnStopAssembling;
         std::function<void(const void*, const assembler::AssembledInstructionInfo&)> OnAssembling;
         std::function<void()> OnQuit;
-        std::function<void()> OnHelp;
+        std::function<void(const help_texts_t&)> OnHelp;
         std::function<void(DataType, const void*, size_t)> OnDumpMemory;
 
         namespace
@@ -89,7 +89,7 @@ namespace inasm64
                     delete[] _names;
                 }
 
-                void set_names(int count, ...)
+                void set_aliases(int count, ...)
                 {
                     va_list vsn;
                     size_t total_size = 0;
@@ -144,6 +144,7 @@ namespace inasm64
 
             std::vector<Type0Command> _type_0_handlers;
             std::vector<Type1Command> _type_1_handlers;
+            help_texts_t _help_texts;
 
             //NOTE: expects that cmd1Line is stripped of leading whitespace and terminated by double-0
             // modifies cmd1Line in-place
@@ -528,25 +529,30 @@ namespace inasm64
             if(!_initialised)
             {
                 Type1Command cmd1;
-                cmd1.set_names(6, "db", "dw", "dd", "dq", "dfs", "dfd");
+                cmd1.set_aliases(6, "db", "dw", "dd", "dq", "dfs", "dfd");
+                _help_texts.emplace_back("varname d[b|w|d|q|fs|fd] <data...>", "create a variable \"$varname\" pointing to data");
                 cmd1._handler = data_value_handler;
                 _type_1_handlers.emplace_back(std::move(cmd1));
 
                 Type0Command cmd0;
-                cmd0.set_names(3, "r", "rX", "rY");
+                cmd0.set_aliases(3, "r", "rX", "rY");
+                _help_texts.emplace_back("r[X|Y] [regName] <value>", "display or set GPR, XMM, or YMM register(s)");
                 cmd0._handler = register_handler;
                 _type_0_handlers.emplace_back(std::move(cmd0));
 
                 //NOTE: not the same as the type-1 above, this is for display
-                cmd0.set_names(4, "db", "dw", "dd", "dq");
+                cmd0.set_aliases(4, "db", "dw", "dd", "dq");
+                _help_texts.emplace_back("d[b|w|d|q] $<varname>", "display data pointed to by varname");
                 cmd0._handler = dump_memory_handler;
                 _type_0_handlers.emplace_back(std::move(cmd0));
 
-                cmd0.set_names(2, "p", "P");
+                cmd0.set_aliases(2, "p", "step");
+                _help_texts.emplace_back("p|step [address]", "single-step next instruction, or at address");
                 cmd0._handler = step_handler;
                 _type_0_handlers.emplace_back(std::move(cmd0));
 
-                cmd0.set_names(2, "a", "A");
+                cmd0.set_aliases(2, "a", "asm");
+                _help_texts.emplace_back("a|asm", "enter assembly mode");
                 cmd0._handler = [](const char*, char*) {
                     _mode = Mode::Assembling;
                     if(OnStartAssembling)
@@ -554,7 +560,8 @@ namespace inasm64
                 };
                 _type_0_handlers.emplace_back(std::move(cmd0));
 
-                cmd0.set_names(2, "q", "Q");
+                cmd0.set_aliases(2, "q", "quit");
+                _help_texts.emplace_back("q|quit", "quit inasm64");
                 cmd0._handler = [](const char*, char*) {
                     runtime::Shutdown();
                     if(OnQuit)
@@ -562,25 +569,24 @@ namespace inasm64
                 };
                 _type_0_handlers.emplace_back(std::move(cmd0));
 
-                cmd0.set_names(3, "h", "H", "?");
+                cmd0.set_aliases(2, "h", "help");
+                _help_texts.emplace_back("h|help", "display help on commands");
                 cmd0._handler = [](const char*, char*) {
                     if(OnHelp)
-                        OnHelp();
+                        OnHelp(_help_texts);
+                };
+                _type_0_handlers.emplace_back(std::move(cmd0));
+
+                cmd0.set_aliases(2, "cc", "clearcode");
+                _help_texts.emplace_back("cc|clearcode", "clear and reset all assembled code");
+                cmd0._handler = [](const char*, char*) {
+                    runtime::Reset();
                 };
                 _type_0_handlers.emplace_back(std::move(cmd0));
 
                 _initialised = true;
             }
             return _initialised;
-        }
-
-        std::string Help()
-        {
-            static const std::string _help =
-                "h\t\tshowh help\na\t\tstart assembling instructions, empty input ends\np [addr]\t\tsingle step one instruction\n"
-                "r <reg> [value]\tread or set register value\n"
-                "q\t\tquit";
-            return _help;
         }
 
         const void* inasm64::cli::NextInstructionAssemblyAddress()
