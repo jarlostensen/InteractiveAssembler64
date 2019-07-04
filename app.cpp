@@ -7,6 +7,8 @@
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
 
+#include "console.h"
+
 #include "inasm64/common.h"
 #include "inasm64/ia64.h"
 #include "inasm64/runtime.h"
@@ -14,235 +16,21 @@
 #include "inasm64/cli.h"
 #include "inasm64/globvars.h"
 
-namespace console
-{
-    HANDLE _std_in, _std_out;
-    CONSOLE_SCREEN_BUFFER_INFO _std_out_info;
-    DWORD _std_in_mode;
-
-    constexpr auto kMaxLineLength = 256;
-
-    void Initialise()
-    {
-        _std_in = GetStdHandle(STD_INPUT_HANDLE);
-        _std_out = GetStdHandle(STD_OUTPUT_HANDLE);
-        GetConsoleScreenBufferInfo(_std_out, &_std_out_info);
-        GetConsoleMode(_std_in, &_std_in_mode);
-    }
-
-    short Width()
-    {
-        return short(_std_out_info.dwSize.X);
-    }
-
-    short Height()
-    {
-        return short(_std_out_info.dwSize.Y);
-    }
-
-    std::ostream& reset_colours(std::ostream& os)
-    {
-        SetConsoleTextAttribute(_std_out, _std_out_info.wAttributes);
-        return os;
-    }
-
-    std::ostream& red(std::ostream& os)
-    {
-        SetConsoleTextAttribute(_std_out, FOREGROUND_RED | FOREGROUND_INTENSITY);
-        return os;
-    }
-
-    std::ostream& green(std::ostream& os)
-    {
-        SetConsoleTextAttribute(_std_out, FOREGROUND_GREEN | FOREGROUND_INTENSITY);
-        return os;
-    }
-
-    std::ostream& blue(std::ostream& os)
-    {
-        SetConsoleTextAttribute(_std_out, FOREGROUND_BLUE | FOREGROUND_INTENSITY);
-        return os;
-    }
-
-    std::ostream& yellow(std::ostream& os)
-    {
-        SetConsoleTextAttribute(_std_out, FOREGROUND_RED | FOREGROUND_GREEN | FOREGROUND_INTENSITY);
-        return os;
-    }
-
-    std::ostream& red_lo(std::ostream& os)
-    {
-        SetConsoleTextAttribute(_std_out, FOREGROUND_RED);
-        return os;
-    }
-
-    std::ostream& green_lo(std::ostream& os)
-    {
-        SetConsoleTextAttribute(_std_out, FOREGROUND_GREEN);
-        return os;
-    }
-
-    std::ostream& blue_lo(std::ostream& os)
-    {
-        SetConsoleTextAttribute(_std_out, FOREGROUND_BLUE);
-        return os;
-    }
-
-    std::ostream& yellow_lo(std::ostream& os)
-    {
-        SetConsoleTextAttribute(_std_out, FOREGROUND_RED | FOREGROUND_GREEN | FOREGROUND_INTENSITY);
-        return os;
-    }
-
-    void SetCursorX(short x)
-    {
-        CONSOLE_SCREEN_BUFFER_INFO cs_info;
-        GetConsoleScreenBufferInfo(_std_out, &cs_info);
-        cs_info.dwCursorPosition.X = x;
-        SetConsoleCursorPosition(_std_out, cs_info.dwCursorPosition);
-    }
-
-    void ReadLine(std::string& line)
-    {
-        const auto mode = _std_in_mode & ~(ENABLE_LINE_INPUT | ENABLE_ECHO_INPUT | ENABLE_WINDOW_INPUT | ENABLE_MOUSE_INPUT);
-        SetConsoleMode(_std_in, mode);
-
-        char line_buffer[kMaxLineLength];
-        auto line_wp = 0;
-        auto max_read = 0;
-
-        CONSOLE_SCREEN_BUFFER_INFO start_cs_info;
-        GetConsoleScreenBufferInfo(_std_out, &start_cs_info);
-
-        const auto move_cursor_pos = [](short dX) {
-            CONSOLE_SCREEN_BUFFER_INFO cs_info;
-            GetConsoleScreenBufferInfo(_std_out, &cs_info);
-            cs_info.dwCursorPosition.X += dX;
-            SetConsoleCursorPosition(_std_out, cs_info.dwCursorPosition);
-        };
-
-        auto done = false;
-        while(!done)
-        {
-            INPUT_RECORD input_records[128];
-            DWORD read;
-            ReadConsoleInputA(_std_in, input_records, DWORD(std::size(input_records)), &read);
-
-            for(unsigned r = 0; r < read; ++r)
-            {
-                const auto& input_record = input_records[r];
-                switch(input_record.EventType)
-                {
-                case KEY_EVENT:
-                {
-                    if(input_record.Event.KeyEvent.bKeyDown)
-                    {
-                        const auto vcode = input_record.Event.KeyEvent.wVirtualKeyCode;
-                        // numbers
-                        if((vcode >= 0x30 && vcode <= 0x39) ||
-                            // letters
-                            (vcode >= 0x41 && vcode <= 0x5A) ||
-                            // *+- etc...
-                            (vcode >= 0x6a && vcode <= 0x6f) ||
-                            // OEM character keys
-                            (vcode >= 0xba && vcode <= 0xe2) ||
-                            vcode == VK_SPACE)
-                        {
-                            std::cout << input_record.Event.KeyEvent.uChar.AsciiChar;
-                            line_buffer[line_wp++] = input_record.Event.KeyEvent.uChar.AsciiChar;
-                            max_read = std::max<decltype(max_read)>(max_read, line_wp);
-                        }
-                        else
-                        {
-                            switch(vcode)
-                            {
-                            case VK_LEFT:
-                            {
-                                if(line_wp)
-                                {
-                                    --line_wp;
-                                    move_cursor_pos(-1);
-                                }
-                            }
-                            break;
-                            case VK_RIGHT:
-                            {
-                                if(max_read > line_wp)
-                                {
-                                    ++line_wp;
-                                    move_cursor_pos(+1);
-                                }
-                            }
-                            break;
-                            case VK_HOME:
-                            {
-                                line_wp = 0;
-                                SetConsoleCursorPosition(_std_out, start_cs_info.dwCursorPosition);
-                            }
-                            break;
-                            case VK_END:
-                            {
-                                line_wp = max_read;
-                                COORD dpos = start_cs_info.dwCursorPosition;
-                                dpos.X += short(max_read);
-                                SetConsoleCursorPosition(_std_out, dpos);
-                            }
-                            break;
-                            case VK_DELETE:
-                                break;
-                            case VK_BACK:
-                            {
-                                // I'm lazy; only allow this from the back of the line
-                                if(line_wp && line_wp == max_read)
-                                {
-                                    --max_read;
-                                    --line_wp;
-                                    move_cursor_pos(-1);
-                                    std::cout << " ";
-                                    move_cursor_pos(-1);
-                                }
-                            }
-                            break;
-                            case VK_RETURN:
-                                line_buffer[line_wp] = 0;
-                                line = std::string(line_buffer);
-                                done = true;
-                                break;
-                            case VK_TAB:
-                                break;
-                            case VK_UP:
-                                break;
-                            case VK_DOWN:
-                                break;
-                            default:;
-                            }
-                        }
-                    }
-                }
-                break;
-                case WINDOW_BUFFER_SIZE_EVENT:
-                {
-                    _std_out_info.dwSize = input_record.Event.WindowBufferSizeEvent.dwSize;
-                }
-                break;
-                default:;
-                }
-            }
-        }
-        SetConsoleMode(_std_in, _std_in_mode);
-    }
-}  // namespace console
-
 // ====================================================================================
 //
 
 // each line of assembled input, against its address.
 std::unordered_map<uintptr_t, std::string> _asm_history;
 
-std::ostream& coutreg(const char* reg, size_t width = 16)
+auto cout_64_bits(std::ostream& os) -> std::ostream&
+{
+    return os << std::setfill('0') << std::setw(16) << std::hex;
+};
+
+auto coutreg(const char* reg) -> std::ostream&
 {
     // perhaps I should just have used printf....
-    return std::cout << std::setfill(' ') << std::setw(4) << reg << std::setw(1) << " = 0x" << std::setfill('0') << std::setw(width) << std::hex;
+    return std::cout << std::setfill(' ') << std::setw(4) << reg << std::setw(1) << " = 0x" << cout_64_bits << std::hex;
 }
 
 std::ostream& coutflags(DWORD flags, DWORD prev = 0)
@@ -436,22 +224,22 @@ void DumpXmmRegisters()
 {
     const auto ctx = inasm64::runtime::Context();
 
-    coutreg("xmm0") << ctx->OsContext->Xmm0.Low << std::setfill('0') << std::setw(16) << std::hex << ctx->OsContext->Xmm0.High << " ";
-    coutreg("xmm1") << ctx->OsContext->Xmm1.Low << std::setfill('0') << std::setw(16) << std::hex << ctx->OsContext->Xmm1.High << " " << std::endl;
-    coutreg("xmm2") << ctx->OsContext->Xmm2.Low << std::setfill('0') << std::setw(16) << std::hex << ctx->OsContext->Xmm2.High << " ";
-    coutreg("xmm3") << ctx->OsContext->Xmm3.Low << std::setfill('0') << std::setw(16) << std::hex << ctx->OsContext->Xmm3.High << " " << std::endl;
-    coutreg("xmm4") << ctx->OsContext->Xmm4.Low << std::setfill('0') << std::setw(16) << std::hex << ctx->OsContext->Xmm4.High << " ";
-    coutreg("xmm5") << ctx->OsContext->Xmm5.Low << std::setfill('0') << std::setw(16) << std::hex << ctx->OsContext->Xmm5.High << " " << std::endl;
-    coutreg("xmm6") << ctx->OsContext->Xmm6.Low << std::setfill('0') << std::setw(16) << std::hex << ctx->OsContext->Xmm6.High << " ";
-    coutreg("xmm7") << ctx->OsContext->Xmm7.Low << std::setfill('0') << std::setw(16) << std::hex << ctx->OsContext->Xmm7.High << " " << std::endl;
-    coutreg("xmm8") << ctx->OsContext->Xmm8.Low << std::setfill('0') << std::setw(16) << std::hex << ctx->OsContext->Xmm8.High << " ";
-    coutreg("xmm9") << ctx->OsContext->Xmm9.Low << std::setfill('0') << std::setw(16) << std::hex << ctx->OsContext->Xmm9.High << " " << std::endl;
-    coutreg("xmm10") << ctx->OsContext->Xmm10.Low << std::setfill('0') << std::setw(16) << std::hex << ctx->OsContext->Xmm10.High << " ";
-    coutreg("xmm11") << ctx->OsContext->Xmm11.Low << std::setfill('0') << std::setw(16) << std::hex << ctx->OsContext->Xmm11.High << " " << std::endl;
-    coutreg("xmm12") << ctx->OsContext->Xmm12.Low << std::setfill('0') << std::setw(16) << std::hex << ctx->OsContext->Xmm12.High << " ";
-    coutreg("xmm13") << ctx->OsContext->Xmm13.Low << std::setfill('0') << std::setw(16) << std::hex << ctx->OsContext->Xmm13.High << " " << std::endl;
-    coutreg("xmm14") << ctx->OsContext->Xmm14.Low << std::setfill('0') << std::setw(16) << std::hex << ctx->OsContext->Xmm14.High << " ";
-    coutreg("xmm15") << ctx->OsContext->Xmm15.Low << std::setfill('0') << std::setw(16) << std::hex << ctx->OsContext->Xmm15.High << std::endl;
+    coutreg("xmm0") << ctx->OsContext->Xmm0.Low << cout_64_bits << ctx->OsContext->Xmm0.High << " ";
+    coutreg("xmm1") << ctx->OsContext->Xmm1.Low << cout_64_bits << ctx->OsContext->Xmm1.High << " " << std::endl;
+    coutreg("xmm2") << ctx->OsContext->Xmm2.Low << cout_64_bits << ctx->OsContext->Xmm2.High << " ";
+    coutreg("xmm3") << ctx->OsContext->Xmm3.Low << cout_64_bits << ctx->OsContext->Xmm3.High << " " << std::endl;
+    coutreg("xmm4") << ctx->OsContext->Xmm4.Low << cout_64_bits << ctx->OsContext->Xmm4.High << " ";
+    coutreg("xmm5") << ctx->OsContext->Xmm5.Low << cout_64_bits << ctx->OsContext->Xmm5.High << " " << std::endl;
+    coutreg("xmm6") << ctx->OsContext->Xmm6.Low << cout_64_bits << ctx->OsContext->Xmm6.High << " ";
+    coutreg("xmm7") << ctx->OsContext->Xmm7.Low << cout_64_bits << ctx->OsContext->Xmm7.High << " " << std::endl;
+    coutreg("xmm8") << ctx->OsContext->Xmm8.Low << cout_64_bits << ctx->OsContext->Xmm8.High << " ";
+    coutreg("xmm9") << ctx->OsContext->Xmm9.Low << cout_64_bits << ctx->OsContext->Xmm9.High << " " << std::endl;
+    coutreg("xmm10") << ctx->OsContext->Xmm10.Low << cout_64_bits << ctx->OsContext->Xmm10.High << " ";
+    coutreg("xmm11") << ctx->OsContext->Xmm11.Low << cout_64_bits << ctx->OsContext->Xmm11.High << " " << std::endl;
+    coutreg("xmm12") << ctx->OsContext->Xmm12.Low << cout_64_bits << ctx->OsContext->Xmm12.High << " ";
+    coutreg("xmm13") << ctx->OsContext->Xmm13.Low << cout_64_bits << ctx->OsContext->Xmm13.High << " " << std::endl;
+    coutreg("xmm14") << ctx->OsContext->Xmm14.Low << cout_64_bits << ctx->OsContext->Xmm14.High << " ";
+    coutreg("xmm15") << ctx->OsContext->Xmm15.Low << cout_64_bits << ctx->OsContext->Xmm15.High << std::endl;
 }
 
 void DumpYmmRegisters()
@@ -466,22 +254,22 @@ void DumpYmmRegisters()
             const auto Ymm = (PM128A)LocateXStateFeature(const_cast<PCONTEXT>(ctx->OsContext), XSTATE_AVX, &featureLength);
             if(Ymm)
             {
-                coutreg("ymm0") << Ymm[0].Low << Ymm[0].High << " ";
-                coutreg("ymm1") << Ymm[1].Low << Ymm[1].High << " " << std::endl;
-                coutreg("ymm2") << Ymm[2].Low << Ymm[2].High << " ";
-                coutreg("ymm3") << Ymm[3].Low << Ymm[3].High << " " << std::endl;
-                coutreg("ymm4") << Ymm[4].Low << Ymm[4].High << " ";
-                coutreg("ymm5") << Ymm[5].Low << Ymm[5].High << " " << std::endl;
-                coutreg("ymm6") << Ymm[6].Low << Ymm[6].High << " ";
-                coutreg("ymm7") << Ymm[7].Low << Ymm[7].High << " " << std::endl;
-                coutreg("ymm8") << Ymm[8].Low << Ymm[8].High << " ";
-                coutreg("ymm9") << Ymm[9].Low << Ymm[9].High << " " << std::endl;
-                coutreg("ymm10") << Ymm[10].Low << Ymm[10].High << " ";
-                coutreg("ymm11") << Ymm[11].Low << Ymm[11].High << " " << std::endl;
-                coutreg("ymm12") << Ymm[12].Low << Ymm[12].High << " ";
-                coutreg("ymm13") << Ymm[13].Low << Ymm[13].High << " " << std::endl;
-                coutreg("ymm14") << Ymm[14].Low << Ymm[14].High << " ";
-                coutreg("ymm15") << Ymm[15].Low << Ymm[15].High << std::endl;
+                coutreg("ymm0") << Ymm[0].Low << cout_64_bits << Ymm[0].High << " ";
+                coutreg("ymm1") << Ymm[1].Low << cout_64_bits << Ymm[1].High << " " << std::endl;
+                coutreg("ymm2") << Ymm[2].Low << cout_64_bits << Ymm[2].High << " ";
+                coutreg("ymm3") << Ymm[3].Low << cout_64_bits << Ymm[3].High << " " << std::endl;
+                coutreg("ymm4") << Ymm[4].Low << cout_64_bits << Ymm[4].High << " ";
+                coutreg("ymm5") << Ymm[5].Low << cout_64_bits << Ymm[5].High << " " << std::endl;
+                coutreg("ymm6") << Ymm[6].Low << cout_64_bits << Ymm[6].High << " ";
+                coutreg("ymm7") << Ymm[7].Low << cout_64_bits << Ymm[7].High << " " << std::endl;
+                coutreg("ymm8") << Ymm[8].Low << cout_64_bits << Ymm[8].High << " ";
+                coutreg("ymm9") << Ymm[9].Low << cout_64_bits << Ymm[9].High << " " << std::endl;
+                coutreg("ymm10") << Ymm[10].Low << cout_64_bits << Ymm[10].High << " ";
+                coutreg("ymm11") << Ymm[11].Low << cout_64_bits << Ymm[11].High << " " << std::endl;
+                coutreg("ymm12") << Ymm[12].Low << cout_64_bits << Ymm[12].High << " ";
+                coutreg("ymm13") << Ymm[13].Low << cout_64_bits << Ymm[13].High << " " << std::endl;
+                coutreg("ymm14") << Ymm[14].Low << cout_64_bits << Ymm[14].High << " ";
+                coutreg("ymm15") << Ymm[15].Low << cout_64_bits << Ymm[15].High << std::endl;
             }
         }
         else

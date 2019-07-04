@@ -165,6 +165,7 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="app.cpp" />
+    <ClCompile Include="console.cpp" />
     <ClCompile Include="inasm64\assembler.cpp" />
     <ClCompile Include="inasm64\cli.cpp" />
     <ClCompile Include="inasm64\common.cpp" />
@@ -180,6 +181,7 @@
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="console.h" />
     <ClInclude Include="inasm64\assembler.h" />
     <ClInclude Include="inasm64\assembler_driver.h" />
     <ClInclude Include="inasm64\cli.h" />
