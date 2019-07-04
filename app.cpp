@@ -239,10 +239,10 @@ namespace console
 // each line of assembled input, against its address.
 std::unordered_map<uintptr_t, std::string> _asm_history;
 
-std::ostream& coutreg(const char* reg)
+std::ostream& coutreg(const char* reg, size_t width = 16)
 {
     // perhaps I should just have used printf....
-    return std::cout << std::setfill(' ') << std::setw(4) << reg << std::setw(1) << " = 0x" << std::setfill('0') << std::setw(16) << std::hex;
+    return std::cout << std::setfill(' ') << std::setw(4) << reg << std::setw(1) << " = 0x" << std::setfill('0') << std::setw(width) << std::hex;
 }
 
 std::ostream& coutflags(DWORD flags, DWORD prev = 0)
@@ -436,22 +436,22 @@ void DumpXmmRegisters()
 {
     const auto ctx = inasm64::runtime::Context();
 
-    coutreg("xmm0") << ctx->OsContext->Xmm0.Low << ctx->OsContext->Xmm0.High << " ";
-    coutreg("xmm1") << ctx->OsContext->Xmm1.Low << ctx->OsContext->Xmm1.High << " " << std::endl;
-    coutreg("xmm2") << ctx->OsContext->Xmm2.Low << ctx->OsContext->Xmm2.High << " ";
-    coutreg("xmm3") << ctx->OsContext->Xmm3.Low << ctx->OsContext->Xmm3.High << " " << std::endl;
-    coutreg("xmm4") << ctx->OsContext->Xmm4.Low << ctx->OsContext->Xmm4.High << " ";
-    coutreg("xmm5") << ctx->OsContext->Xmm5.Low << ctx->OsContext->Xmm5.High << " " << std::endl;
-    coutreg("xmm6") << ctx->OsContext->Xmm6.Low << ctx->OsContext->Xmm6.High << " ";
-    coutreg("xmm7") << ctx->OsContext->Xmm7.Low << ctx->OsContext->Xmm7.High << " " << std::endl;
-    coutreg("xmm8") << ctx->OsContext->Xmm8.Low << ctx->OsContext->Xmm8.High << " ";
-    coutreg("xmm9") << ctx->OsContext->Xmm9.Low << ctx->OsContext->Xmm9.High << " " << std::endl;
-    coutreg("xmm10") << ctx->OsContext->Xmm10.Low << ctx->OsContext->Xmm10.High << " ";
-    coutreg("xmm11") << ctx->OsContext->Xmm11.Low << ctx->OsContext->Xmm11.High << " " << std::endl;
-    coutreg("xmm12") << ctx->OsContext->Xmm12.Low << ctx->OsContext->Xmm12.High << " ";
-    coutreg("xmm13") << ctx->OsContext->Xmm13.Low << ctx->OsContext->Xmm13.High << " " << std::endl;
-    coutreg("xmm14") << ctx->OsContext->Xmm14.Low << ctx->OsContext->Xmm14.High << " ";
-    coutreg("xmm15") << ctx->OsContext->Xmm15.Low << ctx->OsContext->Xmm15.High << std::endl;
+    coutreg("xmm0") << ctx->OsContext->Xmm0.Low << std::setfill('0') << std::setw(16) << std::hex << ctx->OsContext->Xmm0.High << " ";
+    coutreg("xmm1") << ctx->OsContext->Xmm1.Low << std::setfill('0') << std::setw(16) << std::hex << ctx->OsContext->Xmm1.High << " " << std::endl;
+    coutreg("xmm2") << ctx->OsContext->Xmm2.Low << std::setfill('0') << std::setw(16) << std::hex << ctx->OsContext->Xmm2.High << " ";
+    coutreg("xmm3") << ctx->OsContext->Xmm3.Low << std::setfill('0') << std::setw(16) << std::hex << ctx->OsContext->Xmm3.High << " " << std::endl;
+    coutreg("xmm4") << ctx->OsContext->Xmm4.Low << std::setfill('0') << std::setw(16) << std::hex << ctx->OsContext->Xmm4.High << " ";
+    coutreg("xmm5") << ctx->OsContext->Xmm5.Low << std::setfill('0') << std::setw(16) << std::hex << ctx->OsContext->Xmm5.High << " " << std::endl;
+    coutreg("xmm6") << ctx->OsContext->Xmm6.Low << std::setfill('0') << std::setw(16) << std::hex << ctx->OsContext->Xmm6.High << " ";
+    coutreg("xmm7") << ctx->OsContext->Xmm7.Low << std::setfill('0') << std::setw(16) << std::hex << ctx->OsContext->Xmm7.High << " " << std::endl;
+    coutreg("xmm8") << ctx->OsContext->Xmm8.Low << std::setfill('0') << std::setw(16) << std::hex << ctx->OsContext->Xmm8.High << " ";
+    coutreg("xmm9") << ctx->OsContext->Xmm9.Low << std::setfill('0') << std::setw(16) << std::hex << ctx->OsContext->Xmm9.High << " " << std::endl;
+    coutreg("xmm10") << ctx->OsContext->Xmm10.Low << std::setfill('0') << std::setw(16) << std::hex << ctx->OsContext->Xmm10.High << " ";
+    coutreg("xmm11") << ctx->OsContext->Xmm11.Low << std::setfill('0') << std::setw(16) << std::hex << ctx->OsContext->Xmm11.High << " " << std::endl;
+    coutreg("xmm12") << ctx->OsContext->Xmm12.Low << std::setfill('0') << std::setw(16) << std::hex << ctx->OsContext->Xmm12.High << " ";
+    coutreg("xmm13") << ctx->OsContext->Xmm13.Low << std::setfill('0') << std::setw(16) << std::hex << ctx->OsContext->Xmm13.High << " " << std::endl;
+    coutreg("xmm14") << ctx->OsContext->Xmm14.Low << std::setfill('0') << std::setw(16) << std::hex << ctx->OsContext->Xmm14.High << " ";
+    coutreg("xmm15") << ctx->OsContext->Xmm15.Low << std::setfill('0') << std::setw(16) << std::hex << ctx->OsContext->Xmm15.High << std::endl;
 }
 
 void DumpYmmRegisters()
