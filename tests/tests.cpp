@@ -1,14 +1,19 @@
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
 
-#include <string>
 #include "../inasm64/common.h"
 #include "../inasm64/runtime.h"
 #include "../inasm64/assembler.h"
 #include "../inasm64/cli.h"
+#include "../inasm64/xed_iclass_instruction_set.h"
 
+#include <string>
+#include <vector>
 #include <iomanip>
 #include <iostream>
+#include <fstream>
+#include <sstream>
+#include <algorithm>
 
 void cinsout(const inasm64::assembler::AssembledInstructionInfo& info)
 {
@@ -33,8 +38,101 @@ void test_assemble(const std::string& statement)
         cinsout(info);
 }
 
+void generate_instruction_set()
+{
+    std::ifstream instrf{ "../assets/iclass_instruction_set.txt" };
+    if(instrf.is_open())
+    {
+        std::vector<std::string> _lines;
+        std::vector<std::pair<char, size_t>> _prefixes;
+        std::string line;
+        char _prefix = 0;
+        while(instrf >> line)
+        {
+            // minus trailing ,
+            auto trimmed = line.substr(0, line.length() - 1);
+            std::transform(trimmed.begin(), trimmed.end(), trimmed.begin(), ::tolower);
+            _lines.emplace_back(trimmed);
+            if(_prefix != trimmed[0])
+            {
+                _prefix = trimmed[0];
+                _prefixes.emplace_back(_prefix, _lines.size() - 1);
+            }
+        }
+
+        std::ofstream oinstrf{
+            "../inasm64/xed_iclass_instruction_set.cpp"
+        };
+        if(oinstrf.is_open())
+        {
+            auto& os = oinstrf;
+
+            os << "// this file was auto generated from xed_iclass_enum\n";
+            os << "namespace inasm64\n{\n";
+
+            auto cc = 1;
+            os << "// instruction names, in XED format\n";
+            os << "const char* xed_instruction_table[" << _lines.size() << "] = {\n";
+            for(const auto& instr : _lines)
+            {
+                os << "\"" << instr << "\",";
+                if(++cc == 4)
+                {
+                    os << std::endl;
+                    cc = 1;
+                }
+            }
+            os << "};\n\n// indices of each prefix character into the instruction table\n";
+            os << "const xed_instruction_prefix_t xed_instruction_prefix_table[" << _prefixes.size() << "] = {\n";
+            cc = 1;
+            for(auto i : _prefixes)
+            {
+                os << "{'" << i.first << "'," << i.second << "},";
+                if(++cc == 16)
+                {
+                    os << std::endl;
+                    cc = 1;
+                }
+            }
+            os << "};\n}\n";
+        }
+    }
+}
+
+void test_xed_instruction_lookup(const char* xed_instruction)
+{
+    int prefix_start = -1;
+    for(auto p = 0; p < inasm64::kXedInstrutionPrefixTableSize; ++p)
+    {
+        if(xed_instruction[0] == inasm64::xed_instruction_prefix_table[p]._prefix)
+        {
+            prefix_start = int(inasm64::xed_instruction_prefix_table[p]._index);
+            break;
+        }
+    }
+    if(prefix_start >= 0)
+    {
+        const auto instr_len = strlen(xed_instruction);
+        while(xed_instruction[0] == inasm64::xed_instruction_table[prefix_start][0])
+        {
+            const auto xed_instr = inasm64::xed_instruction_table[prefix_start];
+            if(strlen(xed_instr) >= instr_len)
+            {
+                if(strncmp(xed_instr, xed_instruction, instr_len) == 0)
+                {
+                    std::cout << xed_instr << "\n";
+                }
+            }
+            ++prefix_start;
+        }
+    }
+}
+
 int main()
 {
+    //generate_instruction_set();
+    test_xed_instruction_lookup("movs");
+
     //TODO: bespoke tests, this is just to aid development at the moment. Might pull in google test at some point...
     using namespace inasm64;
     assembler::Initialise();

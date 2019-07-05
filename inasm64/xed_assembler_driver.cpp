@@ -4,6 +4,7 @@
 
 #include "common.h"
 #include "xed_assembler_driver.h"
+#include "xed_iclass_instruction_set.h"
 
 extern "C"
 {
@@ -288,5 +289,34 @@ namespace inasm64
             return size_t(XED_MAX_INSTRUCTION_BYTES);
         }
 
+        void XedAssemblerDriver::FindMatchingInstructions(const char* namePrefix, std::vector<const char*>& instructions)
+        {
+            int prefix_start = -1;
+            for(auto p = 0; p < inasm64::kXedInstrutionPrefixTableSize; ++p)
+            {
+                if(namePrefix[0] == inasm64::xed_instruction_prefix_table[p]._prefix)
+                {
+                    prefix_start = int(inasm64::xed_instruction_prefix_table[p]._index);
+                    break;
+                }
+            }
+
+            if(prefix_start >= 0)
+            {
+                const auto instr_len = strlen(namePrefix);
+                while(namePrefix[0] == inasm64::xed_instruction_table[prefix_start][0])
+                {
+                    const auto xed_instr = inasm64::xed_instruction_table[prefix_start];
+                    if(strlen(xed_instr) >= instr_len)
+                    {
+                        if(strncmp(xed_instr, namePrefix, instr_len) == 0)
+                        {
+                            instructions.push_back(xed_instr);
+                        }
+                    }
+                    ++prefix_start;
+                }
+            }
+        }
     }  // namespace assembler
 }  // namespace inasm64

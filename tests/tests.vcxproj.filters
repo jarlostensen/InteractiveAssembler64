@@ -45,6 +45,9 @@
     <ClCompile Include="..\inasm64\globvars.cpp">
       <Filter>Source Files\inasm64</Filter>
     </ClCompile>
+    <ClCompile Include="..\inasm64\xed_iclass_instruction_set.cpp">
+      <Filter>Source Files\inasm64</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\inasm64\assembler.h">
@@ -67,6 +70,9 @@
     </ClInclude>
     <ClInclude Include="..\stdafx.h">
       <Filter>Source Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\inasm64\xed_iclass_instruction_set.h">
+      <Filter>Source Files\inasm64</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>

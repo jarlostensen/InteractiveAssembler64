@@ -14,6 +14,7 @@
 #include "common.h"
 #include "runtime.h"
 #include "assembler.h"
+#include "assembler_driver.h"
 #include "globvars.h"
 #include "cli.h"
 
@@ -34,6 +35,7 @@ namespace inasm64
         std::function<void()> OnQuit;
         std::function<void(const help_texts_t&)> OnHelp;
         std::function<void(DataType, const void*, size_t)> OnDumpMemory;
+        std::function<void(const std::vector<const char*>&)> OnFindInstruction;
 
         namespace
         {
@@ -581,6 +583,16 @@ namespace inasm64
                 _help_texts.emplace_back("cc|clearcode", "clear and reset all assembled code");
                 cmd0._handler = [](const char*, char*) {
                     runtime::Reset();
+                };
+                _type_0_handlers.emplace_back(std::move(cmd0));
+
+                cmd0.set_aliases(2, "fi", "find");
+                _help_texts.emplace_back("fi|find <prefix>", "find and list all supported instructions begining with prefix");
+                cmd0._handler = [](const char*, char* prefix) {
+                    std::vector<const char*> instructions;
+                    assembler::Driver()->FindMatchingInstructions(prefix, instructions);
+                    if(!instructions.empty() && OnFindInstruction)
+                        OnFindInstruction(instructions);
                 };
                 _type_0_handlers.emplace_back(std::move(cmd0));
 

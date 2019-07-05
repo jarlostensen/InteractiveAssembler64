@@ -51,6 +51,9 @@
     <ClCompile Include="console.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="inasm64\xed_iclass_instruction_set.cpp">
+      <Filter>Source Files\inasm64</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="inasm64\runtime.h">
@@ -82,6 +85,9 @@
     </ClInclude>
     <ClInclude Include="console.h">
       <Filter>Source Files</Filter>
+    </ClInclude>
+    <ClInclude Include="inasm64\xed_iclass_instruction_set.h">
+      <Filter>Source Files\inasm64</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

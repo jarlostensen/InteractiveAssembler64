@@ -67,6 +67,7 @@ namespace inasm64
         {
             virtual size_t Assemble(const Statement&, uint8_t*, const size_t) = 0;
             virtual size_t MaxInstructionSize() = 0;
+            virtual void FindMatchingInstructions(const char* namePrefix, std::vector<const char*>& instructions) = 0;
         };
     }  // namespace assembler
 }  // namespace inasm64

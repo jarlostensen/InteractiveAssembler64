@@ -174,6 +174,7 @@
     <ClCompile Include="..\inasm64\ia64.cpp" />
     <ClCompile Include="..\inasm64\runtime.cpp" />
     <ClCompile Include="..\inasm64\xed_assembler_driver.cpp" />
+    <ClCompile Include="..\inasm64\xed_iclass_instruction_set.cpp" />
     <ClCompile Include="..\stdafx.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Create</PrecompiledHeader>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Create</PrecompiledHeader>
@@ -189,6 +190,7 @@
     <ClInclude Include="..\inasm64\common.h" />
     <ClInclude Include="..\inasm64\runtime.h" />
     <ClInclude Include="..\inasm64\xed_assembler_driver.h" />
+    <ClInclude Include="..\inasm64\xed_iclass_instruction_set.h" />
     <ClInclude Include="..\stdafx.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

@@ -91,5 +91,8 @@ namespace inasm64
         // display help
         extern std::function<void(const help_texts_t&)> OnHelp;
 
+        // invoked on instruction find with the list of prefix-matching instructions supported by the driver
+        extern std::function<void(const std::vector<const char*>&)> OnFindInstruction;
+
     }  // namespace cli
 }  // namespace inasm64

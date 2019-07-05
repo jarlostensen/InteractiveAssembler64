@@ -450,6 +450,19 @@ int main(int argc, char* argv[])
             std::cout << std::endl;
         };
 
+        cli::OnFindInstruction = [](const std::vector<const char*>& instructions) {
+            std::cout << "there are " << instructions.size() << " instruction matches:\n";
+            int n = 1;
+            for(const auto instr : instructions)
+            {
+                std::cout << "\t" << instr;
+                if(n < instructions.size())
+                    std::cout << ",\n";
+                ++n;
+            }
+            std::cout << std::endl;
+        };
+
         while(!done)
         {
             if(cli::ActiveMode() == cli::Mode::Assembling)

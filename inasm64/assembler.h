@@ -4,6 +4,8 @@ namespace inasm64
 {
     namespace assembler
     {
+        struct IAssemblerDriver;
+
         ///<summary>
         /// information about an assembled instruction
         ///</summary>
@@ -24,5 +26,9 @@ namespace inasm64
         /// assemble a given, single line, input statement into IA 64 instruction bytes
         ///</summary>
         bool Assemble(const char* assembly, AssembledInstructionInfo& asm_info);
+        ///<summary>
+        /// the active driver
+        ///</summary>
+        IAssemblerDriver* Driver();
     }  // namespace assembler
 }  // namespace inasm64

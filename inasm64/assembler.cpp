@@ -607,5 +607,9 @@ namespace inasm64
             }
             return result;
         }
+        IAssemblerDriver* Driver()
+        {
+            return _assembler_driver;
+        }
     }  // namespace assembler
 }  // namespace inasm64
