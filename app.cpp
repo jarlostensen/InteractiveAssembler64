@@ -220,26 +220,29 @@ void DumpReg(const char* regName_, uint64_t value)
               << console::reset_colours;
 }
 
+// used by the macros below to generate register names
+#define STRINGIZE(A) #A
+
 void DumpXmmRegisters()
 {
+#define DUMP_XMM_REGISTER(index) coutreg(STRINGIZE(xmm##index)) << ctx->OsContext->Xmm##index.High << cout_64_bits << ctx->OsContext->Xmm##index.Low << " "
     const auto ctx = inasm64::runtime::Context();
-
-    coutreg("xmm0") << ctx->OsContext->Xmm0.Low << cout_64_bits << ctx->OsContext->Xmm0.High << " ";
-    coutreg("xmm1") << ctx->OsContext->Xmm1.Low << cout_64_bits << ctx->OsContext->Xmm1.High << " " << std::endl;
-    coutreg("xmm2") << ctx->OsContext->Xmm2.Low << cout_64_bits << ctx->OsContext->Xmm2.High << " ";
-    coutreg("xmm3") << ctx->OsContext->Xmm3.Low << cout_64_bits << ctx->OsContext->Xmm3.High << " " << std::endl;
-    coutreg("xmm4") << ctx->OsContext->Xmm4.Low << cout_64_bits << ctx->OsContext->Xmm4.High << " ";
-    coutreg("xmm5") << ctx->OsContext->Xmm5.Low << cout_64_bits << ctx->OsContext->Xmm5.High << " " << std::endl;
-    coutreg("xmm6") << ctx->OsContext->Xmm6.Low << cout_64_bits << ctx->OsContext->Xmm6.High << " ";
-    coutreg("xmm7") << ctx->OsContext->Xmm7.Low << cout_64_bits << ctx->OsContext->Xmm7.High << " " << std::endl;
-    coutreg("xmm8") << ctx->OsContext->Xmm8.Low << cout_64_bits << ctx->OsContext->Xmm8.High << " ";
-    coutreg("xmm9") << ctx->OsContext->Xmm9.Low << cout_64_bits << ctx->OsContext->Xmm9.High << " " << std::endl;
-    coutreg("xmm10") << ctx->OsContext->Xmm10.Low << cout_64_bits << ctx->OsContext->Xmm10.High << " ";
-    coutreg("xmm11") << ctx->OsContext->Xmm11.Low << cout_64_bits << ctx->OsContext->Xmm11.High << " " << std::endl;
-    coutreg("xmm12") << ctx->OsContext->Xmm12.Low << cout_64_bits << ctx->OsContext->Xmm12.High << " ";
-    coutreg("xmm13") << ctx->OsContext->Xmm13.Low << cout_64_bits << ctx->OsContext->Xmm13.High << " " << std::endl;
-    coutreg("xmm14") << ctx->OsContext->Xmm14.Low << cout_64_bits << ctx->OsContext->Xmm14.High << " ";
-    coutreg("xmm15") << ctx->OsContext->Xmm15.Low << cout_64_bits << ctx->OsContext->Xmm15.High << std::endl;
+    DUMP_XMM_REGISTER(0);
+    DUMP_XMM_REGISTER(1) << std::endl;
+    DUMP_XMM_REGISTER(2);
+    DUMP_XMM_REGISTER(3) << std::endl;
+    DUMP_XMM_REGISTER(4);
+    DUMP_XMM_REGISTER(5) << std::endl;
+    DUMP_XMM_REGISTER(6);
+    DUMP_XMM_REGISTER(7) << std::endl;
+    DUMP_XMM_REGISTER(8);
+    DUMP_XMM_REGISTER(9) << std::endl;
+    DUMP_XMM_REGISTER(10);
+    DUMP_XMM_REGISTER(11) << std::endl;
+    DUMP_XMM_REGISTER(12);
+    DUMP_XMM_REGISTER(13) << std::endl;
+    DUMP_XMM_REGISTER(14);
+    DUMP_XMM_REGISTER(15) << std::endl;
 }
 
 void DumpYmmRegisters()
@@ -254,22 +257,24 @@ void DumpYmmRegisters()
             const auto Ymm = (PM128A)LocateXStateFeature(const_cast<PCONTEXT>(ctx->OsContext), XSTATE_AVX, &featureLength);
             if(Ymm)
             {
-                coutreg("ymm0") << Ymm[0].Low << cout_64_bits << Ymm[0].High << " ";
-                coutreg("ymm1") << Ymm[1].Low << cout_64_bits << Ymm[1].High << " " << std::endl;
-                coutreg("ymm2") << Ymm[2].Low << cout_64_bits << Ymm[2].High << " ";
-                coutreg("ymm3") << Ymm[3].Low << cout_64_bits << Ymm[3].High << " " << std::endl;
-                coutreg("ymm4") << Ymm[4].Low << cout_64_bits << Ymm[4].High << " ";
-                coutreg("ymm5") << Ymm[5].Low << cout_64_bits << Ymm[5].High << " " << std::endl;
-                coutreg("ymm6") << Ymm[6].Low << cout_64_bits << Ymm[6].High << " ";
-                coutreg("ymm7") << Ymm[7].Low << cout_64_bits << Ymm[7].High << " " << std::endl;
-                coutreg("ymm8") << Ymm[8].Low << cout_64_bits << Ymm[8].High << " ";
-                coutreg("ymm9") << Ymm[9].Low << cout_64_bits << Ymm[9].High << " " << std::endl;
-                coutreg("ymm10") << Ymm[10].Low << cout_64_bits << Ymm[10].High << " ";
-                coutreg("ymm11") << Ymm[11].Low << cout_64_bits << Ymm[11].High << " " << std::endl;
-                coutreg("ymm12") << Ymm[12].Low << cout_64_bits << Ymm[12].High << " ";
-                coutreg("ymm13") << Ymm[13].Low << cout_64_bits << Ymm[13].High << " " << std::endl;
-                coutreg("ymm14") << Ymm[14].Low << cout_64_bits << Ymm[14].High << " ";
-                coutreg("ymm15") << Ymm[15].Low << cout_64_bits << Ymm[15].High << std::endl;
+#define DUMP_YMM_REGISTER(index) coutreg(STRINGIZE(ymm##index)) << Ymm[index].High << cout_64_bits << Ymm[index].Low << " "
+                DUMP_YMM_REGISTER(0);
+                DUMP_YMM_REGISTER(1) << std::endl;                
+				DUMP_YMM_REGISTER(2);
+                DUMP_YMM_REGISTER(3) << std::endl;             
+				DUMP_YMM_REGISTER(4);
+                DUMP_YMM_REGISTER(5) << std::endl;             
+				DUMP_YMM_REGISTER(6);
+                DUMP_YMM_REGISTER(7) << std::endl;             
+				DUMP_YMM_REGISTER(8);
+                DUMP_YMM_REGISTER(9) << std::endl;             
+				DUMP_YMM_REGISTER(10);
+                DUMP_YMM_REGISTER(11) << std::endl;             
+				DUMP_YMM_REGISTER(12);
+                DUMP_YMM_REGISTER(13) << std::endl;                
+				DUMP_YMM_REGISTER(14);
+                DUMP_YMM_REGISTER(15) << std::endl;
+
             }
         }
         else
