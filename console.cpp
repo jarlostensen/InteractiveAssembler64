@@ -41,6 +41,13 @@ namespace console
         SetConsoleCursorPosition(_std_out, cs_info.dwCursorPosition);
     }
 
+    short GetCursorX()
+    {
+        CONSOLE_SCREEN_BUFFER_INFO cs_info;
+        GetConsoleScreenBufferInfo(_std_out, &cs_info);
+        return cs_info.dwCursorPosition.X;
+    }
+
     void ReadLine(std::string& line)
     {
         const auto mode = _std_in_mode & ~(ENABLE_LINE_INPUT | ENABLE_ECHO_INPUT | ENABLE_WINDOW_INPUT | ENABLE_MOUSE_INPUT);

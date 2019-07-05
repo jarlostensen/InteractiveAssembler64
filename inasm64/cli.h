@@ -79,6 +79,10 @@ namespace inasm64
         // assembly mode ends
         extern std::function<void()> OnStopAssembling;
 
+        // invoked if an error occurs assembling the current statement
+        // if this handler returns false assembly mode is aborted
+        extern std::function<bool()> OnAssembleError;
+
         // input has been assembled and converted to instruction bytes, at runtime address
         extern std::function<void(const void* address, const assembler::AssembledInstructionInfo&)> OnAssembling;
 

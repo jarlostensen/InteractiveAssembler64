@@ -383,24 +383,8 @@ void DumpMemory(inasm64::cli::DataType type, const void* remote_address, size_t 
     }
 }
 
-int main(int argc, char* argv[])
+void DisplaySystemInformation()
 {
-    if(argc == 2)
-    {
-        // when running as debuggee we should never get here
-        const auto key = ::strtoll(argv[1], nullptr, 10);
-        if(key == inasm64::kTrapModeArgumentValue)
-        {
-            std::cerr << console::red << "Fatal runtime error: faulty trap\n";
-            return -1;
-        }
-    }
-
-    console::Initialise();
-
-    std::cout << console::yellow << "inasm64: The IA 64 Interactive Assembler\n\n"
-              << console::reset_colours;
-
     auto sse_supported = false;
     if(inasm64::SseLevelSupported(inasm64::SseLevel::kSse))
     {
@@ -455,8 +439,28 @@ int main(int argc, char* argv[])
         std::cout << "supported\n";
     }
     std::cout << std::endl;
+}
 
+int main(int argc, char* argv[])
+{
+    if(argc == 2)
+    {
+        // when running as debuggee we should never get here
+        const auto key = ::strtoll(argv[1], nullptr, 10);
+        if(key == inasm64::kTrapModeArgumentValue)
+        {
+            std::cerr << console::red << "Fatal runtime error: faulty trap\n";
+            return -1;
+        }
+    }
+
+    console::Initialise();
+
+    std::cout << console::yellow << "inasm64: The IA 64 Interactive Assembler\n\n"
+              << console::reset_colours;
     using namespace inasm64;
+
+    DisplaySystemInformation();
 
     if(assembler::Initialise() && runtime::Start() && cli::Initialise())
     {
@@ -489,6 +493,7 @@ int main(int argc, char* argv[])
         cli::OnSetGPRegister = DumpReg;
 
         std::string input;
+        short input_start_cursor_x;
 
         auto assembling = false;
         cli::OnStartAssembling = [&assembling]() {
@@ -503,8 +508,21 @@ int main(int argc, char* argv[])
             {
                 std::cout << console::green << std::hex << std::setw(2) << std::setfill('0') << int(asm_info.Instruction[n]);
             }
-            std::cout << std::endl
+            // this also blanks out any previous errors on this line
+            std::cout << std::setw(cw - console::GetCursorX()) << std::setfill(' ') << " " << std::endl
                       << console::reset_colours;
+        };
+        cli::OnAssembleError = [&input, &input_start_cursor_x]() -> bool {
+            const auto cw = console::Width();
+            console::SetCursorX(cw - cw / 2);
+            std::cerr << console::red << "\t" << inasm64::ErrorMessage(inasm64::GetError()) << console::reset_colours;
+            //ZZZ: for now leave the invalid text standing, but perhaps blank it out?
+            //console::SetCursorX(input_start_cursor_x);
+            //std::string blanks(input.length(), ' ');
+            // blank out the invalid instruction
+            //std::cout << blanks;
+            console::SetCursorX(0);
+            return true;
         };
         cli::OnStopAssembling = []() {
             std::cout << std::endl;
@@ -534,12 +552,12 @@ int main(int argc, char* argv[])
                 assembling = false;
                 std::cout << "> ";
             }
-
+            input_start_cursor_x = console::GetCursorX();
             console::ReadLine(input);
             if(!assembling)
                 std::cout << std::endl;
 
-            if(!cli::Execute(input.c_str()))
+            if(!cli::Execute(input.c_str()) && cli::ActiveMode() != cli::Mode::Assembling)
                 std::cerr << console::red << "\n"
                           << inasm64::ErrorMessage(inasm64::GetError()) << console::reset_colours << std::endl;
         }

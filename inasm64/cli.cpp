@@ -31,6 +31,7 @@ namespace inasm64
         std::function<void(const void*)> OnStep;
         std::function<void()> OnStartAssembling;
         std::function<void()> OnStopAssembling;
+        std::function<bool()> OnAssembleError;
         std::function<void(const void*, const assembler::AssembledInstructionInfo&)> OnAssembling;
         std::function<void()> OnQuit;
         std::function<void(const help_texts_t&)> OnHelp;
@@ -710,8 +711,10 @@ namespace inasm64
                     std::pair<uintptr_t, assembler::AssembledInstructionInfo> asm_info;
                     if(!assembler::Assemble(cmdLineBuffer, asm_info.second))
                     {
-                        //TODO: proper error handling and error reporting
-                        _mode = Mode::Processing;
+                        if(OnAssembleError)
+                            _mode = OnAssembleError() ? Mode::Assembling : Mode::Processing;
+                        else
+                            _mode = Mode::Processing;
                     }
                     else
                     {
