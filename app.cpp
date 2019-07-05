@@ -259,22 +259,21 @@ void DumpYmmRegisters()
             {
 #define DUMP_YMM_REGISTER(index) coutreg(STRINGIZE(ymm##index)) << Ymm[index].High << cout_64_bits << Ymm[index].Low << " "
                 DUMP_YMM_REGISTER(0);
-                DUMP_YMM_REGISTER(1) << std::endl;                
-				DUMP_YMM_REGISTER(2);
-                DUMP_YMM_REGISTER(3) << std::endl;             
-				DUMP_YMM_REGISTER(4);
-                DUMP_YMM_REGISTER(5) << std::endl;             
-				DUMP_YMM_REGISTER(6);
-                DUMP_YMM_REGISTER(7) << std::endl;             
-				DUMP_YMM_REGISTER(8);
-                DUMP_YMM_REGISTER(9) << std::endl;             
-				DUMP_YMM_REGISTER(10);
-                DUMP_YMM_REGISTER(11) << std::endl;             
-				DUMP_YMM_REGISTER(12);
-                DUMP_YMM_REGISTER(13) << std::endl;                
-				DUMP_YMM_REGISTER(14);
+                DUMP_YMM_REGISTER(1) << std::endl;
+                DUMP_YMM_REGISTER(2);
+                DUMP_YMM_REGISTER(3) << std::endl;
+                DUMP_YMM_REGISTER(4);
+                DUMP_YMM_REGISTER(5) << std::endl;
+                DUMP_YMM_REGISTER(6);
+                DUMP_YMM_REGISTER(7) << std::endl;
+                DUMP_YMM_REGISTER(8);
+                DUMP_YMM_REGISTER(9) << std::endl;
+                DUMP_YMM_REGISTER(10);
+                DUMP_YMM_REGISTER(11) << std::endl;
+                DUMP_YMM_REGISTER(12);
+                DUMP_YMM_REGISTER(13) << std::endl;
+                DUMP_YMM_REGISTER(14);
                 DUMP_YMM_REGISTER(15) << std::endl;
-
             }
         }
         else
@@ -288,32 +287,89 @@ void DumpYmmRegisters()
     }
 }
 
-void DumpMemory(inasm64::cli::DataType, const void* remote_address, size_t size_)
+void DumpMemory(inasm64::cli::DataType type, const void* remote_address, size_t size_)
 {
-    // mvp; max 4 rows, 16 columns of data
-    constexpr auto kCols = 16;
+    using namespace inasm64::cli;
+    constexpr auto kBytesPerRow = 16;
     constexpr auto kRows = 4;
 
-    auto size = std::min<size_t>(kCols * kRows, size_);
+    auto size = std::min<size_t>(kBytesPerRow * kRows, size_);
     const auto local_buffer = new char[size];
     inasm64::runtime::ReadBytes(remote_address, local_buffer, size);
-    auto rows = size / kCols;
+    unsigned type_size = 0;
+    switch(type)
+    {
+    case DataType::kByte:
+        type_size = 1;
+        break;
+    case DataType::kWord:
+        type_size = 2;
+        break;
+    case DataType::kDWord:
+    case DataType::kFloat32:
+        type_size = 4;
+        break;
+    case DataType::kQWord:
+    case DataType::kFloat64:
+        type_size = 8;
+        break;
+    default:;
+    }
     auto n = 0;
     auto address = reinterpret_cast<const uint8_t*>(remote_address);
 
+    std::cout << console::yellow_lo;
     while(size)
     {
         std::cout << std::hex << uintptr_t(address) << " ";
-        auto cols = std::min<size_t>(kCols, size);
-        for(unsigned c = 0; c < kCols; ++c)
+        const auto bytes_to_read = std::min<size_t>(kBytesPerRow, size);
+        for(unsigned c = 0; c < bytes_to_read; c += type_size)
         {
-            unsigned val = local_buffer[n + c] & 0xff;
-            if(c < cols)
+            const auto rp = local_buffer + n + c;
+            switch(type)
+            {
+            case DataType::kByte:
+            {
+                const unsigned val = *rp & 0xff;
                 std::cout << std::hex << std::setw(2) << std::setfill('0') << val << " ";
-            else
-                std::cout << "   ";
+            }
+            break;
+            case DataType::kWord:
+            {
+                const auto val = *reinterpret_cast<const unsigned short*>(rp) & 0xffff;
+                std::cout << std::hex << std::setw(4) << std::setfill('0') << val << " ";
+            }
+            break;
+            case DataType::kDWord:
+            {
+                const auto val = *reinterpret_cast<const uint32_t*>(rp);
+                std::cout << std::hex << std::setw(8) << std::setfill('0') << val << " ";
+            }
+            break;
+            case DataType::kQWord:
+            {
+                const auto val = *reinterpret_cast<const uint64_t*>(rp);
+                std::cout << std::hex << std::setw(16) << std::setfill('0') << val << " ";
+            }
+            break;
+            case DataType::kFloat32:
+            {
+                const auto val = *reinterpret_cast<const float*>(rp);
+                std::cout << std::setprecision(7) << val << " ";
+            }
+            break;
+            case DataType::kFloat64:
+            {
+                const auto val = *reinterpret_cast<const double*>(rp);
+                std::cout << std::setprecision(7) << val << " ";
+            }
+            break;
+            }
         }
-        for(unsigned c = 0; c < cols; ++c)
+        std::cout << console::reset_colours;
+        const auto cw = console::Width();
+        console::SetCursorX(cw - cw / 2);
+        for(unsigned c = 0; c < bytes_to_read; ++c)
         {
             const auto ic = local_buffer[n++];
             if(ic >= 0x21 && ic <= 0x7e)
@@ -322,9 +378,8 @@ void DumpMemory(inasm64::cli::DataType, const void* remote_address, size_t size_
                 std::cout << ".";
         }
         std::cout << std::endl;
-        size -= cols;
-        --rows;
-        address += kCols;
+        size -= bytes_to_read;
+        address += kBytesPerRow;
     }
 }
 

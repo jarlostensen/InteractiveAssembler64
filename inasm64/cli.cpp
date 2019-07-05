@@ -543,7 +543,7 @@ namespace inasm64
                 _type_0_handlers.emplace_back(std::move(cmd0));
 
                 //NOTE: not the same as the type-1 above, this is for display
-                cmd0.set_aliases(4, "db", "dw", "dd", "dq");
+                cmd0.set_aliases(6, "db", "dw", "dd", "dq", "dfs", "dfd");
                 _help_texts.emplace_back("d[b|w|d|q] $<varname>", "display data pointed to by varname");
                 cmd0._handler = dump_memory_handler;
                 _type_0_handlers.emplace_back(std::move(cmd0));
