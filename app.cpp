@@ -293,8 +293,13 @@ void DumpMemory(inasm64::cli::DataType type, const void* remote_address, size_t 
     constexpr auto kBytesPerRow = 16;
     constexpr auto kRows = 4;
 
+    // we don't display all the data (yet), so pick smallest of window
     auto size = std::min<size_t>(kBytesPerRow * kRows, size_);
-    const auto local_buffer = new char[size];
+    // create padding to nearest 8 bytes, so that we can 0 out top bytes in >1 byte types if they go outside the range
+    const auto buffer_size = (size + 8) & ~7;
+    const auto local_buffer = new char[buffer_size];
+    // clear the buffer
+    memset(local_buffer, 0, buffer_size);
     inasm64::runtime::ReadBytes(remote_address, local_buffer, size);
     unsigned type_size = 0;
     switch(type)
@@ -318,10 +323,10 @@ void DumpMemory(inasm64::cli::DataType type, const void* remote_address, size_t 
     auto n = 0;
     auto address = reinterpret_cast<const uint8_t*>(remote_address);
 
-    std::cout << console::yellow_lo;
     while(size)
     {
         std::cout << std::hex << uintptr_t(address) << " ";
+        std::cout << console::yellow_lo;
         const auto bytes_to_read = std::min<size_t>(kBytesPerRow, size);
         for(unsigned c = 0; c < bytes_to_read; c += type_size)
         {
@@ -459,7 +464,6 @@ int main(int argc, char* argv[])
     std::cout << console::yellow << "inasm64: The IA 64 Interactive Assembler\n\n"
               << console::reset_colours;
     using namespace inasm64;
-
     DisplaySystemInformation();
 
     if(assembler::Initialise() && runtime::Start() && cli::Initialise())
@@ -519,7 +523,6 @@ int main(int argc, char* argv[])
             //ZZZ: for now leave the invalid text standing, but perhaps blank it out?
             //console::SetCursorX(input_start_cursor_x);
             //std::string blanks(input.length(), ' ');
-            // blank out the invalid instruction
             //std::cout << blanks;
             console::SetCursorX(0);
             return true;
