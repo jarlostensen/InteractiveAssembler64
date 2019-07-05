@@ -596,7 +596,7 @@ namespace inasm64
 
             if(result)
             {
-                const auto buffer = reinterpret_cast<uint8_t*>(_alloca(_assembler_driver->MaxInstructionSize()));
+                const auto buffer = reinterpret_cast<uint8_t*>(_malloca(_assembler_driver->MaxInstructionSize()));
                 const auto instr_len = _assembler_driver->Assemble(statement, buffer, _assembler_driver->MaxInstructionSize());
                 result = instr_len > 0;
                 if(result)
@@ -604,6 +604,7 @@ namespace inasm64
                     memcpy(const_cast<uint8_t*>(info.Instruction), buffer, instr_len);
                     const_cast<size_t&>(info.InstructionSize) = instr_len;
                 }
+                _freea(buffer);
             }
             return result;
         }
