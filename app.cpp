@@ -498,6 +498,7 @@ int main(int argc, char* argv[])
 
         std::string input;
         short input_start_cursor_x;
+        auto clear_next_input_on_key = false;
 
         auto assembling = false;
         cli::OnStartAssembling = [&assembling]() {
@@ -513,10 +514,12 @@ int main(int argc, char* argv[])
                 std::cout << console::green << std::hex << std::setw(2) << std::setfill('0') << int(asm_info.Instruction[n]);
             }
             // this also blanks out any previous errors on this line
-            std::cout << std::setw(cw - console::GetCursorX()) << std::setfill(' ') << " " << std::endl
+            /*std::cout << std::setw(cw - console::GetCursorX()) << std::setfill(' ') << " " << std::endl
+                      << console::reset_colours;*/
+            std::cout << std::endl
                       << console::reset_colours;
         };
-        cli::OnAssembleError = [&input, &input_start_cursor_x]() -> bool {
+        cli::OnAssembleError = [&input, &input_start_cursor_x, &clear_next_input_on_key]() -> bool {
             const auto cw = console::Width();
             console::SetCursorX(cw - cw / 2);
             std::cerr << console::red << "\t" << inasm64::ErrorMessage(inasm64::GetError()) << console::reset_colours;
@@ -525,6 +528,7 @@ int main(int argc, char* argv[])
             //std::string blanks(input.length(), ' ');
             //std::cout << blanks;
             console::SetCursorX(0);
+            clear_next_input_on_key = true;
             return true;
         };
         cli::OnStopAssembling = []() {
@@ -556,9 +560,10 @@ int main(int argc, char* argv[])
                 std::cout << "> ";
             }
             input_start_cursor_x = console::GetCursorX();
-            console::ReadLine(input);
+            console::ReadLine(input, clear_next_input_on_key);
             if(!assembling)
                 std::cout << std::endl;
+            clear_next_input_on_key = false;
 
             if(!cli::Execute(input.c_str()) && cli::ActiveMode() != cli::Mode::Assembling)
                 std::cerr << console::red << "\n"

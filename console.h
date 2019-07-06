@@ -14,7 +14,7 @@ namespace console
     short Height();
     void SetCursorX(short x);
     short GetCursorX();
-    void ReadLine(std::string& line);
+    void ReadLine(std::string& line, bool clearLineOnKey);
 
     inline std::ostream& reset_colours(std::ostream& os)
     {

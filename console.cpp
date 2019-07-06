@@ -1,6 +1,7 @@
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
 #include <iostream>
+#include <iomanip>
 #include "console.h"
 
 namespace console
@@ -48,7 +49,7 @@ namespace console
         return cs_info.dwCursorPosition.X;
     }
 
-    void ReadLine(std::string& line)
+    void ReadLine(std::string& line, bool clearLineOnKey)
     {
         const auto mode = _std_in_mode & ~(ENABLE_LINE_INPUT | ENABLE_ECHO_INPUT | ENABLE_WINDOW_INPUT | ENABLE_MOUSE_INPUT);
         SetConsoleMode(_std_in, mode);
@@ -94,6 +95,14 @@ namespace console
                             (vcode >= 0xba && vcode <= 0xe2) ||
                             vcode == VK_SPACE)
                         {
+                            if(clearLineOnKey)
+                            {
+                                // clear the input line from cursor pos to width of console window
+                                std::cout << std::setw(Width() - GetCursorX()) << std::setfill(' ') << " ";
+                                SetCursorX(start_cs_info.dwCursorPosition.X);
+                                clearLineOnKey = false;
+                            }
+
                             std::cout << input_record.Event.KeyEvent.uChar.AsciiChar;
                             line_buffer[line_wp++] = input_record.Event.KeyEvent.uChar.AsciiChar;
                             max_read = std::max<decltype(max_read)>(max_read, line_wp);
