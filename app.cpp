@@ -561,13 +561,19 @@ int main(int argc, char* argv[])
             }
             input_start_cursor_x = console::GetCursorX();
             console::ReadLine(input, clear_next_input_on_key);
-            if(!assembling)
-                std::cout << std::endl;
-            clear_next_input_on_key = false;
 
             if(!cli::Execute(input.c_str()) && cli::ActiveMode() != cli::Mode::Assembling)
-                std::cerr << console::red << "\n"
-                          << inasm64::ErrorMessage(inasm64::GetError()) << console::reset_colours << std::endl;
+            {
+                const auto cw = console::Width();
+                console::SetCursorX(cw - cw / 2);
+                std::cerr << console::red << inasm64::ErrorMessage(inasm64::GetError()) << console::reset_colours;
+                console::SetCursorX(0);
+                clear_next_input_on_key = true;
+            }
+            else
+            {
+                clear_next_input_on_key = false;
+            }
         }
     }
     else
