@@ -156,7 +156,7 @@ namespace inasm64
                 auto rp = cmd1Line;
                 auto rp0 = rp;
                 // first token
-                while(rp[0] && rp[0] != ' ' && rp[0] != '\t')
+                while(rp[0] && rp[0] != ' ')
                     ++rp;
                 rp[0] = 0;
                 auto handled = false;
@@ -169,7 +169,7 @@ namespace inasm64
                         if(strcmp(rp0, cmd1_name) == 0)
                         {
                             ++rp;
-                            while(rp[0] && (rp[0] == ' ' || rp[0] == '\t'))
+                            while(rp[0] && rp[0] == ' ')
                                 ++rp;
                             command._handler(cmd1_name, rp);
                             handled = true;
@@ -188,7 +188,7 @@ namespace inasm64
                 {
                     rp0 = ++rp;
                     // second token
-                    while(rp[0] && rp[0] != ' ' && rp[0] != '\t')
+                    while(rp[0] && rp[0] != ' ')
                         ++rp;
                     if(rp[0])
                     {
@@ -201,7 +201,7 @@ namespace inasm64
                                 if(strcmp(rp0, cmd1_name) == 0)
                                 {
                                     ++rp;
-                                    while(rp[0] && (rp[0] == ' ' || rp[0] == '\t'))
+                                    while(rp[0] && rp[0] == ' ')
                                         ++rp;
                                     command._handler(cmd1Line, cmd1_name, rp);
                                     handled = true;
@@ -319,7 +319,7 @@ namespace inasm64
             {
                 if(!str)
                     return true;
-                while(str[0] && (str[0] == ' ' || str[0] == '\t'))
+                while(str[0] && str[0] == ' ')
                     ++str;
                 return !str[0];
             }
@@ -414,13 +414,13 @@ namespace inasm64
                     else
                     {
                         auto rp = params;
-                        while(rp[0] && rp[0] != ' ' && rp[0] != '\t')
+                        while(rp[0] && rp[0] != ' ')
                             ++rp;
                         auto display_reg = true;
                         if(rp[0])
                         {
                             *rp++ = 0;
-                            while(rp[0] && (rp[0] == ' ' || rp[0] == '\t'))
+                            while(rp[0] && rp[0] == ' ')
                                 ++rp;
                             if(rp[0])
                             {
@@ -642,7 +642,7 @@ namespace inasm64
             const auto cmdLinePtr = commandLine_;
 
             // skip past leading whitespace
-            while(cmdLinePtr[nv] && (cmdLinePtr[nv] != ' ' && cmdLinePtr[nv] != '\t'))
+            while(cmdLinePtr[nv] && cmdLinePtr[nv] != ' ')
             {
                 cmdLineBuffer[wp++] = cmdLinePtr[nv++];
             }
@@ -658,7 +658,7 @@ namespace inasm64
                 if(cmdLinePtr[nv])
                 {
                     auto nv1 = nv + 1;
-                    while(cmdLinePtr[nv] && (cmdLinePtr[nv] != ' ' && cmdLinePtr[nv] != '\t' && cmdLinePtr[nv] != ',' && cmdLinePtr[nv] != ']'))
+                    while(cmdLinePtr[nv] && (cmdLinePtr[nv] != ' ' && cmdLinePtr[nv] != ',' && cmdLinePtr[nv] != ']'))
                         ++nv;
                     size_t wl = 0;
                     if(cmdLinePtr[nv])
