@@ -18,7 +18,7 @@ namespace inasm64
             "eax", "ebx", "ecx", "edx", "esi", "edi", "esp", "ebp", "r8d", "r9d", "r10d", "r11d", "r12d", "r13d", "r14d", "r15d"
         };
         const char* kGpr64[] = {
-            "rax", "rbx", "rcx", "rdx", "rsi", "rdi", "rsp", "rbp", "r8", "r9", "r10", "r11", "r12", "r13", "r14", "r15"
+            "rax", "rbx", "rcx", "rdx", "rsi", "rdi", "rsp", "rbp", "r8", "r9", "r10", "r11", "r12", "r13", "r14", "r15", "mm0", "mm1", "mm2", "mm3", "mm4", "mm5", "mm6", "mm7"
         };
 
         // all of this checking is based on https://gist.github.com/hi2p-perim/7855506
@@ -95,18 +95,23 @@ namespace inasm64
                 // XMM, YMM, and ZMM. Depending on mode there are different numbers of these, but the width is the same across all
                 // https://en.wikipedia.org/wiki/AVX-512#Encoding_and_features
 
+                const auto id = strtol(reg + 3, nullptr, 10);
+                if(errno && (id < 0 || id > 15))
+                    return kInvalidRegister;
+
                 if(reg[0] == 'x')
-                    return { RegisterInfo::RegClass::kXmm, 128 };
+                    return { RegisterInfo::RegClass::kXmm, static_cast<RegisterInfo::Register>(id + static_cast<int>(RegisterInfo::Register::xmm0)), 128 };
                 if(reg[0] == 'y')
-                    return { RegisterInfo::RegClass::kYmm, 256 };
+                    return { RegisterInfo::RegClass::kYmm, static_cast<RegisterInfo::Register>(id + static_cast<int>(RegisterInfo::Register::ymm0)), 256 };
                 if(reg[0] == 'z')
-                    return { RegisterInfo::RegClass::kZmm, 512 };
+                    return { RegisterInfo::RegClass::kZmm, static_cast<RegisterInfo::Register>(id + static_cast<int>(RegisterInfo::Register::zmm0)), 512 };
             }
-            if(reg[0] == 'm')
+            if(reg_len == 3 && reg[0] == 'm')
             {
-                // mmx registers (0-7)
-                // http://softpixel.com/~cwright/programming/simd/mmx.php
-                return { RegisterInfo::RegClass::kMmx, 64 };
+                const auto id = strtol(reg + 2, nullptr, 10);
+                if(errno && (id < 0 || id > 7))
+                    return kInvalidRegister;
+                return { RegisterInfo::RegClass::kMmx, static_cast<RegisterInfo::Register>(id + static_cast<int>(RegisterInfo::Register::mm0)), 64 };
             }
             // otherwise it's invalid
             return kInvalidRegister;
@@ -118,7 +123,7 @@ namespace inasm64
             {
                 if(strcmp(reg, kGpr64[r]) == 0)
                 {
-                    return { RegisterInfo::RegClass::kGpr, 64 };
+                    return { RegisterInfo::RegClass::kGpr, static_cast<RegisterInfo::Register>(r + static_cast<int>(RegisterInfo::Register::rax)), 64 };
                 }
             }
         }
@@ -127,7 +132,7 @@ namespace inasm64
         {
             if(strcmp(reg, kGpr32[r]) == 0)
             {
-                return { RegisterInfo::RegClass::kGpr, 32 };
+                return { RegisterInfo::RegClass::kGpr, static_cast<RegisterInfo::Register>(r + static_cast<int>(RegisterInfo::Register::eax)), 32 };
             }
         }
 
@@ -135,14 +140,14 @@ namespace inasm64
         {
             if(strcmp(reg, kGpr16[r]) == 0)
             {
-                return { RegisterInfo::RegClass::kGpr, 16 };
+                return { RegisterInfo::RegClass::kGpr, static_cast<RegisterInfo::Register>(r + static_cast<int>(RegisterInfo::Register::ax)), 16 };
             }
         }
         for(auto r = 0; r < std::size(kGpr8); ++r)
         {
             if(strcmp(reg, kGpr8[r]) == 0)
             {
-                return { RegisterInfo::RegClass::kGpr, 8 };
+                return { RegisterInfo::RegClass::kGpr, static_cast<RegisterInfo::Register>(r + static_cast<int>(RegisterInfo::Register::al)), 8 };
             }
         }
         return kInvalidRegister;
