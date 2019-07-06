@@ -7,7 +7,7 @@ namespace inasm64
     ///</summary?
     struct RegisterInfo
     {
-        enum class RegisterClass
+        enum class RegClass
         {
             //TODO: Segment, flags, etc....
             kGpr,
@@ -17,13 +17,18 @@ namespace inasm64
             kZmm,
             kInvalid,
         };
-        RegisterClass _class = RegisterClass::kInvalid;
+        RegClass _class = RegClass::kInvalid;
         short _bit_width = 0;
         RegisterInfo() = default;
-        RegisterInfo(RegisterClass klass, short width)
+        RegisterInfo(RegClass klass, short width)
             : _class{ klass }
             , _bit_width{ width }
         {
+        }
+
+        operator bool() const
+        {
+            return _bit_width && _class != RegClass::kInvalid;
         }
     };
 

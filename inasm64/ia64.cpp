@@ -71,19 +71,19 @@ namespace inasm64
             }
 
             // check for SSE4a and SSE5
-            cpuid(0x80000000,0, regs);
+            cpuid(0x80000000, 0, regs);
             const auto num_extended_ids = regs[0];
             if(num_extended_ids >= 0x80000001)
             {
-                cpuid(0x80000001,0, regs);
+                cpuid(0x80000001, 0, regs);
                 _sys_flags._sse4a = (regs[2] & (1 << 6)) != 0;
                 _sys_flags._sse5 = (regs[2] & (1 << 11)) != 0;
             }
 
             _sys_flags._checked = true;
         }
-    } 
-	using namespace detail;
+    }  // namespace detail
+    using namespace detail;
 
     RegisterInfo GetRegisterInfo(const char* reg)
     {
@@ -96,17 +96,17 @@ namespace inasm64
                 // https://en.wikipedia.org/wiki/AVX-512#Encoding_and_features
 
                 if(reg[0] == 'x')
-                    return { RegisterInfo::RegisterClass::kXmm, 128 };
+                    return { RegisterInfo::RegClass::kXmm, 128 };
                 if(reg[0] == 'y')
-                    return { RegisterInfo::RegisterClass::kYmm, 256 };
+                    return { RegisterInfo::RegClass::kYmm, 256 };
                 if(reg[0] == 'z')
-                    return { RegisterInfo::RegisterClass::kZmm, 512 };
+                    return { RegisterInfo::RegClass::kZmm, 512 };
             }
             if(reg[0] == 'm')
             {
                 // mmx registers (0-7)
                 // http://softpixel.com/~cwright/programming/simd/mmx.php
-                return { RegisterInfo::RegisterClass::kMmx, 64 };
+                return { RegisterInfo::RegClass::kMmx, 64 };
             }
             // otherwise it's invalid
             return kInvalidRegister;
@@ -118,7 +118,7 @@ namespace inasm64
             {
                 if(strcmp(reg, kGpr64[r]) == 0)
                 {
-                    return { RegisterInfo::RegisterClass::kGpr, 64 };
+                    return { RegisterInfo::RegClass::kGpr, 64 };
                 }
             }
         }
@@ -127,7 +127,7 @@ namespace inasm64
         {
             if(strcmp(reg, kGpr32[r]) == 0)
             {
-                return { RegisterInfo::RegisterClass::kGpr, 32 };
+                return { RegisterInfo::RegClass::kGpr, 32 };
             }
         }
 
@@ -135,14 +135,14 @@ namespace inasm64
         {
             if(strcmp(reg, kGpr16[r]) == 0)
             {
-                return { RegisterInfo::RegisterClass::kGpr, 16 };
+                return { RegisterInfo::RegClass::kGpr, 16 };
             }
         }
         for(auto r = 0; r < std::size(kGpr8); ++r)
         {
             if(strcmp(reg, kGpr8[r]) == 0)
             {
-                return { RegisterInfo::RegisterClass::kGpr, 8 };
+                return { RegisterInfo::RegClass::kGpr, 8 };
             }
         }
         return kInvalidRegister;
@@ -169,7 +169,7 @@ namespace inasm64
             return _sys_flags._sse4a;
         case SseLevel::kSse5:
             return _sys_flags._sse5;
-		}
+        }
         return false;
     }
 
