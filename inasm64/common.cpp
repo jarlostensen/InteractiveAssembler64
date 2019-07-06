@@ -97,6 +97,8 @@ namespace inasm64
             return "CLI hasn't been properly initialised";
         case Error::CliUnknownCommand:
             return "Unknown CLI command";
+        case Error::InvalidRegisterName:
+            return "Unrecognized register name";
         case Error::EncodeError:
             return "General encoder error";
         default:

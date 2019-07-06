@@ -2,6 +2,7 @@
 #include <windows.h>
 
 #include "../inasm64/common.h"
+#include "../inasm64/ia64.h"
 #include "../inasm64/runtime.h"
 #include "../inasm64/assembler.h"
 #include "../inasm64/cli.h"
@@ -132,6 +133,11 @@ int main()
 {
     //generate_instruction_set();
     test_xed_instruction_lookup("movs");
+
+    auto reg_info = inasm64::GetRegisterInfo("si");
+    reg_info = inasm64::GetRegisterInfo("r11");
+    reg_info = inasm64::GetRegisterInfo("xmm4");
+    reg_info = inasm64::GetRegisterInfo("mm3");
 
     //TODO: bespoke tests, this is just to aid development at the moment. Might pull in google test at some point...
     using namespace inasm64;
