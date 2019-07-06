@@ -217,6 +217,10 @@ namespace inasm64
                         }
                     }
                 }
+
+                if(!handled)
+                    detail::SetError(Error::CliUnknownCommand);
+
                 return handled && GetError() == Error::NoError;
             }
 

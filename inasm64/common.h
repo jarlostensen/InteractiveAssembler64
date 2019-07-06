@@ -30,6 +30,7 @@ namespace inasm64
         MemoryReadSizeMismatch,
         MemoryWriteSizeMismatch,
         InvalidImmediateOperandBitWidth,
+        CliUnknownCommand,
         AccessViolation,
         SystemError,
     };

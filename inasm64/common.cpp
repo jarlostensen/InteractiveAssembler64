@@ -95,6 +95,8 @@ namespace inasm64
             return "Immediate operand bit width is incorrect for this instruction";
         case Error::CliUninitialised:
             return "CLI hasn't been properly initialised";
+        case Error::CliUnknownCommand:
+            return "Unknown CLI command";
         case Error::EncodeError:
             return "General encoder error";
         default:

@@ -22,6 +22,13 @@
 // each line of assembled input, against its address.
 std::unordered_map<uintptr_t, std::string> _asm_history;
 
+// move cursor to the midle of the console window
+void to_right_column()
+{
+    const auto cw = console::Width();
+    console::SetCursorX(cw - cw / 2);
+}
+
 auto cout_64_bits(std::ostream& os) -> std::ostream&
 {
     return os << std::setfill('0') << std::setw(16) << std::hex;
@@ -506,9 +513,7 @@ int main(int argc, char* argv[])
         };
         cli::OnAssembling = [&input](const void* address, const assembler::AssembledInstructionInfo& asm_info) {
             _asm_history[uintptr_t(address)] = input;
-
-            const auto cw = console::Width();
-            console::SetCursorX(cw - cw / 2);
+            to_right_column();
             for(unsigned n = 0; n < asm_info.InstructionSize; ++n)
             {
                 std::cout << console::green << std::hex << std::setw(2) << std::setfill('0') << int(asm_info.Instruction[n]);
@@ -520,8 +525,7 @@ int main(int argc, char* argv[])
                       << console::reset_colours;
         };
         cli::OnAssembleError = [&input, &input_start_cursor_x, &clear_next_input_on_key]() -> bool {
-            const auto cw = console::Width();
-            console::SetCursorX(cw - cw / 2);
+            to_right_column();
             std::cerr << console::red << "\t" << inasm64::ErrorMessage(inasm64::GetError()) << console::reset_colours;
             //ZZZ: for now leave the invalid text standing, but perhaps blank it out?
             //console::SetCursorX(input_start_cursor_x);
@@ -564,8 +568,7 @@ int main(int argc, char* argv[])
 
             if(!cli::Execute(input.c_str()) && cli::ActiveMode() != cli::Mode::Assembling)
             {
-                const auto cw = console::Width();
-                console::SetCursorX(cw - cw / 2);
+                to_right_column();
                 std::cerr << console::red << inasm64::ErrorMessage(inasm64::GetError()) << console::reset_colours;
                 console::SetCursorX(0);
                 clear_next_input_on_key = true;
