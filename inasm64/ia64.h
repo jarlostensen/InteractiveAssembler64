@@ -152,18 +152,15 @@ namespace inasm64
             kYmm,
             kZmm,
             kSegment,
+            kFlags,
             kInvalid,
         };
         RegClass _class = RegClass::kInvalid;
         Register _register = Register::kInvalid;
+        Register _greatest_enclosing_register = Register::kInvalid;
         short _bit_width = 0;
         RegisterInfo() = default;
-        RegisterInfo(RegClass klass, Register register_, short width)
-            : _class{ klass }
-            , _register{ register_ }
-            , _bit_width{ width }
-        {
-        }
+        RegisterInfo(RegClass klass, Register register_, short width);
         operator bool() const
         {
             return _bit_width && _class != RegClass::kInvalid;

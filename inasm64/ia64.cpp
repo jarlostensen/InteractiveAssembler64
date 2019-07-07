@@ -20,6 +20,9 @@ namespace inasm64
         const char* kGpr64[] = {
             "rax", "rbx", "rcx", "rdx", "rsi", "rdi", "rsp", "rbp", "r8", "r9", "r10", "r11", "r12", "r13", "r14", "r15", "mm0", "mm1", "mm2", "mm3", "mm4", "mm5", "mm6", "mm7"
         };
+        const char* kSegmentRegisters[] = {
+            "cs", "ds", "es", "ss", "fs", "gs"
+        };
 
         // all of this checking is based on https://gist.github.com/hi2p-perim/7855506
 
@@ -84,6 +87,82 @@ namespace inasm64
         }
     }  // namespace detail
     using namespace detail;
+
+    RegisterInfo::RegisterInfo(RegClass klass, Register register_, short width)
+        : _class{ klass }
+        , _register{ register_ }
+        , _greatest_enclosing_register{ register_ }
+        , _bit_width{ width }
+    {
+        if(register_ != Register::kInvalid)
+        {
+            const auto ord = static_cast<int>(_register);
+            if(ord >= static_cast<int>(Register::zmm0))
+            {
+                _greatest_enclosing_register = _register;
+            }
+            else if(ord >= static_cast<int>(Register::ymm0))
+            {
+                _greatest_enclosing_register = static_cast<Register>(ord - static_cast<int>(Register::ymm0) + static_cast<int>(Register::zmm0));
+            }
+            else if(ord >= static_cast<int>(Register::xmm0))
+            {
+                _greatest_enclosing_register = static_cast<Register>(ord - static_cast<int>(Register::xmm0) + static_cast<int>(Register::zmm0));
+            }
+            else if(ord >= static_cast<int>(Register::rax))
+            {
+                _greatest_enclosing_register = _register;
+            }
+            else if(ord >= static_cast<int>(Register::r8d))
+            {
+                _greatest_enclosing_register = static_cast<Register>(ord - static_cast<int>(Register::r8d) + static_cast<int>(Register::r8));
+            }
+            else if(ord >= static_cast<int>(Register::eax))
+            {
+                _greatest_enclosing_register = static_cast<Register>(ord - static_cast<int>(Register::eax) + static_cast<int>(Register::rax));
+            }
+            else if(ord >= static_cast<int>(Register::r8w))
+            {
+                _greatest_enclosing_register = static_cast<Register>(ord - static_cast<int>(Register::r8w) + static_cast<int>(Register::r8));
+            }
+            else if(ord >= static_cast<int>(Register::ax))
+            {
+                _greatest_enclosing_register = static_cast<Register>(ord - static_cast<int>(Register::ax) + static_cast<int>(Register::rax));
+            }
+            else if(ord >= static_cast<int>(Register::r8b))
+            {
+                _greatest_enclosing_register = static_cast<Register>(ord - static_cast<int>(Register::r8b) + static_cast<int>(Register::r8));
+            }
+            else
+            {
+                switch(_register)
+                {
+                case Register::al:
+                case Register::ah:
+                    _greatest_enclosing_register = Register::rax;
+                    break;
+                case Register::bl:
+                case Register::bh:
+                    _greatest_enclosing_register = Register::rbx;
+                    break;
+                case Register::cl:
+                case Register::ch:
+                    _greatest_enclosing_register = Register::rcx;
+                    break;
+                case Register::dl:
+                case Register::dh:
+                    _greatest_enclosing_register = Register::rdx;
+                    break;
+                default:
+                {
+                    // byte special registers (sil, dil, etc)
+                    _greatest_enclosing_register = static_cast<Register>(ord - static_cast<int>(Register::sil) + static_cast<int>(Register::rsi));
+                }
+                break;
+                }
+            }
+        }
+    }
 
     RegisterInfo GetRegisterInfo(const char* reg)
     {
@@ -150,6 +229,17 @@ namespace inasm64
                 return { RegisterInfo::RegClass::kGpr, static_cast<RegisterInfo::Register>(r + static_cast<int>(RegisterInfo::Register::al)), 8 };
             }
         }
+        for(auto r = 0; r < std::size(kSegmentRegisters); ++r)
+        {
+            if(strcmp(reg, kSegmentRegisters[r]) == 0)
+            {
+                return { RegisterInfo::RegClass::kSegment, static_cast<RegisterInfo::Register>(r + static_cast<int>(RegisterInfo::Register::cs)), 16 };
+            }
+        }
+        if(strcmp(reg, "eflags") == 0)
+            //TODO: there are more flags, different sizes, etc.
+            return { RegisterInfo::RegClass::kFlags, RegisterInfo::Register::eflags, 32 };
+
         return kInvalidRegister;
     }
 
