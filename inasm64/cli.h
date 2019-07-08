@@ -48,7 +48,59 @@ namespace inasm64
             kQWord,
             kFloat32,
             kFloat64,
+            kXmmWord,
+            kYmmWord,
+            kZmmWord
         };
+        // helper for the DataType enum
+        inline DataType BitWidthToIntegerDataType(short bit_width)
+        {
+            switch(bit_width)
+            {
+            case 8:
+                return DataType::kByte;
+            case 16:
+                return DataType::kWord;
+            case 32:
+                return DataType::kDWord;
+            case 64:
+                return DataType::kQWord;
+            case 128:
+                return DataType::kXmmWord;
+            case 256:
+                return DataType::kYmmWord;
+            case 512:
+                return DataType::kYmmWord;
+            default:
+                return DataType::kUnknown;
+            }
+        }
+        // helper for the DataType enum
+        inline unsigned DataTypeToBitWidth(DataType type)
+        {
+            switch(type)
+            {
+            case DataType::kByte:
+                return 8;
+            case DataType::kWord:
+                return 16;
+            case DataType::kDWord:
+            case DataType::kFloat32:
+                return 32;
+            case DataType::kQWord:
+            case DataType::kFloat64:
+                return 64;
+            case DataType::kXmmWord:
+                return 128;
+            case DataType::kYmmWord:
+                return 256;
+            case DataType::kZmmWord:
+                return 512;
+            default:;
+            }
+            return 0;
+        }
+
         // varname has been set to value (in globvars)
         extern std::function<void(const char* varname, uintptr_t value)> OnDataValueSet;
 
@@ -56,10 +108,10 @@ namespace inasm64
         extern std::function<void(const char* registerName, uint64_t value)> OnSetGPRegister;
 
         // dump information about the given address, in the given format
-        extern std::function<void(DataType, const void* address, size_t bytes)> OnDumpMemory;
+        extern std::function<void(DataType, const void* address, size_t bytes)> OnDisplayData;
 
-        // display contents of registerName
-        extern std::function<void(const char* registerName)> OnDisplayGPRegister;
+        // display contents of register in the given format (type)
+        extern std::function<void(DataType, const RegisterInfo&)> OnDisplayRegister;
 
         // display all GPRs
         extern std::function<void()> OnDisplayGPRegisters;

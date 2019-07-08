@@ -79,14 +79,6 @@ namespace inasm64
             r13,
             r14,
             r15,
-            mm0,
-            mm1,
-            mm2,
-            mm3,
-            mm4,
-            mm5,
-            mm6,
-            mm7,
             xmm0,
             xmm1,
             xmm2,
@@ -147,7 +139,6 @@ namespace inasm64
         enum class RegClass
         {
             kGpr,
-            kMmx,
             kXmm,
             kYmm,
             kZmm,

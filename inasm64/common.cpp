@@ -55,6 +55,8 @@ namespace inasm64
             return "no error";
         case Error::CliInputLengthExceeded:
             return "Max CLI input length exceeded";
+        case Error::RuntimeUninitialised:
+            return "Runtime has not been properly notinitialised";
         case Error::UndefinedVariable:
             return "Undefined variable";
         case Error::SystemError:

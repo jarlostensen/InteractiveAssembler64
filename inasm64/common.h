@@ -12,6 +12,7 @@ namespace inasm64
         NoError,
         CliUninitialised,
         CliInputLengthExceeded,
+        RuntimeUninitialised,
         UndefinedVariable,
         UnsupportedInstructionFormat,
         EmptyInput,

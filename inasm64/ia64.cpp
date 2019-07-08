@@ -18,7 +18,7 @@ namespace inasm64
             "eax", "ebx", "ecx", "edx", "esi", "edi", "esp", "ebp", "r8d", "r9d", "r10d", "r11d", "r12d", "r13d", "r14d", "r15d"
         };
         const char* kGpr64[] = {
-            "rax", "rbx", "rcx", "rdx", "rsi", "rdi", "rsp", "rbp", "r8", "r9", "r10", "r11", "r12", "r13", "r14", "r15", "mm0", "mm1", "mm2", "mm3", "mm4", "mm5", "mm6", "mm7"
+            "rax", "rbx", "rcx", "rdx", "rsi", "rdi", "rsp", "rbp", "r8", "r9", "r10", "r11", "r12", "r13", "r14", "r15"
         };
         const char* kSegmentRegisters[] = {
             "cs", "ds", "es", "ss", "fs", "gs"
@@ -184,13 +184,6 @@ namespace inasm64
                     return { RegisterInfo::RegClass::kYmm, static_cast<RegisterInfo::Register>(id + static_cast<int>(RegisterInfo::Register::ymm0)), 256 };
                 if(reg[0] == 'z')
                     return { RegisterInfo::RegClass::kZmm, static_cast<RegisterInfo::Register>(id + static_cast<int>(RegisterInfo::Register::zmm0)), 512 };
-            }
-            if(reg_len == 3 && reg[0] == 'm')
-            {
-                const auto id = strtol(reg + 2, nullptr, 10);
-                if(errno && (id < 0 || id > 7))
-                    return kInvalidRegister;
-                return { RegisterInfo::RegClass::kMmx, static_cast<RegisterInfo::Register>(id + static_cast<int>(RegisterInfo::Register::mm0)), 64 };
             }
             // otherwise it's invalid
             return kInvalidRegister;

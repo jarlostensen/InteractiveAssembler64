@@ -3,9 +3,11 @@
 #include <windows.h>
 #include <debugapi.h>
 #include <unordered_map>
+#include <cassert>
 
 #include <memory>
 #include "common.h"
+#include "ia64.h"
 #include "runtime.h"
 
 #if !defined(_WIN64)
@@ -436,540 +438,360 @@ namespace inasm64
             return 0;
         }
 
-        void SetReg(ByteReg reg, int8_t value)
+        bool SetReg(const RegisterInfo& reg, const void* data, size_t size)
         {
+            assert(reg._bit_width / 8 <= size);
+            assert(data);
+            assert(reg._register != RegisterInfo::Register::kInvalid);
             if(!_flags._started)
-                return;
-
-#define _SETBYTEREG_LO(r)               \
-    _active_ctx->##r &= ~DWORD64(0xff); \
-    _active_ctx->##r |= value
-
-#define _SETBYTEREG_HI(r)                 \
-    _active_ctx->##r &= ~DWORD64(0xff00); \
-    _active_ctx->##r |= (DWORD64(value) << 8)
-            switch(reg)
             {
-            case ByteReg::AL:
-                _SETBYTEREG_LO(Rax);
-                break;
-            case ByteReg::AH:
-                _SETBYTEREG_HI(Rax);
-                break;
-            case ByteReg::BL:
-                _SETBYTEREG_LO(Rbx);
-                break;
-            case ByteReg::BH:
-                _SETBYTEREG_HI(Rbx);
-                break;
-            case ByteReg::CL:
-                _SETBYTEREG_LO(Rcx);
-                break;
-            case ByteReg::CH:
-                _SETBYTEREG_HI(Rcx);
-                break;
-            case ByteReg::DL:
-                _SETBYTEREG_LO(Rdx);
-                break;
-            case ByteReg::DH:
-                _SETBYTEREG_HI(Rdx);
-                break;
-            }
-            _ctx_changed = true;
-        }
-
-        int8_t GetReg(ByteReg reg)
-        {
-            int8_t value = 0;
-#define _GETBYTEREG_LO(r) \
-    value = int8_t(_active_ctx->##r & DWORD64(0xff))
-#define _GETBYTEREG_HI(r) \
-    value = int8_t((_active_ctx->##r & DWORD64(0xff00)) >> 8)
-
-            switch(reg)
-            {
-            case ByteReg::AL:
-                _GETBYTEREG_LO(Rax);
-                break;
-            case ByteReg::AH:
-                _GETBYTEREG_HI(Rax);
-                break;
-            case ByteReg::BL:
-                _GETBYTEREG_LO(Rbx);
-                break;
-            case ByteReg::BH:
-                _GETBYTEREG_HI(Rbx);
-                break;
-            case ByteReg::CL:
-                _GETBYTEREG_LO(Rcx);
-                break;
-            case ByteReg::CH:
-                _GETBYTEREG_HI(Rcx);
-                break;
-            case ByteReg::DL:
-                _GETBYTEREG_LO(Rdx);
-                break;
-            case ByteReg::DH:
-                _GETBYTEREG_HI(Rdx);
-                break;
-            }
-            return value;
-        }
-
-        void SetReg(WordReg reg, int16_t value)
-        {
-            if(!_flags._started)
-                return;
-
-#define _SETWORDREG(r)                    \
-    _active_ctx->##r &= ~DWORD64(0xffff); \
-    _active_ctx->##r |= DWORD64(value)
-
-            switch(reg)
-            {
-            case WordReg::AX:
-                _SETWORDREG(Rax);
-                break;
-            case WordReg::BX:
-                _SETWORDREG(Rbx);
-                break;
-            case WordReg::CX:
-                _SETWORDREG(Rcx);
-                break;
-            case WordReg::DX:
-                _SETWORDREG(Rdx);
-                break;
-            case WordReg::BP:
-                _SETWORDREG(Rbp);
-                break;
-            case WordReg::SP:
-                _SETWORDREG(Rsp);
-                break;
-            case WordReg::SI:
-                _SETWORDREG(Rsi);
-                break;
-            case WordReg::DI:
-                _SETWORDREG(Rdi);
-                break;
-            }
-            _ctx_changed = true;
-        }
-
-        int16_t GetReg(WordReg reg)
-        {
-            int16_t value = 0;
-#define _GETWORDREG(r) \
-    value = int16_t(_active_ctx->##r & DWORD64(0xffff))
-
-            switch(reg)
-            {
-            case WordReg::AX:
-                _GETWORDREG(Rax);
-                break;
-            case WordReg::BX:
-                _GETWORDREG(Rbx);
-                break;
-            case WordReg::CX:
-                _GETWORDREG(Rcx);
-                break;
-            case WordReg::DX:
-                _GETWORDREG(Rdx);
-                break;
-            case WordReg::BP:
-                _GETWORDREG(Rbp);
-                break;
-            case WordReg::SP:
-                _GETWORDREG(Rsp);
-                break;
-            case WordReg::SI:
-                _GETWORDREG(Rsi);
-                break;
-            case WordReg::DI:
-                _GETWORDREG(Rdi);
-                break;
-            }
-            return value;
-        }
-
-        void SetReg(DWordReg reg, int32_t value)
-        {
-            if(!_flags._started)
-                return;
-
-#define _SETDWORDREG(r)                       \
-    _active_ctx->##r &= ~DWORD64(0xffffffff); \
-    _active_ctx->##r |= DWORD64(value)
-
-            switch(reg)
-            {
-            case DWordReg::EAX:
-                _SETDWORDREG(Rax);
-                break;
-            case DWordReg::EBX:
-                _SETDWORDREG(Rbx);
-                break;
-            case DWordReg::ECX:
-                _SETDWORDREG(Rcx);
-                break;
-            case DWordReg::EDX:
-                _SETDWORDREG(Rdx);
-                break;
-            case DWordReg::EBP:
-                _SETDWORDREG(Rbp);
-                break;
-            case DWordReg::ESP:
-                _SETDWORDREG(Rsp);
-                break;
-            case DWordReg::ESI:
-                _SETDWORDREG(Rsi);
-                break;
-            case DWordReg::EDI:
-                _SETDWORDREG(Rdi);
-                break;
-            }
-            _ctx_changed = true;
-        }
-
-        int32_t GetReg(DWordReg reg)
-        {
-            int32_t value = 0;
-#define _GETDWORDREG(r) \
-    value = int32_t(_active_ctx->##r & DWORD64(0xffffffff))
-
-            switch(reg)
-            {
-            case DWordReg::EAX:
-                _GETDWORDREG(Rax);
-                break;
-            case DWordReg::EBX:
-                _GETDWORDREG(Rbx);
-                break;
-            case DWordReg::ECX:
-                _GETDWORDREG(Rcx);
-                break;
-            case DWordReg::EDX:
-                _GETDWORDREG(Rdx);
-                break;
-            case DWordReg::EBP:
-                _GETDWORDREG(Rbp);
-                break;
-            case DWordReg::ESP:
-                _GETDWORDREG(Rsp);
-                break;
-            case DWordReg::ESI:
-                _GETDWORDREG(Rsi);
-                break;
-            case DWordReg::EDI:
-                _GETDWORDREG(Rdi);
-                break;
-            }
-            return value;
-        }
-
-        void SetReg(QWordReg reg, int64_t value)
-        {
-            if(!_flags._started)
-                return;
-
-            switch(reg)
-            {
-            case QWordReg::RAX:
-                _active_ctx->Rax = value;
-                break;
-            case QWordReg::RBX:
-                _active_ctx->Rbx = value;
-                break;
-            case QWordReg::RCX:
-                _active_ctx->Rcx = value;
-                break;
-            case QWordReg::RDX:
-                _active_ctx->Rdx = value;
-                break;
-            case QWordReg::RBP:
-                _active_ctx->Rbp = value;
-                break;
-            case QWordReg::RSP:
-                _active_ctx->Rsp = value;
-                break;
-            case QWordReg::RSI:
-                _active_ctx->Rsi = value;
-                break;
-            case QWordReg::RDI:
-                _active_ctx->Rdi = value;
-                break;
-#define _SET_R_REG(n)              \
-    case QWordReg::R##n:           \
-        _active_ctx->R##n = value; \
-        break
-                _SET_R_REG(8);
-                _SET_R_REG(9);
-                _SET_R_REG(10);
-                _SET_R_REG(11);
-                _SET_R_REG(12);
-                _SET_R_REG(13);
-                _SET_R_REG(14);
-                _SET_R_REG(15);
-            }
-
-            _ctx_changed = true;
-        }
-
-        int64_t GetReg(QWordReg reg)
-        {
-            switch(reg)
-            {
-            case QWordReg::RAX:
-                return _active_ctx->Rax;
-            case QWordReg::RBX:
-                return _active_ctx->Rbx;
-            case QWordReg::RCX:
-                return _active_ctx->Rcx;
-            case QWordReg::RDX:
-                return _active_ctx->Rdx;
-            case QWordReg::RBP:
-                return _active_ctx->Rbp;
-            case QWordReg::RSP:
-                return _active_ctx->Rsp;
-            case QWordReg::RSI:
-                return _active_ctx->Rsi;
-            case QWordReg::RDI:
-                return _active_ctx->Rdi;
-#define _GET_R_REG(n)    \
-    case QWordReg::R##n: \
-        return _active_ctx->R##n
-                _GET_R_REG(8);
-                _GET_R_REG(9);
-                _GET_R_REG(10);
-                _GET_R_REG(11);
-                _GET_R_REG(12);
-                _GET_R_REG(13);
-                _GET_R_REG(14);
-                _GET_R_REG(15);
-            }
-            return 0;
-        }
-
-        bool SetReg(const char* regName, int64_t value)
-        {
-            //TODO: XMM and YMM registers, FP registers
-
-            const auto len = strlen(regName);
-            if(len > 4)
-            {
-                detail::SetError(Error::InvalidCommandFormat);
+                detail::SetError(Error::RuntimeUninitialised);
                 return false;
             }
-            auto result = true;
-            auto firstToken = regName[0];
-            if(len == 2 && firstToken != 'R')
-            {
-                const auto secondToken = regName[1];
-                // should be a byte- or word -register
-                switch(firstToken)
-                {
-                    // sadly this magic (https://stackoverflow.com/questions/35525555/c-preprocessor-how-to-create-a-character-literal) does not work with MS141
-                    // complains about newline in constant at SINGLEQUOTE
-                    //#define CONCAT_H(x, y, z) x##y##z
-                    //#define SINGLEQUOTE '
-                    //#define CONCAT(x, y, z) CONCAT_H(x, y, z)
-                    //#define CHARIFY(x) CONCAT(SINGLEQUOTE, x, SINGLEQUOTE)
 
-#define _SETNAMEDBYTEREG_HL(prefix)                                              \
-    if(secondToken == 'L')                                                       \
-    {                                                                            \
-        runtime::SetReg(runtime::ByteReg::##prefix##L, int8_t(value & 0xff));    \
-    }                                                                            \
-    else if(secondToken == 'H')                                                  \
-    {                                                                            \
-        runtime::SetReg(runtime::ByteReg::##prefix##H, int8_t(value & 0xff));    \
-    }                                                                            \
-    else if(secondToken == 'X')                                                  \
-    {                                                                            \
-        runtime::SetReg(runtime::WordReg::##prefix##X, int16_t(value & 0xffff)); \
-    }                                                                            \
-    else                                                                         \
-        result = false;                                                          \
-    break
-                case 'A':
-                    _SETNAMEDBYTEREG_HL(A);
-                case 'B':
-                    _SETNAMEDBYTEREG_HL(B);
-                case 'C':
-                    _SETNAMEDBYTEREG_HL(C);
-                case 'D':
-                    _SETNAMEDBYTEREG_HL(D);
-                default:
-                    if(secondToken == 'I')
-                    {
-                        if(firstToken == 'D')
-                        {
-                            runtime::SetReg(runtime::WordReg::DI, int16_t(value & 0xffff));
-                        }
-                        else if(firstToken == 'S')
-                        {
-                            runtime::SetReg(runtime::WordReg::SI, int16_t(value & 0xffff));
-                        }
-                        else
-                            result = false;
-                    }
-                    else if(secondToken == 'P')
-                    {
-                        if(firstToken == 'B')
-                        {
-                            runtime::SetReg(runtime::WordReg::BP, int16_t(value & 0xffff));
-                        }
-                        else if(firstToken == 'S')
-                        {
-                            runtime::SetReg(runtime::WordReg::SP, int16_t(value & 0xffff));
-                        }
-                        else
-                            result = false;
-                    }
-                    else
-                        result = false;
+            if(reg._class == RegisterInfo::RegClass::kSegment || reg._class == RegisterInfo::RegClass::kFlags)
+                return false;
+
+            char* reg_ptr = nullptr;
+            auto data_ptr = reinterpret_cast<const char*>(data);
+            switch(reg._greatest_enclosing_register)
+            {
+#define RT_GPRREG_SET(letter)                                                       \
+    case RegisterInfo::Register::r##letter##x:                                      \
+        switch(reg._register)                                                       \
+        {                                                                           \
+        case RegisterInfo::Register::##letter##l:                                   \
+            assert(size == 1);                                                      \
+            _active_ctx->R##letter##x &= ~0xff;                                     \
+            _active_ctx->R##letter##x |= DWORD64(data_ptr[0]);                      \
+            break;                                                                  \
+        case RegisterInfo::Register::##letter##h:                                   \
+            assert(size == 1);                                                      \
+            _active_ctx->R##letter##x &= ~0xff00;                                   \
+            _active_ctx->R##letter##x |= DWORD64(data_ptr[0] << 8);                 \
+            break;                                                                  \
+        case RegisterInfo::Register::##letter##x:                                   \
+            assert(size == 2);                                                      \
+            _active_ctx->R##letter##x &= ~0xffff;                                   \
+            _active_ctx->R##letter##x |= DWORD64(data_ptr[0] | (data_ptr[1] << 8)); \
+            break;                                                                  \
+        case RegisterInfo::Register::e##letter##x:                                  \
+            assert(size == 4);                                                      \
+        case RegisterInfo::Register::r##letter##x:                                  \
+            assert(size >= 4);                                                      \
+            reg_ptr = reinterpret_cast<char*>(&_active_ctx->R##letter##x);          \
+            break;                                                                  \
+        default:;                                                                   \
+        }                                                                           \
+        break
+                RT_GPRREG_SET(a);
+                RT_GPRREG_SET(b);
+                RT_GPRREG_SET(c);
+                RT_GPRREG_SET(d);
+            case RegisterInfo::Register::rsi:
+                switch(reg._register)
+                {
+                case RegisterInfo::Register::sil:
+                    assert(size == 1);
+                    _active_ctx->Rsi &= ~0xff;
+                    _active_ctx->Rsi |= DWORD64(data_ptr[0]);
+                    break;
+                case RegisterInfo::Register::esi:
+                    assert(size == 4);
+                case RegisterInfo::Register::rsi:
+                    assert(size >= 4);
+                    reg_ptr = reinterpret_cast<char*>(&_active_ctx->Rsi);
                     break;
                 }
-            }
-            else if(len == 3 || firstToken == 'R')
-            {
-                // 32- or 64 -bit registers
-                const auto secondToken = regName[2];
-                if(firstToken == 'E')
+                break;
+            case RegisterInfo::Register::rdi:
+                switch(reg._register)
                 {
-                    firstToken = regName[1];
-                    switch(firstToken)
-                    {
-#define _SETNAMEDDWORDREG(prefix)                                                      \
-    if(secondToken == 'X')                                                             \
-    {                                                                                  \
-        runtime::SetReg(runtime::DWordReg::E##prefix##X, int32_t(value & 0xffffffff)); \
-    }                                                                                  \
-    else                                                                               \
-        result = false;                                                                \
-    break
-                    case 'A':
-                        _SETNAMEDDWORDREG(A);
-                    case 'B':
-                        _SETNAMEDDWORDREG(B);
-                    case 'C':
-                        _SETNAMEDDWORDREG(C);
-                    case 'D':
-                        _SETNAMEDDWORDREG(D);
-                    default:
-                        if(secondToken == 'I')
-                        {
-                            if(firstToken == 'D')
-                            {
-                                runtime::SetReg(runtime::DWordReg::EDI, int32_t(value & 0xffffffff));
-                            }
-                            else if(firstToken == 'S')
-                            {
-                                runtime::SetReg(runtime::DWordReg::ESI, int32_t(value & 0xffffffff));
-                            }
-                            else
-                                result = false;
-                        }
-                        else if(secondToken == 'P')
-                        {
-                            if(firstToken == 'B')
-                            {
-                                runtime::SetReg(runtime::DWordReg::EBP, int16_t(value & 0xffffffff));
-                            }
-                            else if(firstToken == 'S')
-                            {
-                                runtime::SetReg(runtime::DWordReg::ESP, int16_t(value & 0xffffffff));
-                            }
-                            else
-                                result = false;
-                        }
-                        else
-                            result = false;
-                        break;
-                    }
+                case RegisterInfo::Register::dil:
+                    assert(size == 1);
+                    _active_ctx->Rdi &= ~0xff;
+                    _active_ctx->Rdi |= DWORD64(data_ptr[0]);
+                    break;
+                case RegisterInfo::Register::edi:
+                    assert(size == 4);
+                case RegisterInfo::Register::rdi:
+                    assert(size >= 4);
+                    reg_ptr = reinterpret_cast<char*>(&_active_ctx->Rdi);
+                    break;
                 }
-                else if(firstToken == 'R')
+                break;
+            case RegisterInfo::Register::rsp:
+                switch(reg._register)
                 {
-                    firstToken = regName[1];
-                    switch(firstToken)
-                    {
-#define _SETNAMEDQWORDREG(prefix)                                \
-    if(secondToken == 'X')                                       \
-    {                                                            \
-        runtime::SetReg(runtime::QWordReg::R##prefix##X, value); \
-    }                                                            \
-    else                                                         \
-        result = false;                                          \
+                case RegisterInfo::Register::spl:
+                    assert(size == 1);
+                    _active_ctx->Rsp &= ~0xff;
+                    _active_ctx->Rsp |= DWORD64(data_ptr[0]);
+                    break;
+                case RegisterInfo::Register::esp:
+                    assert(size == 4);
+                case RegisterInfo::Register::rsp:
+                    assert(size >= 4);
+                    reg_ptr = reinterpret_cast<char*>(&_active_ctx->Rsp);
+                    break;
+                }
+                break;
+            case RegisterInfo::Register::rbp:
+                switch(reg._register)
+                {
+                case RegisterInfo::Register::bpl:
+                    assert(size == 1);
+                    _active_ctx->Rbp &= ~0xff;
+                    _active_ctx->Rbp |= DWORD64(data_ptr[0]);
+                    break;
+                case RegisterInfo::Register::ebp:
+                    assert(size == 4);
+                case RegisterInfo::Register::rbp:
+                    assert(size >= 4);
+                    reg_ptr = reinterpret_cast<char*>(&_active_ctx->Rbp);
+                    break;
+                }
+                break;
+
+#define RT_RREG_SET(index)                                                      \
+    case RegisterInfo::Register::r##index:                                      \
+    {                                                                           \
+        switch(reg._register)                                                   \
+        {                                                                       \
+        case RegisterInfo::Register::r##index##b:                               \
+            assert(size == 1);                                                  \
+            _active_ctx->R##index &= ~0xff;                                     \
+            _active_ctx->R##index |= DWORD64(data_ptr[0]);                      \
+            break;                                                              \
+        case RegisterInfo::Register::r##index##w:                               \
+            assert(size == 2);                                                  \
+            _active_ctx->R##index &= ~0xffff;                                   \
+            _active_ctx->R##index |= DWORD64(data_ptr[0] | (data_ptr[1] << 8)); \
+            break;                                                              \
+        case RegisterInfo::Register::r##index##d:                               \
+            assert(size == 4);                                                  \
+        case RegisterInfo::Register::r##index##:                                \
+            assert(size >= 4);                                                  \
+            reg_ptr = reinterpret_cast<char*>(&_active_ctx->R##index);          \
+            break;                                                              \
+        default:;                                                               \
+        }                                                                       \
+    }                                                                           \
     break
-                    case 'A':
-                        _SETNAMEDQWORDREG(A);
-                    case 'B':
-                        _SETNAMEDQWORDREG(B);
-                    case 'C':
-                        _SETNAMEDQWORDREG(C);
-                    case 'D':
-                        _SETNAMEDQWORDREG(D);
-                    default:
-                        if(secondToken == 'I')
-                        {
-                            if(firstToken == 'D')
-                            {
-                                runtime::SetReg(runtime::QWordReg::RDI, value);
-                            }
-                            else if(firstToken == 'S')
-                            {
-                                runtime::SetReg(runtime::QWordReg::RSI, value);
-                            }
-                            else
-                                result = false;
-                        }
-                        else if(secondToken == 'P')
-                        {
-                            if(firstToken == 'B')
-                            {
-                                runtime::SetReg(runtime::QWordReg::RBP, value);
-                            }
-                            else if(firstToken == 'S')
-                            {
-                                runtime::SetReg(runtime::QWordReg::RSP, value);
-                            }
-                            else
-                                result = false;
-                        }
-                        else
-                        {
-                            // R8-R15?
-                            const auto ordinal = ::atol(regName + 1);
-                            switch(ordinal)
-                            {
-#define _SETORDQWORDREG(ord)                               \
-    case ord:                                              \
-        runtime::SetReg(runtime::QWordReg::R##ord, value); \
+
+                RT_RREG_SET(8);
+                RT_RREG_SET(9);
+                RT_RREG_SET(10);
+                RT_RREG_SET(11);
+                RT_RREG_SET(12);
+                RT_RREG_SET(13);
+                RT_RREG_SET(14);
+                RT_RREG_SET(15);
+
+#define RT_XREG_SET(index)                                           \
+    case RegisterInfo::Register::xmm##index:                         \
+        assert(size == 16);                                          \
+        reg_ptr = reinterpret_cast<char*>(&_active_ctx->Xmm##index); \
         break
+                RT_XREG_SET(0);
+                RT_XREG_SET(1);
+                RT_XREG_SET(2);
+                RT_XREG_SET(3);
+                RT_XREG_SET(4);
+                RT_XREG_SET(5);
+                RT_XREG_SET(6);
+                RT_XREG_SET(7);
+                RT_XREG_SET(8);
+                RT_XREG_SET(9);
+                RT_XREG_SET(10);
+                RT_XREG_SET(11);
+                RT_XREG_SET(12);
+                RT_XREG_SET(13);
+                RT_XREG_SET(14);
+                RT_XREG_SET(15);
 
-                                _SETORDQWORDREG(8);
-                                _SETORDQWORDREG(9);
-                                _SETORDQWORDREG(10);
-                                _SETORDQWORDREG(11);
-                                _SETORDQWORDREG(12);
-                                _SETORDQWORDREG(13);
-                                _SETORDQWORDREG(14);
-                                _SETORDQWORDREG(15);
-                            default:
-                                result = false;
-                                break;
-                            }
-                        }
-                        break;
-                    }
-                }
-                else
-                    result = false;
+                //TODO: Ymm+Zmm
+
+            default:;
             }
 
-            if(!result)
-                detail::SetError(Error::UnrecognizedRegisterName);
+            if(reg_ptr)
+            {
+                memcpy(reg_ptr, data_ptr, size);
+            }
 
-            return result;
+            _ctx_changed = true;
+
+            return true;
+        }
+
+        bool GetReg(const RegisterInfo& reg, void* data, size_t size)
+        {
+            assert(size);
+            assert(reg._bit_width / 8 <= size);
+            assert(data);
+            assert(reg._register != RegisterInfo::Register::kInvalid);
+            if(!_flags._started)
+            {
+                detail::SetError(Error::RuntimeUninitialised);
+                return false;
+            }
+
+            const uint8_t* reg_ptr = nullptr;
+            const auto data_ptr = reinterpret_cast<uint8_t*>(data);
+            switch(reg._greatest_enclosing_register)
+            {
+#define RT_GPRREG_GET(letter)                                                                        \
+    case RegisterInfo::Register::r##letter##x:                                                       \
+    {                                                                                                \
+        switch(reg._register)                                                                        \
+        {                                                                                            \
+        case RegisterInfo::Register::##letter##l:                                                    \
+            data_ptr[0] = uint8_t(_active_ctx->R##letter##x & 0xff);                                 \
+            break;                                                                                   \
+        case RegisterInfo::Register::##letter##h:                                                    \
+            data_ptr[0] = uint8_t((_active_ctx->R##letter##x & 0xff00) >> 8);                        \
+            break;                                                                                   \
+        case RegisterInfo::Register::##letter##x:                                                    \
+            reinterpret_cast<uint16_t*>(data_ptr)[0] = uint16_t(_active_ctx->R##letter##x & 0xffff); \
+            break;                                                                                   \
+        case RegisterInfo::Register::e##letter##x:                                                   \
+            assert(size == 4);                                                                       \
+        case RegisterInfo::Register::r##letter##x:                                                   \
+            assert(size >= 4);                                                                       \
+            reg_ptr = reinterpret_cast<const uint8_t*>(&_active_ctx->R##letter##x);                  \
+            break;                                                                                   \
+        }                                                                                            \
+    }                                                                                                \
+    break
+                RT_GPRREG_GET(a);
+                RT_GPRREG_GET(b);
+                RT_GPRREG_GET(c);
+                RT_GPRREG_GET(d);
+
+            case RegisterInfo::Register::rsi:
+                switch(reg._register)
+                {
+                case RegisterInfo::Register::sil:
+                    assert(size == 1);
+                    data_ptr[0] = uint8_t(_active_ctx->Rsi & 0xff);
+                    break;
+                case RegisterInfo::Register::esi:
+                    assert(size == 4);
+                case RegisterInfo::Register::rsi:
+                    assert(size >= 4);
+                    reg_ptr = reinterpret_cast<const uint8_t*>(&_active_ctx->Rsi);
+                    break;
+                }
+                break;
+            case RegisterInfo::Register::rdi:
+                switch(reg._register)
+                {
+                case RegisterInfo::Register::dil:
+                    assert(size == 1);
+                    data_ptr[0] = uint8_t(_active_ctx->Rdi & 0xff);
+                    break;
+                case RegisterInfo::Register::edi:
+                    assert(size == 4);
+                case RegisterInfo::Register::rdi:
+                    assert(size >= 4);
+                    reg_ptr = reinterpret_cast<const uint8_t*>(&_active_ctx->Rdi);
+                    break;
+                }
+                break;
+            case RegisterInfo::Register::rsp:
+                switch(reg._register)
+                {
+                case RegisterInfo::Register::spl:
+                    assert(size == 1);
+                    data_ptr[0] = uint8_t(_active_ctx->Rsp & 0xff);
+                    break;
+                case RegisterInfo::Register::esp:
+                    assert(size == 4);
+                case RegisterInfo::Register::rsp:
+                    assert(size >= 4);
+                    reg_ptr = reinterpret_cast<const uint8_t*>(&_active_ctx->Rsp);
+                    break;
+                }
+                break;
+            case RegisterInfo::Register::rbp:
+                switch(reg._register)
+                {
+                case RegisterInfo::Register::bpl:
+                    assert(size == 1);
+                    data_ptr[0] = uint8_t(_active_ctx->Rbp & 0xff);
+                    break;
+                case RegisterInfo::Register::ebp:
+                    assert(size == 4);
+                case RegisterInfo::Register::rbp:
+                    assert(size >= 4);
+                    reg_ptr = reinterpret_cast<const uint8_t*>(&_active_ctx->Rbp);
+                    break;
+                }
+                break;
+
+#define RT_RREG_GET(index)                                                                       \
+    case RegisterInfo::Register::r##index:                                                       \
+    {                                                                                            \
+        switch(reg._register)                                                                    \
+        {                                                                                        \
+        case RegisterInfo::Register::r##index##b:                                                \
+            assert(size == 1);                                                                   \
+            data_ptr[0] = uint8_t(_active_ctx->R##index & 0xff);                                 \
+            break;                                                                               \
+        case RegisterInfo::Register::r##index##w:                                                \
+            assert(size == 2);                                                                   \
+            reinterpret_cast<uint16_t*>(data_ptr)[0] = uint16_t(_active_ctx->R##index & 0xffff); \
+            break;                                                                               \
+        case RegisterInfo::Register::r##index##d:                                                \
+            assert(size == 4);                                                                   \
+        case RegisterInfo::Register::r##index##:                                                 \
+            assert(size >= 4);                                                                   \
+            reg_ptr = reinterpret_cast<const uint8_t*>(&_active_ctx->R##index);                  \
+            break;                                                                               \
+        default:;                                                                                \
+        }                                                                                        \
+    }                                                                                            \
+    break
+
+                RT_RREG_GET(8);
+                RT_RREG_GET(9);
+                RT_RREG_GET(10);
+                RT_RREG_GET(11);
+                RT_RREG_GET(12);
+                RT_RREG_GET(13);
+                RT_RREG_GET(14);
+                RT_RREG_GET(15);
+
+#define RT_XREG_GET(index)                                                    \
+    case RegisterInfo::Register::xmm##index:                                  \
+        assert(size == 16);                                                   \
+        reg_ptr = reinterpret_cast<const uint8_t*>(&_active_ctx->Xmm##index); \
+        break
+                RT_XREG_GET(0);
+                RT_XREG_GET(1);
+                RT_XREG_GET(2);
+                RT_XREG_GET(3);
+                RT_XREG_GET(4);
+                RT_XREG_GET(5);
+                RT_XREG_GET(6);
+                RT_XREG_GET(7);
+                RT_XREG_GET(8);
+                RT_XREG_GET(9);
+                RT_XREG_GET(10);
+                RT_XREG_GET(11);
+                RT_XREG_GET(12);
+                RT_XREG_GET(13);
+                RT_XREG_GET(14);
+                RT_XREG_GET(15);
+            default:;
+            }
+
+            if(reg_ptr)
+            {
+                memcpy(data, reg_ptr, size);
+            }
+            return true;
         }
     }  // namespace runtime
 }  // namespace inasm64
