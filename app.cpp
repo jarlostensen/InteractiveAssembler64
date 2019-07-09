@@ -246,28 +246,30 @@ void DumpReg(const char* regName_, uint64_t value)
 
 void DumpXmmRegisters()
 {
-#define DUMP_XMM_REGISTER(index) coutreg(STRINGIZE(xmm##index)) << ctx->OsContext->Xmm##index.High << cout_64_bits << ctx->OsContext->Xmm##index.Low << " "
-    const auto ctx = inasm64::runtime::Context();
-    DUMP_XMM_REGISTER(0);
-    DUMP_XMM_REGISTER(1) << std::endl;
-    DUMP_XMM_REGISTER(2);
-    DUMP_XMM_REGISTER(3) << std::endl;
-    DUMP_XMM_REGISTER(4);
-    DUMP_XMM_REGISTER(5) << std::endl;
-    DUMP_XMM_REGISTER(6);
-    DUMP_XMM_REGISTER(7) << std::endl;
-    DUMP_XMM_REGISTER(8);
-    DUMP_XMM_REGISTER(9) << std::endl;
-    DUMP_XMM_REGISTER(10);
-    DUMP_XMM_REGISTER(11) << std::endl;
-    DUMP_XMM_REGISTER(12);
-    DUMP_XMM_REGISTER(13) << std::endl;
-    DUMP_XMM_REGISTER(14);
-    DUMP_XMM_REGISTER(15) << std::endl;
+    std::cout << "\n";
+    using namespace inasm64;
+    for(auto i = 0; i < 16; ++i)
+    {
+        RegisterInfo reg_info{
+            RegisterInfo::RegClass::kXmm,
+            static_cast<RegisterInfo::Register>(static_cast<int>(RegisterInfo::Register::xmm0) + i),
+            128
+        };
+        uint8_t val[16];
+        runtime::GetReg(reg_info, val, sizeof(val));
+        std::cout << "xmm" << std::dec << i << " ";
+        if(i < 10)
+            std::cout << " ";
+        cout_bytes_as_number(std::cout, val, sizeof(val)) << " ";
+        if(i & 1)
+            std::cout << std::endl;
+    }
 }
 
 void DumpYmmRegisters()
 {
+    //TODO:
+    assert(false);
     const auto ctx = inasm64::runtime::Context();
     DWORD64 featuremask;
     if(GetXStateFeaturesMask(const_cast<PCONTEXT>(ctx->OsContext), &featuremask))
@@ -308,10 +310,10 @@ void DumpYmmRegisters()
     }
 }
 
-void DisplayMemoryAsType(inasm64::cli::DataType type, unsigned type_size, const char* memory, size_t size)
+void DisplayMemoryAsType(inasm64::cli::DataType type, const char* memory, size_t size)
 {
     using namespace inasm64::cli;
-    for(unsigned c = 0; c < size; c += type_size)
+    for(unsigned c = 0; c < size;)
     {
         const auto rp = memory + c;
         switch(type)
@@ -320,36 +322,42 @@ void DisplayMemoryAsType(inasm64::cli::DataType type, unsigned type_size, const 
         {
             const unsigned val = *rp & 0xff;
             std::cout << std::hex << std::setw(2) << std::setfill('0') << val << " ";
+            ++c;
         }
         break;
         case DataType::kWord:
         {
             const auto val = *reinterpret_cast<const unsigned short*>(rp) & 0xffff;
             std::cout << std::hex << std::setw(4) << std::setfill('0') << val << " ";
+            c += 2;
         }
         break;
         case DataType::kDWord:
         {
             const auto val = *reinterpret_cast<const uint32_t*>(rp);
             std::cout << std::hex << std::setw(8) << std::setfill('0') << val << " ";
+            c += 4;
         }
         break;
         case DataType::kQWord:
         {
             const auto val = *reinterpret_cast<const uint64_t*>(rp);
             std::cout << std::hex << std::setw(16) << std::setfill('0') << val << " ";
+            c += 8;
         }
         break;
         case DataType::kFloat32:
         {
             const auto val = *reinterpret_cast<const float*>(rp);
             std::cout << std::setprecision(7) << val << " ";
+            c += 4;
         }
         break;
         case DataType::kFloat64:
         {
             const auto val = *reinterpret_cast<const double*>(rp);
             std::cout << std::setprecision(7) << val << " ";
+            c += 8;
         }
         break;
         }
@@ -373,7 +381,6 @@ void DumpMemory(inasm64::cli::DataType type, const void* remote_address, size_t 
     // clear the buffer
     memset(local_buffer, 0, buffer_size);
     inasm64::runtime::ReadBytes(remote_address, local_buffer, size);
-    const auto type_size = inasm64::cli::DataTypeToBitWidth(type);
     auto n = 0;
     auto address = reinterpret_cast<const uint8_t*>(remote_address);
 
@@ -382,7 +389,7 @@ void DumpMemory(inasm64::cli::DataType type, const void* remote_address, size_t 
         std::cout << std::hex << uintptr_t(address) << " ";
         std::cout << console::yellow_lo;
         const auto bytes_to_read = std::min<size_t>(kBytesPerRow, size);
-        DisplayMemoryAsType(type, type_size, local_buffer + n, bytes_to_read);
+        DisplayMemoryAsType(type, local_buffer + n, bytes_to_read);
         std::cout << console::reset_colours;
         const auto cw = console::Width();
         console::SetCursorX(cw - cw / 2);
@@ -403,7 +410,6 @@ void DumpMemory(inasm64::cli::DataType type, const void* remote_address, size_t 
 void DisplayRegister(inasm64::cli::DataType type, const inasm64::RegisterInfo& reg_info)
 {
     using namespace inasm64;
-    const auto type_size = cli::DataTypeToBitWidth(type) >> 3;
     std::cout << "\n   ";
     switch(reg_info._class)
     {
@@ -425,14 +431,28 @@ void DisplayRegister(inasm64::cli::DataType type, const inasm64::RegisterInfo& r
     {
         uint8_t val[8];
         runtime::GetReg(reg_info, val, sizeof(val));
-        cout_bytes_as_number(std::cout, val, reg_info._bit_width / 8);
+        if(type == inasm64::cli::DataType::kDWord)
+        {
+            cout_bytes_as_number(std::cout, val, reg_info._bit_width / 8);
+        }
+        else
+        {
+            DisplayMemoryAsType(type, reinterpret_cast<const char*>(val), reg_info._bit_width / 8);
+        }
     }
     break;
     case RegisterInfo::RegClass::kXmm:
     {
         uint8_t val[16];
         runtime::GetReg(reg_info, val, sizeof(val));
-        cout_bytes_as_number(std::cout, val, sizeof(val));
+        if(type == inasm64::cli::DataType::kXmmWord)
+        {
+            cout_bytes_as_number(std::cout, val, sizeof(val));
+        }
+        else
+        {
+            DisplayMemoryAsType(type, reinterpret_cast<const char*>(val), sizeof(val));
+        }
     }
     break;
     case RegisterInfo::RegClass::kYmm:

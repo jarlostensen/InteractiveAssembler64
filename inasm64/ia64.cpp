@@ -193,7 +193,7 @@ namespace inasm64
         {
             for(auto r = 0; r < std::size(kGpr64); ++r)
             {
-                if(strcmp(reg, kGpr64[r]) == 0)
+                if(strncmp(reg, kGpr64[r], strlen(kGpr64[r])) == 0)
                 {
                     return { RegisterInfo::RegClass::kGpr, static_cast<RegisterInfo::Register>(r + static_cast<int>(RegisterInfo::Register::rax)), 64 };
                 }
@@ -202,7 +202,7 @@ namespace inasm64
 
         for(auto r = 0; r < std::size(kGpr32); ++r)
         {
-            if(strcmp(reg, kGpr32[r]) == 0)
+            if(strncmp(reg, kGpr32[r], strlen(kGpr32[r])) == 0)
             {
                 return { RegisterInfo::RegClass::kGpr, static_cast<RegisterInfo::Register>(r + static_cast<int>(RegisterInfo::Register::eax)), 32 };
             }
@@ -210,26 +210,26 @@ namespace inasm64
 
         for(auto r = 0; r < std::size(kGpr16); ++r)
         {
-            if(strcmp(reg, kGpr16[r]) == 0)
+            if(strncmp(reg, kGpr16[r], strlen(kGpr16[r])) == 0)
             {
                 return { RegisterInfo::RegClass::kGpr, static_cast<RegisterInfo::Register>(r + static_cast<int>(RegisterInfo::Register::ax)), 16 };
             }
         }
         for(auto r = 0; r < std::size(kGpr8); ++r)
         {
-            if(strcmp(reg, kGpr8[r]) == 0)
+            if(strncmp(reg, kGpr8[r], strlen(kGpr8[r])) == 0)
             {
                 return { RegisterInfo::RegClass::kGpr, static_cast<RegisterInfo::Register>(r + static_cast<int>(RegisterInfo::Register::al)), 8 };
             }
         }
         for(auto r = 0; r < std::size(kSegmentRegisters); ++r)
         {
-            if(strcmp(reg, kSegmentRegisters[r]) == 0)
+            if(strncmp(reg, kSegmentRegisters[r], strlen(kSegmentRegisters[r])) == 0)
             {
                 return { RegisterInfo::RegClass::kSegment, static_cast<RegisterInfo::Register>(r + static_cast<int>(RegisterInfo::Register::cs)), 16 };
             }
         }
-        if(strcmp(reg, "eflags") == 0)
+        if(strncmp(reg, "eflags", 6) == 0)
             //TODO: there are more flags, different sizes, etc.
             return { RegisterInfo::RegClass::kFlags, RegisterInfo::Register::eflags, 32 };
 

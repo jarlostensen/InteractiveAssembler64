@@ -442,23 +442,7 @@ namespace inasm64
 
             void register_handler(const char* cmd, char* params)
             {
-                auto display_reg = false;
-                const auto check_getset_param = [&display_reg, params]() -> char* {
-                    auto rp = params;
-                    display_reg = true;
-                    while(rp[0] && rp[0] != ' ')
-                        ++rp;
-                    if(rp[0])
-                    {
-                        *rp++ = 0;
-                        while(rp[0] && rp[0] == ' ')
-                            ++rp;
-                        display_reg = rp[0] == 0;
-                    }
-                    return rp;
-                };
-
-                const auto set_xyz_reg = [&params](RegisterInfo::RegClass klass, DataType type) {
+                const auto set_or_display_reg = [&params](RegisterInfo::RegClass klass, DataType type) {
                     const auto reg_info = GetRegisterInfo(params);
                     if(!reg_info || reg_info._class != klass)
                     {
@@ -475,12 +459,20 @@ namespace inasm64
                             OnDisplayRegister(type, reg_info);
                         }
                     }
-                    // rX xmmN value
+                    // rX xmmN value OR rX xmmN d[b|w...]
                     else if(tokens._num_tokens == 2)
                     {
-                        std::vector<uint8_t> data;
-                        if(parse_values(type, params + tokens._token_idx[1], data))
-                            runtime::SetReg(reg_info, data.data(), data.size());
+                        const DataType cmd_type = command_data_type(params + tokens._token_idx[1]);
+                        if(cmd_type == DataType::kUnknown)
+                        {
+                            std::vector<uint8_t> data;
+                            if(parse_values(type, params + tokens._token_idx[1], data))
+                                runtime::SetReg(reg_info, data.data(), data.size());
+                        }
+                        else
+                        {
+                            OnDisplayRegister(cmd_type, reg_info);
+                        }
                     }
                     // rX xmmN d[b|w|...] value
                     else if(tokens._num_tokens == 3)
@@ -510,7 +502,7 @@ namespace inasm64
                     }
                     else
                     {
-                        set_xyz_reg(RegisterInfo::RegClass::kXmm, DataType::kXmmWord);
+                        set_or_display_reg(RegisterInfo::RegClass::kXmm, DataType::kXmmWord);
                     }
                 }
                 break;
@@ -522,7 +514,7 @@ namespace inasm64
                     }
                     else
                     {
-                        set_xyz_reg(RegisterInfo::RegClass::kYmm, DataType::kYmmWord);
+                        set_or_display_reg(RegisterInfo::RegClass::kYmm, DataType::kYmmWord);
                     }
                     break;
                 case 'Z':
@@ -534,7 +526,7 @@ namespace inasm64
                     }
                     else*/
                     {
-                        set_xyz_reg(RegisterInfo::RegClass::kZmm, DataType::kZmmWord);
+                        set_or_display_reg(RegisterInfo::RegClass::kZmm, DataType::kZmmWord);
                     }
                     break;
                 case 0:
@@ -551,19 +543,33 @@ namespace inasm64
                             detail::set_error(Error::kInvalidRegisterName);
                             return;
                         }
-                        auto rp = check_getset_param();
-                        if(!display_reg)
-                        {
-                            long long value;
-                            if(detail::str_to_ll(rp, value) && runtime::SetReg(reg_info, &value, reg_info._bit_width / 8))
-                            {
-                                if(OnSetGPRegister)
-                                    OnSetGPRegister(params, value);
-                            }
-                        }
-                        else if(OnDisplayRegister)
+                        detail::simple_tokens_t tokens = detail::simple_tokenise(params, 3);
+                        // r rax
+                        if(tokens._num_tokens == 1)
                         {
                             OnDisplayRegister(BitWidthToIntegerDataType(reg_info._bit_width), reg_info);
+                        }
+                        // r rax value OR r rax d[b|w...]
+                        else if(tokens._num_tokens == 2)
+                        {
+                            const DataType cmd_type = command_data_type(params + tokens._token_idx[1]);
+                            if(cmd_type == DataType::kUnknown)
+                            {
+                                long long value;
+                                if(detail::str_to_ll(params + tokens._token_idx[1], value) && runtime::SetReg(reg_info, &value, reg_info._bit_width / 8))
+                                {
+                                    if(OnSetGPRegister)
+                                    {
+                                        // tidy up, in case there's gunk hanging off the end
+                                        (params + tokens._token_end_idx[0])[0] = 0;
+                                        OnSetGPRegister(params, value);
+                                    }
+                                }
+                            }
+                            else
+                            {
+                                //TODO:
+                            }
                         }
                     }
                 default:;
