@@ -34,6 +34,17 @@ auto cout_64_bits(std::ostream& os) -> std::ostream&
     return os << std::setfill('0') << std::setw(16) << std::hex;
 };
 
+auto cout_bytes_as_number(std::ostream& os, const uint8_t* bytes, size_t count) -> std::ostream&
+{
+    os << "0x" << std::hex;
+    for(auto c = count; c > 0; --c)
+    {
+        //NOTE: reverse, since we're little endian...
+        os << std::setw(2) << std::setfill('0') << int((bytes[c - 1]) & 0xff);
+    }
+    return os;
+};
+
 auto coutreg(const char* reg) -> std::ostream&
 {
     // perhaps I should just have used printf....
@@ -396,8 +407,6 @@ void DisplayRegister(inasm64::cli::DataType type, const inasm64::RegisterInfo& r
     std::cout << "\n   ";
     switch(reg_info._class)
     {
-    case RegisterInfo::RegClass::kGpr:
-        break;
     case RegisterInfo::RegClass::kSegment:
     {
         uint16_t val;
@@ -412,8 +421,30 @@ void DisplayRegister(inasm64::cli::DataType type, const inasm64::RegisterInfo& r
         coutflags(val) << std::endl;
     }
     break;
+    case RegisterInfo::RegClass::kGpr:
+    {
+        uint8_t val[8];
+        runtime::GetReg(reg_info, val, sizeof(val));
+        cout_bytes_as_number(std::cout, val, reg_info._bit_width / 8);
+    }
+    break;
     case RegisterInfo::RegClass::kXmm:
-        break;
+    {
+        uint8_t val[16];
+        runtime::GetReg(reg_info, val, sizeof(val));
+        cout_bytes_as_number(std::cout, val, sizeof(val));
+    }
+    break;
+    case RegisterInfo::RegClass::kYmm:
+    {
+        std::cout << "TODO: YMM";
+    }
+    break;
+    case RegisterInfo::RegClass::kZmm:
+    {
+        std::cout << "TODO: ZMM";
+    }
+    break;
     default:;
     }
 }

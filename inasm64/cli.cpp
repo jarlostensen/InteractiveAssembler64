@@ -540,8 +540,8 @@ namespace inasm64
                 case 0:
                     if(detail::is_null_or_empty(params))
                     {
-                        if(OnDisplayXMMRegisters)
-                            OnDisplayXMMRegisters();
+                        if(OnDisplayGPRegisters)
+                            OnDisplayGPRegisters();
                     }
                     else
                     {

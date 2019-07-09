@@ -701,7 +701,7 @@ namespace inasm64
             reinterpret_cast<uint16_t*>(data_ptr)[0] = uint16_t(_active_ctx->R##letter##x & 0xffff); \
             break;                                                                                   \
         case RegisterInfo::Register::e##letter##x:                                                   \
-            assert(size == 4);                                                                       \
+            assert(size >= 4);                                                                       \
         case RegisterInfo::Register::r##letter##x:                                                   \
             assert(size >= 4);                                                                       \
             reg_ptr = reinterpret_cast<const uint8_t*>(&_active_ctx->R##letter##x);                  \
@@ -718,11 +718,10 @@ namespace inasm64
                     switch(reg._register)
                     {
                     case RegisterInfo::Register::sil:
-                        assert(size == 1);
                         data_ptr[0] = uint8_t(_active_ctx->Rsi & 0xff);
                         break;
                     case RegisterInfo::Register::esi:
-                        assert(size == 4);
+                        assert(size >= 4);
                     case RegisterInfo::Register::rsi:
                         assert(size >= 4);
                         reg_ptr = reinterpret_cast<const uint8_t*>(&_active_ctx->Rsi);
@@ -733,11 +732,10 @@ namespace inasm64
                     switch(reg._register)
                     {
                     case RegisterInfo::Register::dil:
-                        assert(size == 1);
                         data_ptr[0] = uint8_t(_active_ctx->Rdi & 0xff);
                         break;
                     case RegisterInfo::Register::edi:
-                        assert(size == 4);
+                        assert(size >= 4);
                     case RegisterInfo::Register::rdi:
                         assert(size >= 4);
                         reg_ptr = reinterpret_cast<const uint8_t*>(&_active_ctx->Rdi);
@@ -748,11 +746,14 @@ namespace inasm64
                     switch(reg._register)
                     {
                     case RegisterInfo::Register::spl:
-                        assert(size == 1);
                         data_ptr[0] = uint8_t(_active_ctx->Rsp & 0xff);
                         break;
+                    case RegisterInfo::Register::sp:
+                        assert(size >= 2);
+                        reinterpret_cast<uint16_t*>(data_ptr)[0] = uint16_t(_active_ctx->Rsp & 0xffff);
+                        break;
                     case RegisterInfo::Register::esp:
-                        assert(size == 4);
+                        assert(size >= 4);
                     case RegisterInfo::Register::rsp:
                         assert(size >= 4);
                         reg_ptr = reinterpret_cast<const uint8_t*>(&_active_ctx->Rsp);
@@ -763,11 +764,14 @@ namespace inasm64
                     switch(reg._register)
                     {
                     case RegisterInfo::Register::bpl:
-                        assert(size == 1);
                         data_ptr[0] = uint8_t(_active_ctx->Rbp & 0xff);
                         break;
+                    case RegisterInfo::Register::bp:
+                        assert(size >= 2);
+                        reinterpret_cast<uint16_t*>(data_ptr)[0] = uint16_t(_active_ctx->Rbp & 0xffff);
+                        break;
                     case RegisterInfo::Register::ebp:
-                        assert(size == 4);
+                        assert(size >= 4);
                     case RegisterInfo::Register::rbp:
                         assert(size >= 4);
                         reg_ptr = reinterpret_cast<const uint8_t*>(&_active_ctx->Rbp);
@@ -781,15 +785,14 @@ namespace inasm64
         switch(reg._register)                                                                    \
         {                                                                                        \
         case RegisterInfo::Register::r##index##b:                                                \
-            assert(size == 1);                                                                   \
             data_ptr[0] = uint8_t(_active_ctx->R##index & 0xff);                                 \
             break;                                                                               \
         case RegisterInfo::Register::r##index##w:                                                \
-            assert(size == 2);                                                                   \
+            assert(size >= 2);                                                                   \
             reinterpret_cast<uint16_t*>(data_ptr)[0] = uint16_t(_active_ctx->R##index & 0xffff); \
             break;                                                                               \
         case RegisterInfo::Register::r##index##d:                                                \
-            assert(size == 4);                                                                   \
+            assert(size >= 4);                                                                   \
         case RegisterInfo::Register::r##index##:                                                 \
             assert(size >= 4);                                                                   \
             reg_ptr = reinterpret_cast<const uint8_t*>(&_active_ctx->R##index);                  \
@@ -808,27 +811,37 @@ namespace inasm64
                     RT_RREG_GET(14);
                     RT_RREG_GET(15);
 
-#define RT_XREG_GET(index)                                                    \
-    case RegisterInfo::Register::xmm##index:                                  \
-        assert(size == 16);                                                   \
-        reg_ptr = reinterpret_cast<const uint8_t*>(&_active_ctx->Xmm##index); \
-        break
-                    RT_XREG_GET(0);
-                    RT_XREG_GET(1);
-                    RT_XREG_GET(2);
-                    RT_XREG_GET(3);
-                    RT_XREG_GET(4);
-                    RT_XREG_GET(5);
-                    RT_XREG_GET(6);
-                    RT_XREG_GET(7);
-                    RT_XREG_GET(8);
-                    RT_XREG_GET(9);
-                    RT_XREG_GET(10);
-                    RT_XREG_GET(11);
-                    RT_XREG_GET(12);
-                    RT_XREG_GET(13);
-                    RT_XREG_GET(14);
-                    RT_XREG_GET(15);
+#define RT_XYZREG_GET(index)                                                      \
+    case RegisterInfo::Register::zmm##index:                                      \
+    {                                                                             \
+        switch(reg._register)                                                     \
+        {                                                                         \
+        case RegisterInfo::Register::xmm##index:                                  \
+            assert(size >= 16);                                                   \
+            reg_ptr = reinterpret_cast<const uint8_t*>(&_active_ctx->Xmm##index); \
+            break;                                                                \
+        default:                                                                  \
+            assert(false);                                                        \
+            break;                                                                \
+        }                                                                         \
+    }                                                                             \
+    break
+                    RT_XYZREG_GET(0);
+                    RT_XYZREG_GET(1);
+                    RT_XYZREG_GET(2);
+                    RT_XYZREG_GET(3);
+                    RT_XYZREG_GET(4);
+                    RT_XYZREG_GET(5);
+                    RT_XYZREG_GET(6);
+                    RT_XYZREG_GET(7);
+                    RT_XYZREG_GET(8);
+                    RT_XYZREG_GET(9);
+                    RT_XYZREG_GET(10);
+                    RT_XYZREG_GET(11);
+                    RT_XYZREG_GET(12);
+                    RT_XYZREG_GET(13);
+                    RT_XYZREG_GET(14);
+                    RT_XYZREG_GET(15);
                 default:;
                 }
             }
