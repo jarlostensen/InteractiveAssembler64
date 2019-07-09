@@ -84,7 +84,7 @@ namespace inasm64
             const auto xed_instruction = str2xed_iclass_enum_t(uc_buffer);
             if(xed_instruction == XED_ICLASS_INVALID)
             {
-                detail::SetError(Error::InvalidInstructionName);
+                detail::set_error(Error::kInvalidInstructionName);
                 return 0;
             }
 
@@ -99,7 +99,7 @@ namespace inasm64
                     const auto op1_xed_reg = str2xed_reg_enum_t(uc_buffer);
                     if(op1_xed_reg == XED_REG_INVALID)
                     {
-                        detail::SetError(Error::InvalidDestRegistername);
+                        detail::set_error(Error::kInvalidDestRegistername);
                         return false;
                     }
                     const auto operand_reg = static_cast<xed_operand_enum_t>(static_cast<char>(XED_OPERAND_REG0) + op_order);
@@ -140,7 +140,7 @@ namespace inasm64
                         base = str2xed_reg_enum_t(uc_buffer);
                         if(base == XED_REG_INVALID)
                         {
-                            detail::SetError(Error::InvalidDestRegistername);
+                            detail::set_error(Error::kInvalidDestRegistername);
                             return false;
                         }
                     }
@@ -153,7 +153,7 @@ namespace inasm64
                         index = str2xed_reg_enum_t(uc_buffer);
                         if(base == XED_REG_INVALID)
                         {
-                            detail::SetError(Error::InvalidDestRegistername);
+                            detail::set_error(Error::kInvalidDestRegistername);
                             return false;
                         }
                     }
@@ -206,14 +206,14 @@ namespace inasm64
                         case 8:
                             if(width_bits > 8)
                             {
-                                detail::SetError(Error::InvalidImmediateOperandBitWidth);
+                                detail::set_error(Error::kInvalidImmediateOperandBitWidth);
                                 return false;
                             }
                             break;
                         case 16:
                             if(width_bits > 16)
                             {
-                                detail::SetError(Error::InvalidImmediateOperandBitWidth);
+                                detail::set_error(Error::kInvalidImmediateOperandBitWidth);
                                 return false;
                             }
                             //has to be clamped to 16
@@ -222,7 +222,7 @@ namespace inasm64
                         case 32:
                             if(width_bits > 32)
                             {
-                                detail::SetError(Error::InvalidImmediateOperandBitWidth);
+                                detail::set_error(Error::kInvalidImmediateOperandBitWidth);
                                 return false;
                             }
                             width_bits = 32;
@@ -258,7 +258,7 @@ namespace inasm64
                 }
                 else if(statement._operand_count > 3)
                 {
-                    detail::SetError(Error::UnsupportedInstructionFormat);
+                    detail::set_error(Error::UnsupportedInstructionFormat);
                     return 0;
                 }
             }
@@ -275,11 +275,11 @@ namespace inasm64
                     memcpy(buffer, ibuffer, instruction_size);
                     return instruction_size;
                 }
-                detail::SetError(Error::CodeBufferFull);
+                detail::set_error(Error::kCodeBufferFull);
             }
             else
             {
-                detail::SetError(Error::EncodeError);
+                detail::set_error(Error::kEncodeError);
             }
             return false;
         }

@@ -156,7 +156,7 @@ namespace inasm64
                                 }
                                 else
                                 {
-                                    detail::SetError(Error::SystemError);
+                                    detail::set_error(Error::kSystemError);
                                     return false;
                                 }
 
@@ -190,7 +190,7 @@ namespace inasm64
             }
             else
             {
-                detail::SetError(Error::SystemError);
+                detail::set_error(Error::kSystemError);
             }
 
             return _flags._started;
@@ -227,7 +227,7 @@ namespace inasm64
 
             if(_scratch_size - size_t(_scratch_wp - _scratch_memory) < size)
             {
-                detail::SetError(Error::CodeBufferFull);
+                detail::set_error(Error::kCodeBufferFull);
                 return false;
             }
 
@@ -238,7 +238,7 @@ namespace inasm64
                 _scratch_wp += size;
                 return true;
             }
-            detail::SetError(Error::SystemError);
+            detail::set_error(Error::kSystemError);
             return false;
         }
 
@@ -247,14 +247,14 @@ namespace inasm64
             // not started, or no code loaded
             if(!_flags._started || _scratch_wp == _scratch_memory)
             {
-                detail::SetError(Error::NoMoreCode);
+                detail::set_error(Error::kNoMoreCode);
                 return false;
             }
 
             // no more code to execute
             if(_code == _scratch_wp)
             {
-                detail::SetError(Error::NoMoreCode);
+                detail::set_error(Error::kNoMoreCode);
                 return false;
             }
 
@@ -289,7 +289,7 @@ namespace inasm64
                         const auto thread = ActiveThread();
                         if(!thread)
                         {
-                            detail::SetError(Error::SystemError);
+                            detail::set_error(Error::kSystemError);
                             return false;
                         }
 
@@ -317,7 +317,7 @@ namespace inasm64
                     break;
                     case STATUS_ACCESS_VIOLATION:
                         //TODO: handle this nicely, report back etc.
-                        detail::SetError(Error::AccessViolation);
+                        detail::set_error(Error::kAccessViolation);
                         _flags._running = false;
                         break;
                     case STATUS_SEGMENT_NOTIFICATION:
@@ -367,7 +367,7 @@ namespace inasm64
         {
             if(!_flags._started || (at < _scratch_memory || at >= _scratch_wp))
             {
-                detail::SetError(Error::InvalidAddress);
+                detail::set_error(Error::kInvalidAddress);
                 return false;
             }
 
@@ -382,7 +382,7 @@ namespace inasm64
                 return true;
             }
 
-            detail::SetError(Error::SystemError);
+            detail::set_error(Error::kSystemError);
             return false;
         }
 
@@ -394,7 +394,7 @@ namespace inasm64
                 _allocations[uintptr_t(handle)] = size;
                 return handle;
             }
-            detail::SetError(Error::SystemError);
+            detail::set_error(Error::kSystemError);
             return nullptr;
         }
 
@@ -409,7 +409,7 @@ namespace inasm64
                     WriteProcessMemory(_process_vm, LPVOID(handle), src, length, &written);
                     return written == length;
                 }
-                detail::SetError(Error::MemoryWriteSizeMismatch);
+                detail::set_error(Error::kMemoryWriteSizeMismatch);
             }
             return false;
         }
@@ -425,7 +425,7 @@ namespace inasm64
                     ReadProcessMemory(_process_vm, LPVOID(handle), dest, length, &read);
                     return read == length;
                 }
-                detail::SetError(Error::MemoryReadSizeMismatch);
+                detail::set_error(Error::kMemoryReadSizeMismatch);
             }
             return false;
         }
@@ -445,7 +445,7 @@ namespace inasm64
             assert(reg._register != RegisterInfo::Register::kInvalid);
             if(!_flags._started)
             {
-                detail::SetError(Error::RuntimeUninitialised);
+                detail::set_error(Error::kRuntimeUninitialised);
                 return false;
             }
 
@@ -588,29 +588,39 @@ namespace inasm64
                 RT_RREG_SET(14);
                 RT_RREG_SET(15);
 
-#define RT_XREG_SET(index)                                           \
-    case RegisterInfo::Register::xmm##index:                         \
-        assert(size == 16);                                          \
-        reg_ptr = reinterpret_cast<char*>(&_active_ctx->Xmm##index); \
-        break
-                RT_XREG_SET(0);
-                RT_XREG_SET(1);
-                RT_XREG_SET(2);
-                RT_XREG_SET(3);
-                RT_XREG_SET(4);
-                RT_XREG_SET(5);
-                RT_XREG_SET(6);
-                RT_XREG_SET(7);
-                RT_XREG_SET(8);
-                RT_XREG_SET(9);
-                RT_XREG_SET(10);
-                RT_XREG_SET(11);
-                RT_XREG_SET(12);
-                RT_XREG_SET(13);
-                RT_XREG_SET(14);
-                RT_XREG_SET(15);
+                //TODO:
+#define RT_XYZREG_SET(index)                                             \
+    case RegisterInfo::Register::zmm##index:                             \
+    {                                                                    \
+        switch(reg._register)                                            \
+        {                                                                \
+        case RegisterInfo::Register::xmm##index:                         \
+            assert(size == 16);                                          \
+            reg_ptr = reinterpret_cast<char*>(&_active_ctx->Xmm##index); \
+            break;                                                       \
+        default:                                                         \
+            assert(false);                                               \
+            break;                                                       \
+        }                                                                \
+    }                                                                    \
+    break
 
-                //TODO: Ymm+Zmm
+                RT_XYZREG_SET(0);
+                RT_XYZREG_SET(1);
+                RT_XYZREG_SET(2);
+                RT_XYZREG_SET(3);
+                RT_XYZREG_SET(4);
+                RT_XYZREG_SET(5);
+                RT_XYZREG_SET(6);
+                RT_XYZREG_SET(7);
+                RT_XYZREG_SET(8);
+                RT_XYZREG_SET(9);
+                RT_XYZREG_SET(10);
+                RT_XYZREG_SET(11);
+                RT_XYZREG_SET(12);
+                RT_XYZREG_SET(13);
+                RT_XYZREG_SET(14);
+                RT_XYZREG_SET(15);
 
             default:;
             }
@@ -623,7 +633,7 @@ namespace inasm64
             _ctx_changed = true;
 
             return true;
-        }
+        }  // namespace runtime
 
         bool GetReg(const RegisterInfo& reg, void* data, size_t size)
         {
@@ -633,7 +643,7 @@ namespace inasm64
             assert(reg._register != RegisterInfo::Register::kInvalid);
             if(!_flags._started)
             {
-                detail::SetError(Error::RuntimeUninitialised);
+                detail::set_error(Error::kRuntimeUninitialised);
                 return false;
             }
 

@@ -8,10 +8,12 @@
 #include <functional>
 #include <unordered_map>
 #include <algorithm>
+#include <cassert>
 #include <varargs.h>
 #include <cerrno>
 
 #include "common.h"
+#include "ia64.h"
 #include "runtime.h"
 #include "assembler.h"
 #include "assembler_driver.h"
@@ -24,7 +26,7 @@ namespace inasm64
     {
         std::function<void(const char*, uintptr_t)> OnDataValueSet;
         std::function<void(const char*, uint64_t)> OnSetGPRegister;
-        std::function<void(const char*)> OnDisplayGPRegister;
+        std::function<void(DataType, const RegisterInfo&)> OnDisplayRegister;
         std::function<void()> OnDisplayGPRegisters;
         std::function<void()> OnDisplayXMMRegisters;
         std::function<void()> OnDisplayYMMRegisters;
@@ -35,7 +37,7 @@ namespace inasm64
         std::function<void(const void*, const assembler::AssembledInstructionInfo&)> OnAssembling;
         std::function<void()> OnQuit;
         std::function<void(const help_texts_t&)> OnHelp;
-        std::function<void(DataType, const void*, size_t)> OnDumpMemory;
+        std::function<void(DataType, const void*, size_t)> OnDisplayData;
         std::function<void(const std::vector<const char*>&)> OnFindInstruction;
 
         namespace
@@ -219,29 +221,38 @@ namespace inasm64
                 }
 
                 if(!handled)
-                    detail::SetError(Error::CliUnknownCommand);
+                    detail::set_error(Error::kCliUnknownCommand);
 
-                return handled && GetError() == Error::NoError;
+                return handled && GetError() == Error::kNoError;
             }
 
-            enum class ValueType
+            bool read_byte_string(const char* str, std::vector<uint8_t>& bytes)
             {
-                kByte = 1,
-                kWord = 2,
-                kDWord = 4,
-                kQWord = 8,
-                kF32 = 0x40,
-                kF64 = 0x80,
-                kUnsupported
-            };
+                const auto str_len = strlen(str);
+                static const char* formats[2] = { "%02x", "%2hhu" };
+                auto rp = str;
+                const auto base = detail::starts_with_hex_number(str, &rp) ? 0 : 1;
+                //ZZZ: don't really have a good way to parse non-hex large numbers yet...
+                assert(!base);
+                while(rp[0])
+                {
+                    long next_byte = 0;
+                    if(!sscanf_s(rp, formats[base], &next_byte))
+                        return false;
+                    bytes.push_back(uint8_t(next_byte));
+                    rp += 2;
+                }
+                return true;
+            }
 
             // 0x12,0x13,...
             // "hello world",0
             // 42,44,45,...
             //
             // assumes line has no leading whitespace and is 00-terminated
-            void parse_values(ValueType type, const char* line, std::vector<uint8_t>& bytes)
+            bool parse_values(DataType type, const char* line, std::vector<uint8_t>& bytes)
             {
+                auto result = false;
                 auto rp = line;
                 while(rp[0] || rp[1])
                 {
@@ -264,23 +275,49 @@ namespace inasm64
 
                         switch(type)
                         {
-                        case ValueType::kF32:
+                        case DataType::kFloat32:
                         {
                             float fval = std::strtof(rp, &next);
                             if(!errno)
                             {
                                 memcpy(&value, &fval, 4);
                                 byte_count = 4;
+                                result = true;
                             }
                         }
                         break;
-                        case ValueType::kF64:
+                        case DataType::kFloat64:
                         {
+                            double dval = std::strtod(rp, &next);
                             if(!errno)
                             {
-                                double dval = std::strtod(rp, &next);
                                 memcpy(&value, &dval, 8);
                                 byte_count = 8;
+                                result = true;
+                            }
+                        }
+                        break;
+                        case DataType::kXmmWord:
+                        {
+                            if(read_byte_string(rp, bytes) && bytes.size() <= 16)
+                            {
+                                result = true;
+                                const auto ullage = 16 - bytes.size();
+                                if(ullage)
+                                    for(unsigned b = 0; b < ullage; ++b)
+                                        bytes.push_back(0);
+                            }
+                        }
+                        break;
+                        case DataType::kYmmWord:
+                        {
+                            if(read_byte_string(rp, bytes) && bytes.size() <= 32)
+                            {
+                                result = true;
+                                const auto ullage = 32 - bytes.size();
+                                if(ullage)
+                                    for(unsigned b = 0; b < ullage; ++b)
+                                        bytes.push_back(0);
                             }
                         }
                         break;
@@ -288,7 +325,10 @@ namespace inasm64
                         {
                             value = strtoll(rp, &next, 0);
                             if(!errno)
+                            {
                                 byte_count = static_cast<unsigned>(type);
+                                result = true;
+                            }
                         }
                         break;
                         }
@@ -309,64 +349,79 @@ namespace inasm64
                             }
                         }
                         else
-                            //TODO: should really set an error here
+                            // done here
                             break;
                     }
                 }
+
+                if(!result)
+                    detail::set_error(Error::kInvalidCommandFormat);
+
+                return result;
             }
 
-            bool is_null_or_empty(const char* str)
+            // return data type for a d[b|w|d|q|x|y|fs|fd...] command
+            DataType command_data_type(const char* dcmd)
             {
-                if(!str)
-                    return true;
-                while(str[0] && str[0] == ' ')
-                    ++str;
-                return !str[0];
+                DataType type = DataType::kUnknown;
+                switch(dcmd[1])
+                {
+                case 'b':
+                    type = DataType::kByte;
+                    break;
+                case 'w':
+                    type = DataType::kWord;
+                    break;
+                case 'd':
+                    type = DataType::kDWord;
+                    break;
+                case 'q':
+                    type = DataType::kQWord;
+                    break;
+                case 'x':
+                    type = DataType::kXmmWord;
+                    break;
+                case 'y':
+                    type = DataType::kYmmWord;
+                    break;
+                case 'f':
+                {
+                    switch(dcmd[2])
+                    {
+                    // fs = 32 bit
+                    case 's':
+                        type = DataType::kFloat32;
+                        break;
+                    // fd = 64 bit
+                    case 'd':
+                        type = DataType::kFloat64;
+                        break;
+                    case 0:
+                    default:;
+                    }
+                }
+                break;
+                default:;
+                }
+                return type;
+            }
+
+            void parse_data_type_values(const char* cmd, const char* value_str, std::vector<uint8_t>& data)
+            {
+                DataType type = command_data_type(cmd);
+                if(type == DataType::kUnknown)
+                {
+                    detail::set_error(Error::kInvalidCommandFormat);
+                    return;
+                }
+                parse_values(type, value_str, data);
             }
 
             // command handlers
             void data_value_handler(const char* argname, const char* cmd, const char* params)
             {
                 std::vector<uint8_t> data;
-                ValueType type = ValueType::kUnsupported;
-                switch(cmd[1])
-                {
-                case 'b':
-                    type = ValueType::kByte;
-                    break;
-                case 'w':
-                    type = ValueType::kWord;
-                    break;
-                case 'd':
-                    type = ValueType::kDWord;
-                    break;
-                case 'q':
-                    type = ValueType::kQWord;
-                    break;
-                case 'f':
-                {
-                    switch(cmd[2])
-                    {
-                    // fs = 32 bit
-                    case 's':
-                        type = ValueType::kF32;
-                        break;
-                    // fd = 64 bit
-                    case 'd':
-                        type = ValueType::kF64;
-                        break;
-                    case 0:
-                    default:
-                    {
-                        detail::SetError(Error::InvalidCommandFormat);
-                    }
-                    break;
-                    }
-                }
-                break;
-                default:;
-                }
-                parse_values(type, params, data);
+                parse_data_type_values(cmd, params, data);
                 if(!data.empty())
                 {
                     const auto handle = runtime::AllocateMemory(data.size());
@@ -381,74 +436,145 @@ namespace inasm64
                 }
                 else
                 {
-                    detail::SetError(Error::InvalidCommandFormat);
+                    detail::set_error(Error::kInvalidCommandFormat);
                 }
             }
 
             void register_handler(const char* cmd, char* params)
             {
+                auto display_reg = false;
+                const auto check_getset_param = [&display_reg, params]() -> char* {
+                    auto rp = params;
+                    display_reg = true;
+                    while(rp[0] && rp[0] != ' ')
+                        ++rp;
+                    if(rp[0])
+                    {
+                        *rp++ = 0;
+                        while(rp[0] && rp[0] == ' ')
+                            ++rp;
+                        display_reg = rp[0] == 0;
+                    }
+                    return rp;
+                };
+
+                const auto set_xyz_reg = [&params](RegisterInfo::RegClass klass, DataType type) {
+                    const auto reg_info = GetRegisterInfo(params);
+                    if(!reg_info || reg_info._class != klass)
+                    {
+                        detail::set_error(Error::kInvalidRegisterName);
+                        return;
+                    }
+
+                    detail::simple_tokens_t tokens = detail::simple_tokenise(params);
+                    // rX xmmN
+                    if(tokens._num_tokens == 1)
+                    {
+                        if(OnDisplayRegister)
+                        {
+                            OnDisplayRegister(type, reg_info);
+                        }
+                    }
+                    // rX xmmN value
+                    else if(tokens._num_tokens == 2)
+                    {
+                        std::vector<uint8_t> data;
+                        if(parse_values(type, params + tokens._token_idx[1], data))
+                            runtime::SetReg(reg_info, data.data(), data.size());
+                    }
+                    // rX xmmN d[b|w|...] value
+                    else if(tokens._num_tokens > 2)
+                    {
+                        const DataType cmd_type = command_data_type(params + tokens._token_idx[1]);
+                        if(cmd_type != DataType::kUnknown)
+                        {
+                            std::vector<uint8_t> data;
+                            if(parse_values(cmd_type, params + tokens._token_idx[2], data))
+                                runtime::SetReg(reg_info, data.data(), data.size());
+                        }
+                        else
+                        {
+                            detail::set_error(Error::kInvalidCommandFormat);
+                        }
+                    }
+                };
+
                 switch(cmd[1])
                 {
                 case 'X':
-                    if(is_null_or_empty(params))
+                {
+                    if(detail::is_null_or_empty(params))
                     {
                         if(OnDisplayXMMRegisters)
                             OnDisplayXMMRegisters();
                     }
-                    //TODO: set
-                    break;
+                    else
+                    {
+                        set_xyz_reg(RegisterInfo::RegClass::kXmm, DataType::kXmmWord);
+                    }
+                }
+                break;
                 case 'Y':
-                    if(is_null_or_empty(params))
+                    if(detail::is_null_or_empty(params))
                     {
                         if(OnDisplayYMMRegisters)
                             OnDisplayYMMRegisters();
                     }
-                    //TODO: set
+                    else
+                    {
+                        set_xyz_reg(RegisterInfo::RegClass::kYmm, DataType::kYmmWord);
+                    }
+                    break;
+                case 'Z':
+                    assert(false);
+                    /*if(detail::is_null_or_empty(params))
+                    {
+                        if(OnDisplayZMMRegisters)
+                            OnDisplayZMMRegisters();
+                    }
+                    else*/
+                    {
+                        set_xyz_reg(RegisterInfo::RegClass::kZmm, DataType::kZmmWord);
+                    }
                     break;
                 case 0:
-                    if(is_null_or_empty(params))
+                    if(detail::is_null_or_empty(params))
                     {
-                        if(OnDisplayGPRegisters)
-                            OnDisplayGPRegisters();
+                        if(OnDisplayXMMRegisters)
+                            OnDisplayXMMRegisters();
                     }
                     else
                     {
-                        auto rp = params;
-                        while(rp[0] && rp[0] != ' ')
-                            ++rp;
-                        auto display_reg = true;
-                        if(rp[0])
+                        const auto reg_info = GetRegisterInfo(params);
+                        if(!reg_info || reg_info._class != RegisterInfo::RegClass::kGpr)
                         {
-                            *rp++ = 0;
-                            while(rp[0] && rp[0] == ' ')
-                                ++rp;
-                            if(rp[0])
+                            detail::set_error(Error::kInvalidRegisterName);
+                            return;
+                        }
+                        auto rp = check_getset_param();
+                        if(!display_reg)
+                        {
+                            long long value;
+                            if(detail::str_to_ll(rp, value) && runtime::SetReg(reg_info, &value, reg_info._bit_width / 8))
                             {
-                                const auto value = ::strtoll(rp, nullptr, 0);
-                                _strupr_s(params, rp - params);
-                                if(runtime::SetReg(params, value))
-                                {
-                                    if(OnSetGPRegister)
-                                        OnSetGPRegister(params, value);
-                                    display_reg = false;
-                                }
+                                if(OnSetGPRegister)
+                                    OnSetGPRegister(params, value);
                             }
                         }
-                        if(display_reg)
+                        else if(OnDisplayRegister)
                         {
-                            if(OnDisplayGPRegister)
-                                OnDisplayGPRegister(params);
+                            OnDisplayRegister(BitWidthToIntegerDataType(reg_info._bit_width), reg_info);
                         }
                     }
                 default:;
                 }
-            }
+            }  // namespace
 
             void step_handler(const char*, char* params)
             {
                 auto address = runtime::InstructionPointer();
                 auto stepped = false;
-                if(!is_null_or_empty(params))
+                if(!detail::is_null_or_empty(params))
                 {
                     const auto value = strtoll(params, nullptr, 0);
                     if(value < LLONG_MAX && value > LLONG_MIN)
@@ -470,27 +596,44 @@ namespace inasm64
                 }
             }
 
-            void dump_memory_handler(const char* cmd, char* params)
+            void display_data_handler(const char* cmd, char* params)
             {
-                if(!OnDumpMemory)
+                if(!OnDisplayData)
                     return;
 
-                const auto has_params = !is_null_or_empty(params);
+                const auto has_params = !detail::is_null_or_empty(params);
                 const void* address = _last_dump_address;
                 if(!address && !has_params)
                 {
                     return;
                 }
-
+                auto is_memory = true;
+                RegisterInfo reg_info;
                 if(has_params)
                 {
-                    const auto arg = strtoll(params, nullptr, 0);
-                    if(arg == LLONG_MAX || arg == LLONG_MIN)
-                        return;
-                    _last_dump_address = address = (const void*)(arg);
+                    // could be a register name, or an address
+                    if(detail::starts_with_hex_number(params))
+                    {
+                        const auto arg = strtoll(params, nullptr, 0);
+                        if(arg == LLONG_MAX || arg == LLONG_MIN)
+                            return;
+                        _last_dump_address = address = (const void*)(arg);
+                    }
+                    else
+                    {
+                        if(!OnDisplayRegister)
+                            return;
+                        is_memory = false;
+                        reg_info = GetRegisterInfo(params);
+                        if(!reg_info)
+                        {
+                            detail::set_error(Error::kInvalidRegisterName);
+                            return;
+                        }
+                    }
                 }
 
-                const auto size = runtime::AllocationSize((const void*)(address));
+                const auto size = is_memory ? runtime::AllocationSize((const void*)(address)) : reg_info._bit_width / 8;
                 if(size)
                 {
                     DataType type = DataType::kUnknown;
@@ -526,17 +669,21 @@ namespace inasm64
                     break;
                     }
 
-                    OnDumpMemory(type, address, size);
+                    if(is_memory)
+                        OnDisplayData(type, address, size);
+                    else
+                        OnDisplayRegister(type, reg_info);
                 }
             }
         }  // namespace
 
-        bool Initialise()
+        bool
+        Initialise()
         {
             if(!_initialised)
             {
                 Type1Command cmd1;
-                cmd1.set_aliases(6, "db", "dw", "dd", "dq", "dfs", "dfd");
+                cmd1.set_aliases(6, "db", "dw", "dd", "dq", "dx", "dy", "dfs", "dfd");
                 _help_texts.emplace_back("varname d[b|w|d|q|fs|fd] <data...>", "create a variable \"$varname\" pointing to data");
                 cmd1._handler = data_value_handler;
                 _type_1_handlers.emplace_back(std::move(cmd1));
@@ -550,7 +697,7 @@ namespace inasm64
                 //NOTE: not the same as the type-1 above, this is for display
                 cmd0.set_aliases(6, "db", "dw", "dd", "dq", "dfs", "dfd");
                 _help_texts.emplace_back("d[b|w|d|q] $<varname>", "display data pointed to by varname");
-                cmd0._handler = dump_memory_handler;
+                cmd0._handler = display_data_handler;
                 _type_0_handlers.emplace_back(std::move(cmd0));
 
                 cmd0.set_aliases(2, "p", "step");
@@ -620,18 +767,18 @@ namespace inasm64
         {
             if(!_initialised)
             {
-                detail::SetError(Error::CliUninitialised);
+                detail::set_error(Error::kCliUninitialised);
                 return false;
             }
 
             const auto commandLineLength = strlen(commandLine_);
             if(commandLineLength > kMaxCommandLineLength)
             {
-                detail::SetError(Error::CliInputLengthExceeded);
+                detail::set_error(Error::kCliInputLengthExceeded);
                 return false;
             }
 
-            detail::SetError(Error::NoError);
+            detail::set_error(Error::kNoError);
             auto result = false;
 
             //NOTE: upper bound on a fully expanded string of meta variables, each expanding to a 16 digit hex (16/2 for each meta var "$x")
@@ -684,7 +831,7 @@ namespace inasm64
                         }
                         else
                         {
-                            detail::SetError(Error::UndefinedVariable);
+                            detail::set_error(Error::kUndefinedVariable);
                             return false;
                         }
                     }

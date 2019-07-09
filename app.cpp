@@ -94,6 +94,8 @@ void DumpDeltaRegs()
     static bool _first = true;
     const auto ctx = inasm64::runtime::Context();
 
+    std::cout << "\n";
+
     if(_first)
     {
         DumpRegs();
@@ -223,7 +225,8 @@ void DumpReg(const char* regName_, uint64_t value)
     assert(regNameLen < std::size(regName));
     memcpy(regName, regName_, regNameLen + 1);
     _strlwr_s(regName, regNameLen + 1);
-    std::cout << console::green << regName << " = " << std::hex << value << std::endl
+    std::cout << console::green << "\n"
+              << regName << " = 0x" << std::hex << value << std::endl
               << console::reset_colours;
 }
 
@@ -294,8 +297,59 @@ void DumpYmmRegisters()
     }
 }
 
+void DisplayMemoryAsType(inasm64::cli::DataType type, unsigned type_size, const char* memory, size_t size)
+{
+    using namespace inasm64::cli;
+    for(unsigned c = 0; c < size; c += type_size)
+    {
+        const auto rp = memory + c;
+        switch(type)
+        {
+        case DataType::kByte:
+        {
+            const unsigned val = *rp & 0xff;
+            std::cout << std::hex << std::setw(2) << std::setfill('0') << val << " ";
+        }
+        break;
+        case DataType::kWord:
+        {
+            const auto val = *reinterpret_cast<const unsigned short*>(rp) & 0xffff;
+            std::cout << std::hex << std::setw(4) << std::setfill('0') << val << " ";
+        }
+        break;
+        case DataType::kDWord:
+        {
+            const auto val = *reinterpret_cast<const uint32_t*>(rp);
+            std::cout << std::hex << std::setw(8) << std::setfill('0') << val << " ";
+        }
+        break;
+        case DataType::kQWord:
+        {
+            const auto val = *reinterpret_cast<const uint64_t*>(rp);
+            std::cout << std::hex << std::setw(16) << std::setfill('0') << val << " ";
+        }
+        break;
+        case DataType::kFloat32:
+        {
+            const auto val = *reinterpret_cast<const float*>(rp);
+            std::cout << std::setprecision(7) << val << " ";
+        }
+        break;
+        case DataType::kFloat64:
+        {
+            const auto val = *reinterpret_cast<const double*>(rp);
+            std::cout << std::setprecision(7) << val << " ";
+        }
+        break;
+        }
+    }
+}
+
 void DumpMemory(inasm64::cli::DataType type, const void* remote_address, size_t size_)
 {
+    //NOTE: all commands are being invoked on the same line as the input, a bit cumbersome but...
+    std::cout << "\n";
+
     using namespace inasm64::cli;
     constexpr auto kBytesPerRow = 16;
     constexpr auto kRows = 4;
@@ -308,25 +362,7 @@ void DumpMemory(inasm64::cli::DataType type, const void* remote_address, size_t 
     // clear the buffer
     memset(local_buffer, 0, buffer_size);
     inasm64::runtime::ReadBytes(remote_address, local_buffer, size);
-    unsigned type_size = 0;
-    switch(type)
-    {
-    case DataType::kByte:
-        type_size = 1;
-        break;
-    case DataType::kWord:
-        type_size = 2;
-        break;
-    case DataType::kDWord:
-    case DataType::kFloat32:
-        type_size = 4;
-        break;
-    case DataType::kQWord:
-    case DataType::kFloat64:
-        type_size = 8;
-        break;
-    default:;
-    }
+    const auto type_size = inasm64::cli::DataTypeToBitWidth(type);
     auto n = 0;
     auto address = reinterpret_cast<const uint8_t*>(remote_address);
 
@@ -335,49 +371,7 @@ void DumpMemory(inasm64::cli::DataType type, const void* remote_address, size_t 
         std::cout << std::hex << uintptr_t(address) << " ";
         std::cout << console::yellow_lo;
         const auto bytes_to_read = std::min<size_t>(kBytesPerRow, size);
-        for(unsigned c = 0; c < bytes_to_read; c += type_size)
-        {
-            const auto rp = local_buffer + n + c;
-            switch(type)
-            {
-            case DataType::kByte:
-            {
-                const unsigned val = *rp & 0xff;
-                std::cout << std::hex << std::setw(2) << std::setfill('0') << val << " ";
-            }
-            break;
-            case DataType::kWord:
-            {
-                const auto val = *reinterpret_cast<const unsigned short*>(rp) & 0xffff;
-                std::cout << std::hex << std::setw(4) << std::setfill('0') << val << " ";
-            }
-            break;
-            case DataType::kDWord:
-            {
-                const auto val = *reinterpret_cast<const uint32_t*>(rp);
-                std::cout << std::hex << std::setw(8) << std::setfill('0') << val << " ";
-            }
-            break;
-            case DataType::kQWord:
-            {
-                const auto val = *reinterpret_cast<const uint64_t*>(rp);
-                std::cout << std::hex << std::setw(16) << std::setfill('0') << val << " ";
-            }
-            break;
-            case DataType::kFloat32:
-            {
-                const auto val = *reinterpret_cast<const float*>(rp);
-                std::cout << std::setprecision(7) << val << " ";
-            }
-            break;
-            case DataType::kFloat64:
-            {
-                const auto val = *reinterpret_cast<const double*>(rp);
-                std::cout << std::setprecision(7) << val << " ";
-            }
-            break;
-            }
-        }
+        DisplayMemoryAsType(type, type_size, local_buffer + n, bytes_to_read);
         std::cout << console::reset_colours;
         const auto cw = console::Width();
         console::SetCursorX(cw - cw / 2);
@@ -392,6 +386,24 @@ void DumpMemory(inasm64::cli::DataType type, const void* remote_address, size_t 
         std::cout << std::endl;
         size -= bytes_to_read;
         address += kBytesPerRow;
+    }
+}
+
+void DisplayRegister(inasm64::cli::DataType type, const inasm64::RegisterInfo& reg_info)
+{
+    //TODO::::
+    using namespace inasm64;
+    const auto type_size = cli::DataTypeToBitWidth(type) >> 3;
+    if(type_size)
+    {
+        //const auto ctx = runtime::Context()->OsContext;
+        //const char* ctx_reg_data = nullptr;
+        switch(reg_info._greatest_enclosing_register)
+        {
+        case RegisterInfo::Register::rax:
+            break;
+        default:;
+        }
     }
 }
 
@@ -494,13 +506,15 @@ int main(int argc, char* argv[])
             }
         };
         cli::OnStep = [](const void* address) {
-            std::cout << std::hex << address << " " << _asm_history[uintptr_t(address)] << "\n";
+            std::cout << "\n"
+                      << std::hex << address << " " << _asm_history[uintptr_t(address)] << "\n";
             DumpDeltaRegs();
         };
         cli::OnDisplayGPRegisters = DumpRegs;
         cli::OnDisplayXMMRegisters = DumpXmmRegisters;
         cli::OnDisplayYMMRegisters = DumpYmmRegisters;
-        cli::OnDumpMemory = DumpMemory;
+        cli::OnDisplayRegister = DisplayRegister;
+        cli::OnDisplayData = DumpMemory;
         cli::OnSetGPRegister = DumpReg;
 
         std::string input;
@@ -518,19 +532,11 @@ int main(int argc, char* argv[])
             {
                 std::cout << console::green << std::hex << std::setw(2) << std::setfill('0') << int(asm_info.Instruction[n]);
             }
-            // this also blanks out any previous errors on this line
-            /*std::cout << std::setw(cw - console::GetCursorX()) << std::setfill(' ') << " " << std::endl
-                      << console::reset_colours;*/
-            std::cout << std::endl
-                      << console::reset_colours;
+            std::cout << console::reset_colours;
         };
         cli::OnAssembleError = [&input, &input_start_cursor_x, &clear_next_input_on_key]() -> bool {
             to_right_column();
             std::cerr << console::red << "\t" << inasm64::ErrorMessage(inasm64::GetError()) << console::reset_colours;
-            //ZZZ: for now leave the invalid text standing, but perhaps blank it out?
-            //console::SetCursorX(input_start_cursor_x);
-            //std::string blanks(input.length(), ' ');
-            //std::cout << blanks;
             console::SetCursorX(0);
             clear_next_input_on_key = true;
             return true;
@@ -576,6 +582,7 @@ int main(int argc, char* argv[])
             else
             {
                 clear_next_input_on_key = false;
+                std::cout << std::endl;
             }
         }
     }

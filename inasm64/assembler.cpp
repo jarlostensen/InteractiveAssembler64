@@ -157,7 +157,7 @@ namespace inasm64
                                 tokens = &part[++nparts];
                             else
                             {
-                                detail::SetError(Error::InvalidInstructionFormat);
+                                detail::set_error(Error::kInvalidInstructionFormat);
                                 return false;
                             }
                             ++rp;
@@ -186,7 +186,7 @@ namespace inasm64
                                     tokens = &part[++nparts];
                                 else
                                 {
-                                    detail::SetError(Error::InvalidInstructionFormat);
+                                    detail::set_error(Error::kInvalidInstructionFormat);
                                     return false;
                                 }
                             buffer[rp] = 0;
@@ -283,7 +283,7 @@ namespace inasm64
                             ++rp;
                         if(!operand[rp])
                         {
-                            detail::SetError(Error::InvalidOperandFormat);
+                            detail::set_error(Error::kInvalidOperandFormat);
                             return false;
                         }
                         operand[rp] = 0;
@@ -295,7 +295,7 @@ namespace inasm64
                         {
                             if(plus_op_cnt || min_op_cnt || mul_op_cnt)
                             {
-                                detail::SetError(Error::InvalidOperandFormat);
+                                detail::set_error(Error::kInvalidOperandFormat);
                                 return false;
                             }
 
@@ -320,7 +320,7 @@ namespace inasm64
                             {
                                 if((plus_op_cnt && min_op_cnt) || plus_op_cnt > 1 || min_op_cnt > 1 || mul_op_cnt)
                                 {
-                                    detail::SetError(Error::InvalidOperandFormat);
+                                    detail::set_error(Error::kInvalidOperandFormat);
                                     return false;
                                 }
 
@@ -355,13 +355,13 @@ namespace inasm64
                                                 }
                                                 else
                                                 {
-                                                    detail::SetError(Error::InvalidOperandScale);
+                                                    detail::set_error(Error::kInvalidOperandScale);
                                                     return false;
                                                 }
                                             }
                                             else
                                             {
-                                                detail::SetError(Error::InvalidOperandFormat);
+                                                detail::set_error(Error::kInvalidOperandFormat);
                                                 return false;
                                             }
                                         }
@@ -369,7 +369,7 @@ namespace inasm64
                                         skip_until_alphanum();
                                         if(plus_op_cnt > 1 || min_op_cnt > 1 || mul_op_cnt)
                                         {
-                                            detail::SetError(Error::InvalidOperandFormat);
+                                            detail::set_error(Error::kInvalidOperandFormat);
                                             return false;
                                         }
                                     }
@@ -399,7 +399,7 @@ namespace inasm64
                     }
                     else
                     {
-                        detail::SetError(Error::InvalidOperandFormat);
+                        detail::set_error(Error::kInvalidOperandFormat);
                         return false;
                     }
                 }
@@ -433,7 +433,7 @@ namespace inasm64
                 if(!part[2].empty())
                 {
                     //ZZZ: not supported yet
-                    detail::SetError(Error::UnsupportedInstructionFormat);
+                    detail::set_error(Error::UnsupportedInstructionFormat);
                     return false;
                 }
                 result = true;
@@ -450,7 +450,7 @@ namespace inasm64
                         statement._repne = true;
                     else
                     {
-                        detail::SetError(Error::UnsupportedInstructionFormat);
+                        detail::set_error(Error::UnsupportedInstructionFormat);
                         return false;
                     }
                     ++tl;
@@ -498,7 +498,7 @@ namespace inasm64
                     {
                         // assume error
                         result = false;
-                        detail::SetError(Error::InvalidInstructionFormat);
+                        detail::set_error(Error::kInvalidInstructionFormat);
 
                         // op1
                         statement._op1._width_bits = check_operand_bit_size_prefix(part[0]);
@@ -585,12 +585,12 @@ namespace inasm64
                     {
                         result = false;
                         // "instr , something" is wrong, obviously
-                        detail::SetError(Error::InvalidInstructionFormat);
+                        detail::set_error(Error::kInvalidInstructionFormat);
                     }
                 }
                 else
                 {
-                    detail::SetError(Error::InvalidInstructionFormat);
+                    detail::set_error(Error::kInvalidInstructionFormat);
                 }
             }
 
