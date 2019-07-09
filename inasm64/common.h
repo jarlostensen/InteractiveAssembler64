@@ -61,7 +61,7 @@ namespace inasm64
             unsigned char _num_tokens = 0;
         };
         // in-place 0 terminates tokens
-        simple_tokens_t simple_tokenise(const char* str);
+        simple_tokens_t simple_tokenise(const char* str, size_t max_tokens = sizeof(simple_tokens_t::_token_idx));
 
     }  // namespace detail
 

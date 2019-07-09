@@ -63,7 +63,7 @@ namespace inasm64
             return !str[0];
         }
 
-        simple_tokens_t simple_tokenise(const char* str_)
+        simple_tokens_t simple_tokenise(const char* str_, size_t max_tokens)
         {
             const auto str_len = strlen(str_);
             if(!str_len)
@@ -88,7 +88,7 @@ namespace inasm64
                     ++stokens._num_tokens;
                 }
                 assert(stokens._num_tokens <= std::size(stokens._token_idx));
-            } while(str[0]);
+            } while(str[0] && stokens._num_tokens <= max_tokens);
             return stokens;
         }
 

@@ -391,19 +391,30 @@ void DumpMemory(inasm64::cli::DataType type, const void* remote_address, size_t 
 
 void DisplayRegister(inasm64::cli::DataType type, const inasm64::RegisterInfo& reg_info)
 {
-    //TODO::::
     using namespace inasm64;
     const auto type_size = cli::DataTypeToBitWidth(type) >> 3;
-    if(type_size)
+    std::cout << "\n   ";
+    switch(reg_info._class)
     {
-        //const auto ctx = runtime::Context()->OsContext;
-        //const char* ctx_reg_data = nullptr;
-        switch(reg_info._greatest_enclosing_register)
-        {
-        case RegisterInfo::Register::rax:
-            break;
-        default:;
-        }
+    case RegisterInfo::RegClass::kGpr:
+        break;
+    case RegisterInfo::RegClass::kSegment:
+    {
+        uint16_t val;
+        runtime::GetReg(reg_info, &val, sizeof(val));
+        std::cout << std::hex << std::setw(4) << std::setfill('0') << val << " ";
+    }
+    break;
+    case RegisterInfo::RegClass::kFlags:
+    {
+        uint32_t val;
+        runtime::GetReg(reg_info, &val, sizeof(val));
+        coutflags(val) << std::endl;
+    }
+    break;
+    case RegisterInfo::RegClass::kXmm:
+        break;
+    default:;
     }
 }
 

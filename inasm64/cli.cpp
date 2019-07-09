@@ -466,7 +466,7 @@ namespace inasm64
                         return;
                     }
 
-                    detail::simple_tokens_t tokens = detail::simple_tokenise(params);
+                    detail::simple_tokens_t tokens = detail::simple_tokenise(params, 3);
                     // rX xmmN
                     if(tokens._num_tokens == 1)
                     {
@@ -483,7 +483,7 @@ namespace inasm64
                             runtime::SetReg(reg_info, data.data(), data.size());
                     }
                     // rX xmmN d[b|w|...] value
-                    else if(tokens._num_tokens > 2)
+                    else if(tokens._num_tokens == 3)
                     {
                         const DataType cmd_type = command_data_type(params + tokens._token_idx[1]);
                         if(cmd_type != DataType::kUnknown)
@@ -546,7 +546,7 @@ namespace inasm64
                     else
                     {
                         const auto reg_info = GetRegisterInfo(params);
-                        if(!reg_info || reg_info._class != RegisterInfo::RegClass::kGpr)
+                        if(!reg_info)
                         {
                             detail::set_error(Error::kInvalidRegisterName);
                             return;
