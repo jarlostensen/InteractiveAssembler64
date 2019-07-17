@@ -372,7 +372,7 @@ namespace inasm64
                             rp = next;
 
                             // move on to the next value
-                            while((rp[0] || rp[1]) && !isalpha(int(rp[0])) && !isdigit(int(rp[0])))
+                            while((rp[0] || rp[1]) && !isalpha(int(rp[0])) && !isdigit(int(rp[0])) && rp[0] != '-' && rp[0] != '+')
                             {
                                 ++rp;
                             }
