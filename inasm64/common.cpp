@@ -164,6 +164,8 @@ namespace inasm64
             return "Unknown CLI command";
         case Error::kInvalidRegisterName:
             return "invalid register for this operation";
+        case Error::kInvalidInputValueFormat:
+            return "input number format is invalid";
         case Error::kEncodeError:
             return "General encoder error";
         default:

@@ -150,8 +150,9 @@ namespace inasm64
         Register _register = Register::kInvalid;
         Register _greatest_enclosing_register = Register::kInvalid;
         short _bit_width = 0;
+        const char* _name = nullptr;
         RegisterInfo() = default;
-        RegisterInfo(RegClass klass, Register register_, short width);
+        RegisterInfo(RegClass klass, Register register_, short width, const char* name = nullptr);
         operator bool() const
         {
             return _bit_width && _class != RegClass::kInvalid;

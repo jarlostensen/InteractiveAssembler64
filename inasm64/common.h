@@ -34,6 +34,7 @@ namespace inasm64
         kInvalidImmediateOperandBitWidth,
         kInvalidRegisterName,
         kCliUnknownCommand,
+        kInvalidInputValueFormat,
         kAccessViolation,
         kSystemError,
     };

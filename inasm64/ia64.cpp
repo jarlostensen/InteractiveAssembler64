@@ -8,17 +8,51 @@ namespace inasm64
 {
     namespace detail
     {
-        const char* kGpr8[] = {
-            "al", "ah", "bl", "bh", "cl", "ch", "dl", "dh", "sil", "dil", "spl", "bpl", "r8b", "r9b", "r10b", "r11b", "r12b", "r13b", "r14b", "r15b"
+        struct register_lut_entry
+        {
+            const char* _name;
+            size_t _len;
         };
-        const char* kGpr16[] = {
-            "ax", "bx", "cx", "dx", "si", "di", "sp", "bp", "r8w", "r9w", "r10w", "r11w", "r12w", "r13w", "r14w", "r15w"
+
+        register_lut_entry kGpr8[] = {
+            { "al", 2 },
+            { "ah", 2 },
+            { "bl", 2 },
+            { "bh", 2 },
+            { "cl", 2 },
+            { "ch", 2 },
+            { "dl", 2 },
+            { "dh", 2 },
+            { "sil", 3 },
+            { "dil", 3 },
+            { "spl", 3 },
+            { "bpl", 3 },
+            { "r8b", 3 },
+            { "r9b", 3 },
+            { "r10b", 4 },
+            { "r11b", 4 },
+            { "r12b", 4 },
+            { "r13b", 4 },
+            { "r14b", 4 },
+            { "r15b", 4 }
         };
-        const char* kGpr32[] = {
-            "eax", "ebx", "ecx", "edx", "esi", "edi", "esp", "ebp", "r8d", "r9d", "r10d", "r11d", "r12d", "r13d", "r14d", "r15d"
+        register_lut_entry kGpr16[] = {
+            { "ax", 2 }, { "bx", 2 }, { "cx", 2 }, { "dx", 2 }, { "si", 2 }, { "di", 2 }, { "sp", 2 }, { "bp", 2 }, { "r8w", 3 }, { "r9w", 3 }, { "r10w", 4 }, { "r11w", 4 }, { "r12w", 4 }, { "r13w", 4 }, { "r14w", 4 }, { "r15w", 4 }
         };
-        const char* kGpr64[] = {
-            "rax", "rbx", "rcx", "rdx", "rsi", "rdi", "rsp", "rbp", "r8", "r9", "r10", "r11", "r12", "r13", "r14", "r15"
+        register_lut_entry kGpr32[] = {
+            { "eax", 3 }, { "ebx", 3 }, { "ecx", 3 }, { "edx", 3 }, { "esi", 3 }, { "edi", 3 }, { "esp", 3 }, { "ebp", 3 }, { "r8d", 3 }, { "r9d", 3 }, { "r10d", 4 }, { "r11d", 4 }, { "r12d", 4 }, { "r13d", 4 }, { "r14d", 4 }, { "r15d", 4 }
+        };
+        register_lut_entry kGpr64[] = {
+            { "rax", 3 }, { "rbx", 3 }, { "rcx", 3 }, { "rdx", 3 }, { "rsi", 3 }, { "rdi", 3 }, { "rsp", 3 }, { "rbp", 3 }, { "r8", 2 }, { "r9", 2 }, { "r10", 3 }, { "r11", 3 }, { "r12", 3 }, { "r13", 3 }, { "r14", 3 }, { "r15", 3 }
+        };
+        const char* kXmmRegisters[] = {
+            "xmm0", "xmm1", "xmm2", "xmm3", "xmm4", "xmm5", "xmm6", "xmm7", "xmm8", "xmm9", "xmm10", "xmm11", "xmm12", "xmm13", "xmm14", "xmm15"
+        };
+        const char* kYmmRegisters[] = {
+            "ymm0", "ymm1", "ymm2", "ymm3", "ymm4", "ymm5", "ymm6", "ymm7", "ymm8", "ymm9", "ymm10", "ymm11", "ymm12", "ymm13", "ymm14", "ymm15"
+        };
+        const char* kZmmRegisters[] = {
+            "zmm0", "zmm1", "zmm2", "zmm3", "zmm4", "zmm5", "zmm6", "zmm7", "zmm8", "zmm9", "zmm10", "zmm11", "zmm12", "zmm13", "zmm14", "zmm15"
         };
         const char* kSegmentRegisters[] = {
             "cs", "ds", "es", "ss", "fs", "gs"
@@ -88,11 +122,12 @@ namespace inasm64
     }  // namespace detail
     using namespace detail;
 
-    RegisterInfo::RegisterInfo(RegClass klass, Register register_, short width)
+    RegisterInfo::RegisterInfo(RegClass klass, Register register_, short width, const char* name)
         : _class{ klass }
         , _register{ register_ }
         , _greatest_enclosing_register{ register_ }
         , _bit_width{ width }
+        , _name{ name }
     {
         if(register_ != Register::kInvalid)
         {
@@ -100,38 +135,47 @@ namespace inasm64
             if(ord >= static_cast<int>(Register::zmm0))
             {
                 _greatest_enclosing_register = _register;
+                _name = kZmmRegisters[ord - static_cast<int>(Register::zmm0)];
             }
             else if(ord >= static_cast<int>(Register::ymm0))
             {
                 _greatest_enclosing_register = static_cast<Register>(ord - static_cast<int>(Register::ymm0) + static_cast<int>(Register::zmm0));
+                _name = kYmmRegisters[ord - static_cast<int>(Register::ymm0)];
             }
             else if(ord >= static_cast<int>(Register::xmm0))
             {
                 _greatest_enclosing_register = static_cast<Register>(ord - static_cast<int>(Register::xmm0) + static_cast<int>(Register::zmm0));
+                _name = kXmmRegisters[ord - static_cast<int>(Register::xmm0)];
             }
             else if(ord >= static_cast<int>(Register::rax))
             {
                 _greatest_enclosing_register = _register;
+                _name = kGpr64[ord - static_cast<int>(Register::rax)]._name;
             }
             else if(ord >= static_cast<int>(Register::r8d))
             {
                 _greatest_enclosing_register = static_cast<Register>(ord - static_cast<int>(Register::r8d) + static_cast<int>(Register::r8));
+                _name = kGpr32[ord - static_cast<int>(Register::eax)]._name;
             }
             else if(ord >= static_cast<int>(Register::eax))
             {
                 _greatest_enclosing_register = static_cast<Register>(ord - static_cast<int>(Register::eax) + static_cast<int>(Register::rax));
+                _name = kGpr32[ord - static_cast<int>(Register::eax)]._name;
             }
             else if(ord >= static_cast<int>(Register::r8w))
             {
                 _greatest_enclosing_register = static_cast<Register>(ord - static_cast<int>(Register::r8w) + static_cast<int>(Register::r8));
+                _name = kGpr16[ord - static_cast<int>(Register::ax)]._name;
             }
             else if(ord >= static_cast<int>(Register::ax))
             {
                 _greatest_enclosing_register = static_cast<Register>(ord - static_cast<int>(Register::ax) + static_cast<int>(Register::rax));
+                _name = kGpr16[ord - static_cast<int>(Register::ax)]._name;
             }
             else if(ord >= static_cast<int>(Register::r8b))
             {
                 _greatest_enclosing_register = static_cast<Register>(ord - static_cast<int>(Register::r8b) + static_cast<int>(Register::r8));
+                _name = kGpr8[ord - static_cast<int>(Register::al)]._name;
             }
             else
             {
@@ -160,15 +204,16 @@ namespace inasm64
                 }
                 break;
                 }
+                _name = kGpr8[ord - static_cast<int>(Register::al)]._name;
             }
         }
     }
 
     RegisterInfo GetRegisterInfo(const char* reg)
     {
+        const auto reg_len = strlen(reg);
         if(reg[1] == 'm')
         {
-            const auto reg_len = strlen(reg);
             if(reg_len > 3 && reg[2] == 'm')
             {
                 // XMM, YMM, and ZMM. Depending on mode there are different numbers of these, but the width is the same across all
@@ -193,7 +238,7 @@ namespace inasm64
         {
             for(auto r = 0; r < std::size(kGpr64); ++r)
             {
-                if(strncmp(reg, kGpr64[r], strlen(kGpr64[r])) == 0)
+                if(strncmp(reg, kGpr64[r]._name, kGpr64[r]._len) == 0)
                 {
                     return { RegisterInfo::RegClass::kGpr, static_cast<RegisterInfo::Register>(r + static_cast<int>(RegisterInfo::Register::rax)), 64 };
                 }
@@ -202,7 +247,7 @@ namespace inasm64
 
         for(auto r = 0; r < std::size(kGpr32); ++r)
         {
-            if(strncmp(reg, kGpr32[r], strlen(kGpr32[r])) == 0)
+            if(strncmp(reg, kGpr32[r]._name, reg_len) == 0)
             {
                 return { RegisterInfo::RegClass::kGpr, static_cast<RegisterInfo::Register>(r + static_cast<int>(RegisterInfo::Register::eax)), 32 };
             }
@@ -210,21 +255,21 @@ namespace inasm64
 
         for(auto r = 0; r < std::size(kGpr16); ++r)
         {
-            if(strncmp(reg, kGpr16[r], strlen(kGpr16[r])) == 0)
+            if(strncmp(reg, kGpr16[r]._name, reg_len) == 0)
             {
                 return { RegisterInfo::RegClass::kGpr, static_cast<RegisterInfo::Register>(r + static_cast<int>(RegisterInfo::Register::ax)), 16 };
             }
         }
         for(auto r = 0; r < std::size(kGpr8); ++r)
         {
-            if(strncmp(reg, kGpr8[r], strlen(kGpr8[r])) == 0)
+            if(strncmp(reg, kGpr8[r]._name, reg_len) == 0)
             {
                 return { RegisterInfo::RegClass::kGpr, static_cast<RegisterInfo::Register>(r + static_cast<int>(RegisterInfo::Register::al)), 8 };
             }
         }
         for(auto r = 0; r < std::size(kSegmentRegisters); ++r)
         {
-            if(strncmp(reg, kSegmentRegisters[r], strlen(kSegmentRegisters[r])) == 0)
+            if(strncmp(reg, kSegmentRegisters[r], reg_len) == 0)
             {
                 return { RegisterInfo::RegClass::kSegment, static_cast<RegisterInfo::Register>(r + static_cast<int>(RegisterInfo::Register::cs)), 16 };
             }

@@ -325,46 +325,48 @@ void DisplayMemoryAsType(inasm64::cli::DataType type, const char* memory, size_t
         case DataType::kByte:
         {
             const unsigned val = *rp & 0xff;
-            std::cout << std::hex << std::setw(2) << std::setfill('0') << val << " ";
+            std::cout << std::hex << std::setw(2) << std::setfill('0') << val;
             ++c;
         }
         break;
         case DataType::kWord:
         {
             const auto val = *reinterpret_cast<const unsigned short*>(rp) & 0xffff;
-            std::cout << std::hex << std::setw(4) << std::setfill('0') << val << " ";
+            std::cout << std::hex << std::setw(4) << std::setfill('0') << val;
             c += 2;
         }
         break;
         case DataType::kDWord:
         {
             const auto val = *reinterpret_cast<const uint32_t*>(rp);
-            std::cout << std::hex << std::setw(8) << std::setfill('0') << val << " ";
+            std::cout << std::hex << std::setw(8) << std::setfill('0') << val;
             c += 4;
         }
         break;
         case DataType::kQWord:
         {
             const auto val = *reinterpret_cast<const uint64_t*>(rp);
-            std::cout << std::hex << std::setw(16) << std::setfill('0') << val << " ";
+            std::cout << std::hex << std::setw(16) << std::setfill('0') << val;
             c += 8;
         }
         break;
         case DataType::kFloat32:
         {
             const auto val = *reinterpret_cast<const float*>(rp);
-            std::cout << std::setprecision(7) << val << " ";
+            std::cout << std::setprecision(7) << val << "f";
             c += 4;
         }
         break;
         case DataType::kFloat64:
         {
             const auto val = *reinterpret_cast<const double*>(rp);
-            std::cout << std::setprecision(7) << val << " ";
+            std::cout << std::setprecision(7) << val;
             c += 8;
         }
         break;
         }
+        if(c < (size - 1))
+            std::cout << ", ";
     }
 }
 
@@ -414,14 +416,14 @@ void DumpMemory(inasm64::cli::DataType type, const void* remote_address, size_t 
 void DisplayRegister(inasm64::cli::DataType type, const inasm64::RegisterInfo& reg_info)
 {
     using namespace inasm64;
-    std::cout << "\n   ";
+    std::cout << "\n\t" << reg_info._name << ": ";
     switch(reg_info._class)
     {
     case RegisterInfo::RegClass::kSegment:
     {
         uint16_t val;
         runtime::GetReg(reg_info, &val, sizeof(val));
-        std::cout << std::hex << std::setw(4) << std::setfill('0') << val << " ";
+        std::cout << std::hex << std::setw(4) << std::setfill('0') << val << ", ";
     }
     break;
     case RegisterInfo::RegClass::kFlags:

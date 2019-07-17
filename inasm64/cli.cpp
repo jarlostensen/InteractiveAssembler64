@@ -384,7 +384,7 @@ namespace inasm64
                 }
 
                 if(!result)
-                    detail::set_error(Error::kInvalidCommandFormat);
+                    detail::set_error(Error::kInvalidInputValueFormat);
 
                 return result;
             }
@@ -493,27 +493,31 @@ namespace inasm64
                     // display as format: rX xmmN d[b|w...]
                     else if(tokens._num_tokens == 2)
                     {
-                        const DataType cmd_type = command_data_type(params + tokens._token_idx[1]);
+                        DataType cmd_type = command_data_type(params + tokens._token_idx[1]);
                         if(cmd_type == DataType::kUnknown)
                         {
                             std::vector<uint8_t> data;
                             if(parse_values(type, params + tokens._token_idx[1], data))
+                            {
                                 runtime::SetReg(reg_info, data.data(), data.size());
+                                cmd_type = DataType::kXmmWord;
+                            }
                         }
-                        else
-                        {
+                        if(cmd_type != DataType::kUnknown)
                             OnDisplayRegister(cmd_type, reg_info);
-                        }
                     }
                     // set: rX xmmN d[b|w|...] value
                     else if(tokens._num_tokens == 3)
                     {
                         const DataType cmd_type = command_data_type(params + tokens._token_idx[1]);
-                        if(cmd_type == DataType::kUnknown)
+                        if(cmd_type != DataType::kUnknown)
                         {
                             std::vector<uint8_t> data;
                             if(parse_values(cmd_type, params + tokens._token_idx[2], data))
+                            {
                                 runtime::SetReg(reg_info, data.data(), data.size());
+                                OnDisplayRegister(cmd_type, reg_info);
+                            }
                         }
                         else
                         {
