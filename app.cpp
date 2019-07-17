@@ -593,12 +593,20 @@ int main(int argc, char* argv[])
         cli::OnStartAssembling = [&assembling]() {
             assembling = true;
         };
-        cli::OnAssembling = [&input](const runtime::instruction_index_t& index, const assembler::AssembledInstructionInfo& asm_info) {
+        cli::OnAssembling = [&input, &input_start_cursor_x](const runtime::instruction_index_t& index, const assembler::AssembledInstructionInfo& asm_info) {
             _asm_history[index._address] = input;
+            // yeah....
+            std::remove_const_t<decltype(std::string::npos)> epos = 0;
+            // first (or only) word on the input line is the instruction name, highlight it
+            while(input[epos] != ' ' && epos < input.length())
+                ++epos;
+            console::SetCursorX(input_start_cursor_x);
+            std::cout << console::green << input.substr(0, epos);
+
             to_right_column();
-            for(unsigned n = 0; n < asm_info.InstructionSize; ++n)
+            for(unsigned n = 0; n < asm_info._size; ++n)
             {
-                std::cout << console::green << std::hex << std::setw(2) << std::setfill('0') << int(asm_info.Instruction[n]);
+                std::cout << console::green << std::hex << std::setw(2) << std::setfill('0') << int(asm_info._instruction[n]);
             }
             std::cout << console::reset_colours;
         };

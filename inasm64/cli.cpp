@@ -393,6 +393,8 @@ namespace inasm64
             DataType command_data_type(const char* dcmd)
             {
                 DataType type = DataType::kUnknown;
+                if(dcmd[0] != 'd')
+                    return type;
                 switch(dcmd[1])
                 {
                 case 'b':
@@ -904,7 +906,7 @@ namespace inasm64
                     }
                     else
                     {
-                        const auto index = runtime::AddInstruction(asm_info.Instruction, asm_info.InstructionSize);
+                        const auto index = runtime::AddInstruction(asm_info._instruction, asm_info._size);
                         result = index._address != 0;
                         if(result && OnAssembling)
                             OnAssembling(index, asm_info);

@@ -20,10 +20,10 @@
 
 void cinsout(const inasm64::assembler::AssembledInstructionInfo& info)
 {
-    std::cout << "\tinstruction is " << info.InstructionSize << " bytes\n\t";
-    for(auto i = 0; i < info.InstructionSize; ++i)
+    std::cout << "\tinstruction is " << info._size << " bytes\n\t";
+    for(auto i = 0; i < info._size; ++i)
     {
-        std::cout << std::setfill('0') << std::setw(2) << std::hex << int(info.Instruction[i]) << " ";
+        std::cout << std::setfill('0') << std::setw(2) << std::hex << int(info._instruction[i]) << " ";
     }
     std::cout << "\n"
               << std::endl;

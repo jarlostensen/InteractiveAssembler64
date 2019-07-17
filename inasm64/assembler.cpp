@@ -601,8 +601,8 @@ namespace inasm64
                 result = instr_len > 0;
                 if(result)
                 {
-                    memcpy(const_cast<uint8_t*>(info.Instruction), buffer, instr_len);
-                    const_cast<size_t&>(info.InstructionSize) = instr_len;
+                    memcpy(const_cast<uint8_t*>(info._instruction), buffer, instr_len);
+                    const_cast<size_t&>(info._size) = instr_len;
                 }
                 _freea(buffer);
             }

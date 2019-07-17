@@ -12,9 +12,9 @@ namespace inasm64
         struct AssembledInstructionInfo
         {
             // the instruction bytes
-            const uint8_t Instruction[kMaxAssembledInstructionSize] = { 0 };
+            const uint8_t _instruction[kMaxAssembledInstructionSize] = { 0 };
             // the number of instruction bytes
-            const size_t InstructionSize = 0;
+            const size_t _size = 0;
         };
 
         ///<summary>

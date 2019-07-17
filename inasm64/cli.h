@@ -37,11 +37,11 @@ namespace inasm64
         ///</summary>
         enum class DataType
         {
-            kUnknown,
-            kByte,
-            kWord,
-            kDWord,
-            kQWord,
+            kUnknown = 0,
+            kByte = 1,
+            kWord = 2,
+            kDWord = 4,
+            kQWord = 8,
             kFloat32,
             kFloat64,
             kXmmWord,

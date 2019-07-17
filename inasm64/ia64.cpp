@@ -211,7 +211,11 @@ namespace inasm64
 
     RegisterInfo GetRegisterInfo(const char* reg)
     {
-        const auto reg_len = strlen(reg);
+        //NOTE: we might get the name as part of a longer string, so calculate length as the first white-space separated word
+        auto str = reg;
+        while(str[0] && str[0] != ' ')
+            ++str;
+        const auto reg_len = size_t(str - reg);
         if(reg[1] == 'm')
         {
             if(reg_len > 3 && reg[2] == 'm')

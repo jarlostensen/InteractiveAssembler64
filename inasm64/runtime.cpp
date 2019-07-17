@@ -325,8 +325,8 @@ namespace inasm64
                 }
             }
             _instruction_line = _first_instruction_line = _last_instruction_line;
-            if(_loaded_instructions[_last_instruction_line]._address >= uintptr_t(_code_end))
-                _code_end = reinterpret_cast<unsigned char*>(_loaded_instructions[_last_instruction_line]._address + _loaded_instructions[_last_instruction_line]._instruction_size);
+            if(_loaded_instructions[_last_instruction_line - 1]._address >= uintptr_t(_code_end))
+                _code_end = reinterpret_cast<unsigned char*>(_loaded_instructions[_last_instruction_line - 1]._address + _loaded_instructions[_last_instruction_line - 1]._instruction_size);
             _commit_size = 0;
             return true;
         }
