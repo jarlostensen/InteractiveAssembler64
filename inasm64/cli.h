@@ -29,10 +29,6 @@ namespace inasm64
         /// execute a command line (if valid).
         ///</summary>
         bool Execute(const char* commandLine);
-        ///<summary>
-        /// if currently in Assemble mode; returns information about the last instruction assembled.
-        ///</summary>
-        const void* NextInstructionAssemblyAddress();
 
         // The following is a set of callbacks invoked by the CLI in response to commands, such as requesting
         // a register display, or as instructions are assembled etc.
@@ -136,7 +132,7 @@ namespace inasm64
         extern std::function<bool()> OnAssembleError;
 
         // input has been assembled and converted to instruction bytes, at runtime address
-        extern std::function<void(const void* address, const assembler::AssembledInstructionInfo&)> OnAssembling;
+        extern std::function<void(const runtime::instruction_index_t&, const assembler::AssembledInstructionInfo&)> OnAssembling;
 
         // CLI quit
         extern std::function<void()> OnQuit;

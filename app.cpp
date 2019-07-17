@@ -74,6 +74,10 @@ std::ostream& coutflags(DWORD flags, DWORD prev = 0)
 
 void DumpRegs()
 {
+    std::cout << "\n";
+
+    //TODO: rework to use runtime instead of direct context access
+
     const auto ctx = inasm64::runtime::Context();
 
     coutreg("rax") << ctx->OsContext->Rax << " ";
@@ -587,8 +591,8 @@ int main(int argc, char* argv[])
         cli::OnStartAssembling = [&assembling]() {
             assembling = true;
         };
-        cli::OnAssembling = [&input](const void* address, const assembler::AssembledInstructionInfo& asm_info) {
-            _asm_history[uintptr_t(address)] = input;
+        cli::OnAssembling = [&input](const runtime::instruction_index_t& index, const assembler::AssembledInstructionInfo& asm_info) {
+            _asm_history[index._address] = input;
             to_right_column();
             for(unsigned n = 0; n < asm_info.InstructionSize; ++n)
             {
@@ -624,7 +628,8 @@ int main(int argc, char* argv[])
         {
             if(cli::ActiveMode() == cli::Mode::Assembling)
             {
-                std::cout << std::hex << uintptr_t(cli::NextInstructionAssemblyAddress()) << " ";
+                const auto index = runtime::NextInstructionIndex();
+                std::cout << std::hex << index._address << ":@" << index._line << " ";
             }
             else
             {

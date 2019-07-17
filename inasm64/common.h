@@ -24,6 +24,7 @@ namespace inasm64
         kInvalidInstructionFormat,
         kInvalidOperandFormat,
         kInvalidOperandScale,
+        kCodeBufferOverflow,
         kInvalidDestRegistername,
         kInvalidInstructionName,
         kOperandSizesMismatch,
@@ -48,6 +49,8 @@ namespace inasm64
         bool str_to_ll(const char* str, long long& value);
         // either 0x followed by at least one hex digit, or hex digits followed by a 'h'
         bool starts_with_hex_number(const char* str, const char** first = nullptr);
+        // a sequence of base-10 digits
+        bool starts_with_decimal_integer(const char* at);
         // true if string is just whitespace, or 0 length
         bool is_null_or_empty(const char* str);
         // returns pointer to *second* word, or nullptr

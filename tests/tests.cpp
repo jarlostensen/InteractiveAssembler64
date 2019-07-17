@@ -8,6 +8,8 @@
 #include "../inasm64/cli.h"
 #include "../inasm64/xed_iclass_instruction_set.h"
 
+#include "../external/Ratpack/ratpak.h"
+
 #include <string>
 #include <vector>
 #include <iomanip>
@@ -136,8 +138,12 @@ int main()
 
     auto reg_info = inasm64::GetRegisterInfo("si");
     reg_info = inasm64::GetRegisterInfo("r11");
+    reg_info = inasm64::GetRegisterInfo("ecx");
     reg_info = inasm64::GetRegisterInfo("xmm4");
     reg_info = inasm64::GetRegisterInfo("mm3");
+    reg_info = inasm64::GetRegisterInfo("spl");
+    reg_info = inasm64::GetRegisterInfo("gs");
+    reg_info = inasm64::GetRegisterInfo("eflags");
 
     //TODO: bespoke tests, this is just to aid development at the moment. Might pull in google test at some point...
     using namespace inasm64;

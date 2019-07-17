@@ -12,6 +12,9 @@
 #include <varargs.h>
 #include <cerrno>
 
+// the Microsoft calculator for large numbers
+#include "..//external/Ratpack/ratpak.h"
+
 #include "common.h"
 #include "ia64.h"
 #include "runtime.h"
@@ -34,7 +37,7 @@ namespace inasm64
         std::function<void()> OnStartAssembling;
         std::function<void()> OnStopAssembling;
         std::function<bool()> OnAssembleError;
-        std::function<void(const void*, const assembler::AssembledInstructionInfo&)> OnAssembling;
+        std::function<void(const runtime::instruction_index_t&, const assembler::AssembledInstructionInfo&)> OnAssembling;
         std::function<void()> OnQuit;
         std::function<void(const help_texts_t&)> OnHelp;
         std::function<void(DataType, const void*, size_t)> OnDisplayData;
@@ -42,12 +45,7 @@ namespace inasm64
 
         namespace
         {
-            //TODO: determine if this should be dynamic, or if this is even the right approach. Need to get the proper assembler up and running first.
-            uint8_t _code_buffer[kMaxAssembledInstructionSize * 128];
-            size_t _code_buffer_pos = 0;
-            //TODO: error handling and error paths
             Mode _mode = Mode::Processing;
-
             using asm_map_t = std::unordered_map<uintptr_t, assembler::AssembledInstructionInfo>;
             asm_map_t _asm_map;
             asm_map_t::iterator _last_instr = _asm_map.end();
@@ -226,21 +224,52 @@ namespace inasm64
                 return handled && GetError() == Error::kNoError;
             }
 
-            bool read_byte_string(const char* str, std::vector<uint8_t>& bytes)
+            bool read_number_string(const char* str, std::vector<uint8_t>& bytes)
             {
                 const auto str_len = strlen(str);
                 static const char* formats[2] = { "%02x", "%2hhu" };
                 auto rp = str;
                 const auto base = detail::starts_with_hex_number(str, &rp) ? 0 : 1;
-                //ZZZ: don't really have a good way to parse non-hex large numbers yet...
-                assert(!base);
-                while(rp[0])
+                if(base)
                 {
-                    long next_byte = 0;
-                    if(!sscanf_s(rp, formats[base], &next_byte))
+                    // using Microsoft ratpak for the parsing and conversion of large decimal numbers to hex
+
+                    if(!detail::starts_with_decimal_integer(str))
                         return false;
-                    bytes.push_back(uint8_t(next_byte));
-                    rp += 2;
+                    auto bnumber = StringToNumber(str, 10, 128);
+                    if(!bnumber)
+                        return false;
+                    auto cnumber = numtonRadixx(bnumber, 10);
+                    auto dnumber = nRadixxtonum(cnumber, 16, 128);
+
+                    // pack digits into bytes
+                    uint8_t nd = 0;
+                    for(auto d = 0; d < dnumber->cdigit; ++d)
+                    {
+                        if(d & 1)
+                        {
+                            nd |= uint8_t((dnumber->mant[d] & 0xf)) << 4;
+                            bytes.push_back(nd);
+                            nd = 0;
+                        }
+                        else
+                        {
+                            nd |= uint8_t((dnumber->mant[d] & 0xf));
+                        }
+                    }
+                    if(nd)
+                        bytes.push_back(nd);
+                }
+                else
+                {
+                    while(rp[0])
+                    {
+                        long next_byte = 0;
+                        if(!sscanf_s(rp, formats[base], &next_byte))
+                            return false;
+                        bytes.push_back(uint8_t(next_byte));
+                        rp += 2;
+                    }
                 }
                 return true;
             }
@@ -299,7 +328,7 @@ namespace inasm64
                         break;
                         case DataType::kXmmWord:
                         {
-                            if(read_byte_string(rp, bytes) && bytes.size() <= 16)
+                            if(read_number_string(rp, bytes) && bytes.size() <= 16)
                             {
                                 result = true;
                                 const auto ullage = 16 - bytes.size();
@@ -311,7 +340,7 @@ namespace inasm64
                         break;
                         case DataType::kYmmWord:
                         {
-                            if(read_byte_string(rp, bytes) && bytes.size() <= 32)
+                            if(read_number_string(rp, bytes) && bytes.size() <= 32)
                             {
                                 result = true;
                                 const auto ullage = 32 - bytes.size();
@@ -459,7 +488,9 @@ namespace inasm64
                             OnDisplayRegister(type, reg_info);
                         }
                     }
-                    // rX xmmN value OR rX xmmN d[b|w...]
+                    // set: rX xmmN value
+                    // OR
+                    // display as format: rX xmmN d[b|w...]
                     else if(tokens._num_tokens == 2)
                     {
                         const DataType cmd_type = command_data_type(params + tokens._token_idx[1]);
@@ -474,11 +505,11 @@ namespace inasm64
                             OnDisplayRegister(cmd_type, reg_info);
                         }
                     }
-                    // rX xmmN d[b|w|...] value
+                    // set: rX xmmN d[b|w|...] value
                     else if(tokens._num_tokens == 3)
                     {
                         const DataType cmd_type = command_data_type(params + tokens._token_idx[1]);
-                        if(cmd_type != DataType::kUnknown)
+                        if(cmd_type == DataType::kUnknown)
                         {
                             std::vector<uint8_t> data;
                             if(parse_values(cmd_type, params + tokens._token_idx[2], data))
@@ -568,7 +599,7 @@ namespace inasm64
                             }
                             else
                             {
-                                //TODO:
+                                OnDisplayRegister(cmd_type, reg_info);
                             }
                         }
                     }
@@ -754,14 +785,13 @@ namespace inasm64
                 };
                 _type_0_handlers.emplace_back(std::move(cmd0));
 
+                // ===============================================================
+                //initialise Ratpak; default input to base 10, 128 bit precision
+                ChangeConstants(10, 128);
+
                 _initialised = true;
             }
             return _initialised;
-        }
-
-        const void* inasm64::cli::NextInstructionAssemblyAddress()
-        {
-            return reinterpret_cast<const void*>(reinterpret_cast<const uint8_t*>(runtime::InstructionWriteAddress()) + _code_buffer_pos);
         }
 
         Mode ActiveMode()
@@ -852,12 +882,7 @@ namespace inasm64
             {
                 if(is_empty)
                 {
-                    if(_code_buffer_pos)
-                    {
-                        // submit instructions assembled so far
-                        runtime::AddCode(_code_buffer, _code_buffer_pos);
-                        _code_buffer_pos = 0;
-                    }
+                    runtime::CommmitInstructions();
                     _mode = Mode::Processing;
                     result = true;
                     if(OnStopAssembling)
@@ -865,8 +890,8 @@ namespace inasm64
                 }
                 else
                 {
-                    std::pair<uintptr_t, assembler::AssembledInstructionInfo> asm_info;
-                    if(!assembler::Assemble(cmdLineBuffer, asm_info.second))
+                    assembler::AssembledInstructionInfo asm_info;
+                    if(!assembler::Assemble(cmdLineBuffer, asm_info))
                     {
                         if(OnAssembleError)
                             _mode = OnAssembleError() ? Mode::Assembling : Mode::Processing;
@@ -875,17 +900,10 @@ namespace inasm64
                     }
                     else
                     {
-                        // cache instructions while they are being entered, we'll submit them to the runtime when we exit assembly mode
-                        //TODO: error/overflow handling
-                        const auto instruction_address = _code_buffer + _code_buffer_pos;
-                        memcpy(instruction_address, asm_info.second.Instruction, asm_info.second.InstructionSize);
-                        asm_info.first = uintptr_t((reinterpret_cast<const uint8_t*>(runtime::InstructionWriteAddress()) + _code_buffer_pos));
-                        const auto at = _asm_map.emplace(asm_info);
-                        _last_instr = at.first;
-                        _code_buffer_pos += asm_info.second.InstructionSize;
-                        if(OnAssembling)
-                            OnAssembling(reinterpret_cast<const void*>(asm_info.first), asm_info.second);
-                        result = true;
+                        const auto index = runtime::AddInstruction(asm_info.Instruction, asm_info.InstructionSize);
+                        result = index._address != 0;
+                        if(result && OnAssembling)
+                            OnAssembling(index, asm_info);
                     }
                 }
             }

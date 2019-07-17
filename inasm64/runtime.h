@@ -24,9 +24,25 @@ namespace inasm64
         ///</summary>
         void Reset();
         ///<summary>
-        /// add code in the form of valid IA 64 instructions to be executed.
+        /// information about a single instruction added for commit
         ///</summary>
-        bool AddCode(const void* code, size_t size);
+        struct instruction_index_t
+        {
+            // logical line number
+            size_t _line = 0;
+            // target address
+            uintptr_t _address = 0;
+        };
+        ///<summary>
+        /// add an instruction to be committed by a call to CommittInstructions
+        ///</summary>
+        /// returns information about the logical line, and target address, of the instruction
+        instruction_index_t AddInstruction(const void* bytes, size_t size);
+
+        bool SetInstructionLine(size_t line);
+        bool CommmitInstructions();
+        instruction_index_t NextInstructionIndex();
+
         ///<summary>
         /// execute one instruction from the current execute address and advance pointers
         ///</summary>

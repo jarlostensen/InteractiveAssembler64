@@ -103,6 +103,7 @@
       <PreprocessorDefinitions>_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <ForcedIncludeFiles>stdafx.h</ForcedIncludeFiles>
+      <LanguageStandard>stdcpp17</LanguageStandard>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -119,6 +120,7 @@
       <PreprocessorDefinitions>WIN32;_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <ForcedIncludeFiles>stdafx.h</ForcedIncludeFiles>
+      <LanguageStandard>stdcpp17</LanguageStandard>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -137,6 +139,7 @@
       <PreprocessorDefinitions>WIN32;NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <ForcedIncludeFiles>stdafx.h</ForcedIncludeFiles>
+      <LanguageStandard>stdcpp17</LanguageStandard>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -157,6 +160,7 @@
       <PreprocessorDefinitions>NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <ForcedIncludeFiles>stdafx.h</ForcedIncludeFiles>
+      <LanguageStandard>stdcpp17</LanguageStandard>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -167,6 +171,18 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="..\external\Ratpack\basex.cpp" />
+    <ClCompile Include="..\external\Ratpack\conv.cpp" />
+    <ClCompile Include="..\external\Ratpack\exp.cpp" />
+    <ClCompile Include="..\external\Ratpack\fact.cpp" />
+    <ClCompile Include="..\external\Ratpack\itrans.cpp" />
+    <ClCompile Include="..\external\Ratpack\itransh.cpp" />
+    <ClCompile Include="..\external\Ratpack\logic.cpp" />
+    <ClCompile Include="..\external\Ratpack\num.cpp" />
+    <ClCompile Include="..\external\Ratpack\rat.cpp" />
+    <ClCompile Include="..\external\Ratpack\support.cpp" />
+    <ClCompile Include="..\external\Ratpack\trans.cpp" />
+    <ClCompile Include="..\external\Ratpack\transh.cpp" />
     <ClCompile Include="..\inasm64\assembler.cpp" />
     <ClCompile Include="..\inasm64\cli.cpp" />
     <ClCompile Include="..\inasm64\common.cpp" />
@@ -184,6 +200,9 @@
     <ClCompile Include="tests.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="..\external\Ratpack\CalcErr.h" />
+    <ClInclude Include="..\external\Ratpack\ratconst.h" />
+    <ClInclude Include="..\external\Ratpack\ratpak.h" />
     <ClInclude Include="..\inasm64\assembler.h" />
     <ClInclude Include="..\inasm64\assembler_driver.h" />
     <ClInclude Include="..\inasm64\cli.h" />

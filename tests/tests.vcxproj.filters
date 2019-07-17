@@ -16,6 +16,12 @@
     <Filter Include="Source Files\inasm64">
       <UniqueIdentifier>{3175cb71-216f-47a4-a76b-07ec9944e64b}</UniqueIdentifier>
     </Filter>
+    <Filter Include="external">
+      <UniqueIdentifier>{888843c7-2f64-476e-9f0b-f316665460c2}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="external\Ratpak">
+      <UniqueIdentifier>{fe1d31e0-193d-49ab-ac2c-04c3dc0c761e}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="tests.cpp">
@@ -48,6 +54,42 @@
     <ClCompile Include="..\inasm64\xed_iclass_instruction_set.cpp">
       <Filter>Source Files\inasm64</Filter>
     </ClCompile>
+    <ClCompile Include="..\external\Ratpack\basex.cpp">
+      <Filter>external\Ratpak</Filter>
+    </ClCompile>
+    <ClCompile Include="..\external\Ratpack\conv.cpp">
+      <Filter>external\Ratpak</Filter>
+    </ClCompile>
+    <ClCompile Include="..\external\Ratpack\exp.cpp">
+      <Filter>external\Ratpak</Filter>
+    </ClCompile>
+    <ClCompile Include="..\external\Ratpack\fact.cpp">
+      <Filter>external\Ratpak</Filter>
+    </ClCompile>
+    <ClCompile Include="..\external\Ratpack\itrans.cpp">
+      <Filter>external\Ratpak</Filter>
+    </ClCompile>
+    <ClCompile Include="..\external\Ratpack\itransh.cpp">
+      <Filter>external\Ratpak</Filter>
+    </ClCompile>
+    <ClCompile Include="..\external\Ratpack\logic.cpp">
+      <Filter>external\Ratpak</Filter>
+    </ClCompile>
+    <ClCompile Include="..\external\Ratpack\num.cpp">
+      <Filter>external\Ratpak</Filter>
+    </ClCompile>
+    <ClCompile Include="..\external\Ratpack\rat.cpp">
+      <Filter>external\Ratpak</Filter>
+    </ClCompile>
+    <ClCompile Include="..\external\Ratpack\support.cpp">
+      <Filter>external\Ratpak</Filter>
+    </ClCompile>
+    <ClCompile Include="..\external\Ratpack\trans.cpp">
+      <Filter>external\Ratpak</Filter>
+    </ClCompile>
+    <ClCompile Include="..\external\Ratpack\transh.cpp">
+      <Filter>external\Ratpak</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\inasm64\assembler.h">
@@ -73,6 +115,15 @@
     </ClInclude>
     <ClInclude Include="..\inasm64\xed_iclass_instruction_set.h">
       <Filter>Source Files\inasm64</Filter>
+    </ClInclude>
+    <ClInclude Include="..\external\Ratpack\CalcErr.h">
+      <Filter>external\Ratpak</Filter>
+    </ClInclude>
+    <ClInclude Include="..\external\Ratpack\ratconst.h">
+      <Filter>external\Ratpak</Filter>
+    </ClInclude>
+    <ClInclude Include="..\external\Ratpack\ratpak.h">
+      <Filter>external\Ratpak</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>

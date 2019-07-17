@@ -33,6 +33,19 @@ namespace inasm64
         // track allocations in process memory
         std::unordered_map<uintptr_t, size_t> _allocations;
 
+        struct instruction_line_info_t
+        {
+            size_t _line;
+            uintptr_t _address;
+            size_t _instruction_size;
+            uint8_t _instruction_bytes[kMaxAssembledInstructionSize];
+        };
+        std::vector<instruction_line_info_t> _loaded_instructions;
+        size_t _instruction_line = 0;
+        size_t _first_instruction_line = 0;
+        size_t _last_instruction_line = 0;
+        size_t _commit_size = 0;
+
         struct
         {
             bool _started : 1;
@@ -40,9 +53,9 @@ namespace inasm64
         } _flags = { 0 };
 
         unsigned char* _scratch_memory = nullptr;
-        unsigned char* _scratch_wp = nullptr;
         size_t _scratch_size = 0;
         unsigned char* _code = nullptr;
+        unsigned char* _code_end = nullptr;
 
         DEBUG_EVENT _dbg_event = { 0 };
         DWORD _continue_status = DBG_CONTINUE;
@@ -136,7 +149,7 @@ namespace inasm64
                                 _process_vm = OpenProcess(PROCESS_VM_OPERATION | PROCESS_VM_READ | PROCESS_VM_WRITE | PROCESS_QUERY_INFORMATION | PROCESS_TERMINATE, FALSE, _processinfo.dwProcessId);
 
                                 _scratch_size = scratchPadSize;
-                                _scratch_memory = _scratch_wp = _code = reinterpret_cast<unsigned char*>(VirtualAllocEx(_process_vm, nullptr, SIZE_T(scratchPadSize), MEM_COMMIT | MEM_RESERVE, PAGE_EXECUTE_READWRITE));
+                                _scratch_memory = _code = _code_end = reinterpret_cast<unsigned char*>(VirtualAllocEx(_process_vm, nullptr, SIZE_T(scratchPadSize), MEM_COMMIT | MEM_RESERVE, PAGE_EXECUTE_READWRITE));
                                 if(_scratch_memory)
                                 {
                                     const auto thread = ActiveThread();
@@ -204,7 +217,7 @@ namespace inasm64
                 TerminateProcess(_process_vm, 1);
                 CloseHandle(_processinfo.hThread);
                 CloseHandle(_processinfo.hProcess);
-                _code = _scratch_memory = _scratch_wp = nullptr;
+                _code = _scratch_memory = nullptr;
                 _scratch_size = 0;
                 free(_active_ctx);
                 _active_ctx = nullptr;
@@ -216,43 +229,119 @@ namespace inasm64
         {
             if(!_flags._started)
                 return;
-
-            _scratch_wp = _code = _scratch_memory;
+            _code = _scratch_memory;
+            //ZZZ: untested
+            _instruction_line = _first_instruction_line = _last_instruction_line = 0;
         }
 
-        bool AddCode(const void* code, size_t size)
+        instruction_index_t AddInstruction(const void* bytes, size_t size)
         {
-            if(!_flags._started)
-                return false;
+            if(!size)
+                return {};
 
-            if(_scratch_size - size_t(_scratch_wp - _scratch_memory) < size)
+            if(_commit_size + size > _scratch_size)
             {
-                detail::set_error(Error::kCodeBufferFull);
-                return false;
+                detail::set_error(Error::kCodeBufferOverflow);
+                return {};
             }
 
-            SIZE_T written;
-            if(WriteProcessMemory(_process_vm, _scratch_wp, code, SIZE_T(size), &written) == TRUE && size_t(written) == size)
+            instruction_line_info_t line;
+            line._line = _instruction_line;
+            memcpy(line._instruction_bytes, bytes, size);
+            line._instruction_size = size;
+            // relative to previous instruction, or just start of code buffer
+            line._address = _instruction_line ? (_loaded_instructions[_instruction_line - 1]._address + _loaded_instructions[_instruction_line - 1]._instruction_size) : uintptr_t(_code);
+            _commit_size += size;
+
+            if(_instruction_line == _last_instruction_line)
             {
-                FlushInstructionCache(_process_vm, _scratch_wp, SIZE_T(size));
-                _scratch_wp += size;
-                return true;
+                _loaded_instructions.emplace_back(std::move(line));
+                _instruction_line = ++_last_instruction_line;
             }
-            detail::set_error(Error::kSystemError);
-            return false;
+            else
+            {
+                const auto instruction_size_delta = int(size) - int(_loaded_instructions[_instruction_line]._instruction_size);
+                _loaded_instructions[_instruction_line] = std::move(line);
+                if(instruction_size_delta)
+                {
+                    // fix up all subsequent instruction addresses if the new instruction is different in size from what it was previously
+                    for(size_t l = _instruction_line + 1ull; l < _last_instruction_line; ++l)
+                    {
+                        _loaded_instructions[l]._address = uintptr_t((long long)(_loaded_instructions[l]._address) + instruction_size_delta);
+                    }
+                }
+                //NOTE: _first_instruction_line is modified by SetInstructionLine
+            }
+            return { line._line, line._address };
         }
 
-        bool Step()
+        bool SetInstructionLine(size_t line)
         {
-            // not started, or no code loaded
-            if(!_flags._started || _scratch_wp == _scratch_memory)
+            if(line > _last_instruction_line)
+                return false;
+            if(line < _first_instruction_line)
+                _first_instruction_line = line;
+            _instruction_line = line;
+            return true;
+        }
+
+        instruction_index_t NextInstructionIndex()
+        {
+            if(_loaded_instructions.empty())
+                return {
+                    0,
+                    uintptr_t(_code)
+                };
+            return {
+                _instruction_line,
+                _loaded_instructions[_instruction_line - 1]._address + _loaded_instructions[_instruction_line - 1]._instruction_size
+            };
+        }
+
+        bool CommmitInstructions()
+        {
+            if(_last_instruction_line == _first_instruction_line)
             {
                 detail::set_error(Error::kNoMoreCode);
                 return false;
             }
 
+            if(!_flags._started)
+            {
+                detail::set_error(Error::kRuntimeUninitialised);
+                return false;
+            }
+
+            for(size_t l = _first_instruction_line; l < _last_instruction_line; ++l)
+            {
+                SIZE_T written;
+                if(WriteProcessMemory(_process_vm, LPVOID(_loaded_instructions[l]._address),
+                       _loaded_instructions[l]._instruction_bytes,
+                       SIZE_T(_loaded_instructions[l]._instruction_size), &written) == TRUE &&
+                    size_t(written) != _loaded_instructions[l]._instruction_size)
+                {
+                    detail::set_error(Error::kSystemError);
+                    return false;
+                }
+            }
+            _instruction_line = _first_instruction_line = _last_instruction_line;
+            if(_loaded_instructions[_last_instruction_line]._address >= uintptr_t(_code_end))
+                _code_end = reinterpret_cast<unsigned char*>(_loaded_instructions[_last_instruction_line]._address + _loaded_instructions[_last_instruction_line]._instruction_size);
+            _commit_size = 0;
+            return true;
+        }
+
+        bool Step()
+        {
+            // not started
+            if(!_flags._started)
+            {
+                detail::set_error(Error::kRuntimeUninitialised);
+                return false;
+            }
+
             // no more code to execute
-            if(_code == _scratch_wp)
+            if(_code == _code_end)
             {
                 detail::set_error(Error::kNoMoreCode);
                 return false;
@@ -358,14 +447,9 @@ namespace inasm64
             return _code;
         }
 
-        const void* InstructionWriteAddress()
-        {
-            return _scratch_wp;
-        }
-
         bool SetNextInstruction(const void* at)
         {
-            if(!_flags._started || (at < _scratch_memory || at >= _scratch_wp))
+            if(!_flags._started || (at < _scratch_memory || at >= _code_end))
             {
                 detail::set_error(Error::kInvalidAddress);
                 return false;

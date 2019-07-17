@@ -25,6 +25,15 @@ namespace inasm64
             return false;
         }
 
+        bool starts_with_decimal_integer(const char* at)
+        {
+            if(!at[0])
+                return false;
+            while(at[0] && isdigit(at[0]))
+                ++at;
+            return !at[0] || at[0] == ' ';
+        }
+
         bool starts_with_hex_number(const char* at, const char** first)
         {
             if(first)
@@ -42,7 +51,7 @@ namespace inasm64
                     return false;
                 ++at;
             } while(at[0] && at[0] != 'h');
-            return true;
+            return at[0];
         }
 
         const char* next_word_or_number(const char* str)
@@ -123,6 +132,8 @@ namespace inasm64
             return "invalid or unrecognized command format";
         case Error::kNoMoreCode:
             return "no more code to execute";
+        case Error::kCodeBufferOverflow:
+            return "no more room for code";
         case Error::kUnrecognizedRegisterName:
             return "unrecognized register name";
         case Error::kInvalidInstructionFormat:
