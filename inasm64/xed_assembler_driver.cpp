@@ -250,16 +250,15 @@ namespace inasm64
             {
                 if(!build_xed_op(0, statement._op1._type, statement._op1._width_bits, statement._op1))
                     return 0;
-
-                if(statement._operand_count == 2)
+                if(statement._operand_count >= 2)
                 {
                     if(!build_xed_op(1, statement._op2._type, statement._op2._width_bits, statement._op2))
                         return 0;
-                }
-                else if(statement._operand_count > 3)
-                {
-                    detail::set_error(Error::UnsupportedInstructionFormat);
-                    return 0;
+                    if(statement._operand_count == 3)
+                    {
+                        if(!build_xed_op(2, statement._op3._type, statement._op3._width_bits, statement._op3))
+                            return 0;
+                    }
                 }
             }
 

@@ -622,7 +622,7 @@ int main(int argc, char* argv[])
         };
 
         cli::OnFindInstruction = [](const std::vector<const char*>& instructions) {
-            std::cout << "there are " << instructions.size() << " instruction matches:\n";
+            std::cout << "\nthere are " << instructions.size() << " instruction matches:\n";
             int n = 1;
             for(const auto instr : instructions)
             {
@@ -649,11 +649,14 @@ int main(int argc, char* argv[])
             input_start_cursor_x = console::GetCursorX();
             console::ReadLine(input, clear_next_input_on_key);
 
-            if(!cli::Execute(input.c_str()) && cli::ActiveMode() != cli::Mode::Assembling)
+            if(!cli::Execute(input.c_str()))
             {
-                to_right_column();
-                std::cerr << console::red << inasm64::ErrorMessage(inasm64::GetError()) << console::reset_colours;
-                console::SetCursorX(0);
+                if(cli::ActiveMode() != cli::Mode::Assembling)
+                {
+                    to_right_column();
+                    std::cerr << console::red << inasm64::ErrorMessage(inasm64::GetError()) << console::reset_colours;
+                    console::SetCursorX(0);
+                }
                 clear_next_input_on_key = true;
             }
             else

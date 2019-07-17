@@ -423,19 +423,10 @@ namespace inasm64
             auto result = false;
 
             Statement statement;
-            TokenisedOperand op1;
-            TokenisedOperand op2;
-
             memset(&statement, 0, sizeof(statement));
             std::vector<char*> part[3];
             if(Tokenise(assembly, part, 3, statement._input_tokens))
             {
-                if(!part[2].empty())
-                {
-                    //ZZZ: not supported yet
-                    detail::set_error(Error::UnsupportedInstructionFormat);
-                    return false;
-                }
                 result = true;
 
                 // check for prefixes
@@ -491,6 +482,10 @@ namespace inasm64
                         return 0;
                     };
 
+                    TokenisedOperand op1;
+                    TokenisedOperand op2;
+                    TokenisedOperand op3;
+
                     // instruction
                     statement._operand_count = 0;
                     statement._instruction = part[0][tl++];
@@ -517,13 +512,25 @@ namespace inasm64
                                 statement._operand_count = 2;
                             }
 
+                            if(result && !part[2].empty())
+                            {
+                                tl = 0;
+                                statement._op3._width_bits = check_operand_bit_size_prefix(part[2]);
+                                result = TokeniseOperand(part[2][tl], op3);
+                                // sanity check; if for example the input has whitespace between the segment register and the :, the segment register would be misread as base.
+                                result = result && (op3._base[0] || op3._displacement[0] || (op3._reg_imm[0] && part[2].size() == 1));
+                                statement._operand_count = 3;
+                            }
+
                             if(result)
                             {
+#define INASM64_ASM_STATEMENT_TYPE(N) \
+    statement._op##N._type = op1._reg_imm[0] ? (isalpha(op##N._reg_imm[0]) ? Statement::kReg : Statement::kImm) : Statement::kMem
+
                                 // simple heuristic for each operand (the assembler driver will have the final say in verifying this)
-                                statement._op1._type = op1._reg_imm[0] ? (isalpha(op1._reg_imm[0]) ? Statement::kReg : Statement::kImm)
-                                                                       : Statement::kMem;
-                                statement._op2._type = op2._reg_imm[0] ? (isalpha(op2._reg_imm[0]) ? Statement::kReg : Statement::kImm)
-                                                                       : Statement::kMem;
+                                INASM64_ASM_STATEMENT_TYPE(1);
+                                INASM64_ASM_STATEMENT_TYPE(2);
+                                INASM64_ASM_STATEMENT_TYPE(3);
 
                                 const auto setup_statement = [](char type, Statement::operand& op, const TokenisedOperand& op_info) -> short {
                                     //NOTE: we can safely pass pointers to op_info fields around here, they'll never leave the scope of the parent function and it's descendants
@@ -569,13 +576,21 @@ namespace inasm64
                                 };
 
                                 statement._op1._width_bits = std::max<short>(setup_statement(statement._op1._type, statement._op1, op1), statement._op1._width_bits);
-                                if(statement._operand_count == 2)
+                                if(statement._operand_count >= 2)
                                 {
                                     statement._op2._width_bits = std::max<short>(setup_statement(statement._op2._type, statement._op2, op2), statement._op2._width_bits);
                                     if(statement._op2._type == Statement::kMem && statement._op2._width_bits != statement._op1._width_bits)
                                     {
                                         // implicit override by reg size, we don't require a ptr modifier
                                         statement._op2._width_bits = statement._op1._width_bits;
+                                    }
+                                    if(statement._operand_count == 3)
+                                    {
+                                        statement._op3._width_bits = std::max<short>(setup_statement(statement._op3._type, statement._op3, op3), statement._op3._width_bits);
+                                        if(statement._op3._type == Statement::kMem && statement._op3._width_bits != statement._op1._width_bits)
+                                        {
+                                            statement._op3._width_bits = statement._op1._width_bits;
+                                        }
                                     }
                                 }
                             }
