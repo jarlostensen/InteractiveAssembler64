@@ -45,6 +45,16 @@ namespace inasm64
     namespace detail
     {
         void set_error(Error error);
+
+        enum class number_format_t
+        {
+            kBinary,
+            kDecimal,
+            kHexadecimal,
+            kUnknown
+        };
+        number_format_t starts_with_integer(const char* str, const char** first = nullptr);
+
         // converts valid 0x or h representations, as well as whatever stroll supports
         // does not modify value if str is not a valid number
         bool str_to_ll(const char* str, long long& value);

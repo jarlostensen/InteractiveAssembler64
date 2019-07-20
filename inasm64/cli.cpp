@@ -42,6 +42,7 @@ namespace inasm64
         std::function<void(const help_texts_t&)> OnHelp;
         std::function<void(DataType, const void*, size_t)> OnDisplayData;
         std::function<void(const std::vector<const char*>&)> OnFindInstruction;
+        std::function<bool(const char*)> OnUnknownCommand;
 
         namespace
         {
@@ -219,7 +220,13 @@ namespace inasm64
                 }
 
                 if(!handled)
-                    detail::set_error(Error::kCliUnknownCommand);
+                {
+                    if(OnUnknownCommand)
+                        handled = OnUnknownCommand(cmd1Line);
+
+                    if(!handled)
+                        detail::set_error(Error::kCliUnknownCommand);
+                }
 
                 return handled && GetError() == Error::kNoError;
             }
@@ -227,50 +234,50 @@ namespace inasm64
             bool read_number_string(const char* str, std::vector<uint8_t>& bytes)
             {
                 const auto str_len = strlen(str);
-                static const char* formats[2] = { "%02x", "%2hhu" };
                 auto rp = str;
-                const auto base = detail::starts_with_hex_number(str, &rp) ? 0 : 1;
-                if(base)
+                const auto format = detail::starts_with_integer(str, &rp);
+                if(format == detail::number_format_t::kUnknown)
+                    return false;
+                uint32_t radix = 0;
+                switch(format)
                 {
-                    // using Microsoft ratpak for the parsing and conversion of large decimal numbers to hex
-
-                    if(!detail::starts_with_decimal_integer(str))
-                        return false;
-                    auto bnumber = StringToNumber(str, 10, 128);
-                    if(!bnumber)
-                        return false;
-                    auto cnumber = numtonRadixx(bnumber, 10);
-                    auto dnumber = nRadixxtonum(cnumber, 16, 128);
-
-                    // pack digits into bytes
-                    uint8_t nd = 0;
-                    for(auto d = 0; d < dnumber->cdigit; ++d)
+                case detail::number_format_t::kBinary:
+                    radix = 2;
+                    break;
+                case detail::number_format_t::kDecimal:
+                    radix = 10;
+                    break;
+                case detail::number_format_t::kHexadecimal:
+                    radix = 16;
+                    break;
+                }
+                /*RATPAK*/ ChangeConstants(radix, 128);
+                auto anumber = /*RATPAK*/ StringToNumber(rp, radix, 128);
+                if(!anumber)
+                    return false;
+                /*RATPAK*/ PNUMBER number_base_16 = anumber;
+                if(radix != 16)
+                {
+                    // always convert to base 16 internally
+                    number_base_16 = /*RATPAK*/ nRadixxtonum(/*RATPAK*/ numtonRadixx(anumber, radix), 16, 128);
+                }
+                // now pack digits into bytes
+                uint8_t nd = 0;
+                for(auto d = 0; d < number_base_16->cdigit; ++d)
+                {
+                    if(d & 1)
                     {
-                        if(d & 1)
-                        {
-                            nd |= uint8_t((dnumber->mant[d] & 0xf)) << 4;
-                            bytes.push_back(nd);
-                            nd = 0;
-                        }
-                        else
-                        {
-                            nd |= uint8_t((dnumber->mant[d] & 0xf));
-                        }
-                    }
-                    if(nd)
+                        nd |= uint8_t((number_base_16->mant[d] & 0xf)) << 4;
                         bytes.push_back(nd);
-                }
-                else
-                {
-                    while(rp[0])
+                        nd = 0;
+                    }
+                    else
                     {
-                        long next_byte = 0;
-                        if(!sscanf_s(rp, formats[base], &next_byte))
-                            return false;
-                        bytes.push_back(uint8_t(next_byte));
-                        rp += 2;
+                        nd |= uint8_t((number_base_16->mant[d] & 0xf));
                     }
                 }
+                if(nd)
+                    bytes.push_back(nd);
                 return true;
             }
 
@@ -301,6 +308,7 @@ namespace inasm64
                         char* next = nullptr;
                         long long value;
                         size_t byte_count = 0;
+                        size_t required_bytes = 0;
 
                         switch(type)
                         {
@@ -327,39 +335,24 @@ namespace inasm64
                         }
                         break;
                         case DataType::kXmmWord:
-                        {
-                            if(read_number_string(rp, bytes) && bytes.size() <= 16)
-                            {
-                                result = true;
-                                const auto ullage = 16 - bytes.size();
-                                if(ullage)
-                                    for(unsigned b = 0; b < ullage; ++b)
-                                        bytes.push_back(0);
-                            }
-                        }
-                        break;
+                            required_bytes = 16;
+                            break;
                         case DataType::kYmmWord:
-                        {
-                            if(read_number_string(rp, bytes) && bytes.size() <= 32)
-                            {
-                                result = true;
-                                const auto ullage = 32 - bytes.size();
-                                if(ullage)
-                                    for(unsigned b = 0; b < ullage; ++b)
-                                        bytes.push_back(0);
-                            }
-                        }
-                        break;
-                        default:
-                        {
-                            value = strtoll(rp, &next, 0);
-                            if(!errno)
-                            {
-                                byte_count = static_cast<unsigned>(type);
-                                result = true;
-                            }
-                        }
-                        break;
+                            required_bytes = 32;
+                            break;
+                        case DataType::kByte:
+                            required_bytes = 1;
+                            break;
+                        case DataType::kWord:
+                            required_bytes = 2;
+                            break;
+                        case DataType::kDWord:
+                            required_bytes = 4;
+                            break;
+                        case DataType::kQWord:
+                            required_bytes = 8;
+                            break;
+                        default:;
                         }
 
                         if(byte_count)
@@ -370,16 +363,30 @@ namespace inasm64
                                 bytes.push_back(*value_bytes++);
                             }
                             rp = next;
-
-                            // move on to the next value
-                            while((rp[0] || rp[1]) && !isalpha(int(rp[0])) && !isdigit(int(rp[0])) && rp[0] != '-' && rp[0] != '+')
-                            {
-                                ++rp;
-                            }
                         }
-                        else
-                            // done here
-                            break;
+                        else if(required_bytes)
+                        {
+                            if(read_number_string(rp, bytes))
+                            {
+                                result = true;
+                                if(bytes.size() < required_bytes)
+                                {
+                                    auto ullage = required_bytes - bytes.size();
+                                    while(ullage--)
+                                        bytes.push_back(0);
+                                }
+                            }
+                            while(rp[0] && rp[0] != ',')
+                                ++rp;
+                            if(rp[0])
+                                ++rp;
+                        }
+
+                        // move on to the next value
+                        while((rp[0] || rp[1]) && !isalpha(int(rp[0])) && !isdigit(int(rp[0])) && rp[0] != '-' && rp[0] != '+')
+                        {
+                            ++rp;
+                        }
                     }
                 }
 
@@ -387,7 +394,7 @@ namespace inasm64
                     detail::set_error(Error::kInvalidInputValueFormat);
 
                 return result;
-            }
+            }  // namespace
 
             // return data type for a d[b|w|d|q|x|y|fs|fd...] command
             DataType command_data_type(const char* dcmd)
@@ -473,14 +480,13 @@ namespace inasm64
 
             void register_handler(const char* cmd, char* params)
             {
-                const auto set_or_display_reg = [&params](RegisterInfo::RegClass klass, DataType type) {
-                    const auto reg_info = GetRegisterInfo(params);
-                    if(!reg_info || reg_info._class != klass)
-                    {
-                        detail::set_error(Error::kInvalidRegisterName);
-                        return;
-                    }
-
+                const auto reg_info = GetRegisterInfo(params);
+                if(!reg_info)
+                {
+                    detail::set_error(Error::kInvalidRegisterName);
+                    return;
+                }
+                const auto set_or_display_reg = [&reg_info, &params](DataType type) {
                     detail::simple_tokens_t tokens = detail::simple_tokenise(params, 3);
                     // rX xmmN
                     if(tokens._num_tokens == 1)
@@ -493,38 +499,24 @@ namespace inasm64
                     // set: rX xmmN value
                     // OR
                     // display as format: rX xmmN d[b|w...]
-                    else if(tokens._num_tokens == 2)
+                    else if(tokens._num_tokens >= 2)
                     {
                         DataType cmd_type = command_data_type(params + tokens._token_idx[1]);
                         if(cmd_type == DataType::kUnknown)
-                        {
-                            std::vector<uint8_t> data;
-                            if(parse_values(type, params + tokens._token_idx[1], data))
-                            {
-                                runtime::SetReg(reg_info, data.data(), data.size());
-                                cmd_type = DataType::kXmmWord;
-                            }
-                        }
-                        if(cmd_type != DataType::kUnknown)
-                            OnDisplayRegister(cmd_type, reg_info);
-                    }
-                    // set: rX xmmN d[b|w|...] value
-                    else if(tokens._num_tokens == 3)
-                    {
-                        const DataType cmd_type = command_data_type(params + tokens._token_idx[1]);
-                        if(cmd_type != DataType::kUnknown)
+                            cmd_type = type;
+                        if(tokens._num_tokens == 3)
                         {
                             std::vector<uint8_t> data;
                             if(parse_values(cmd_type, params + tokens._token_idx[2], data))
                             {
                                 runtime::SetReg(reg_info, data.data(), data.size());
-                                OnDisplayRegister(cmd_type, reg_info);
                             }
                         }
-                        else
-                        {
-                            detail::set_error(Error::kInvalidCommandFormat);
-                        }
+                        OnDisplayRegister(cmd_type, reg_info);
+                    }
+                    else
+                    {
+                        detail::set_error(Error::kInvalidCommandFormat);
                     }
                 };
 
@@ -539,7 +531,7 @@ namespace inasm64
                     }
                     else
                     {
-                        set_or_display_reg(RegisterInfo::RegClass::kXmm, DataType::kXmmWord);
+                        set_or_display_reg(DataType::kXmmWord);
                     }
                 }
                 break;
@@ -551,7 +543,7 @@ namespace inasm64
                     }
                     else
                     {
-                        set_or_display_reg(RegisterInfo::RegClass::kYmm, DataType::kYmmWord);
+                        set_or_display_reg(DataType::kYmmWord);
                     }
                     break;
                 case 'Z':
@@ -563,7 +555,7 @@ namespace inasm64
                     }
                     else*/
                     {
-                        set_or_display_reg(RegisterInfo::RegClass::kZmm, DataType::kZmmWord);
+                        set_or_display_reg(DataType::kZmmWord);
                     }
                     break;
                 case 0:
@@ -574,40 +566,7 @@ namespace inasm64
                     }
                     else
                     {
-                        const auto reg_info = GetRegisterInfo(params);
-                        if(!reg_info)
-                        {
-                            detail::set_error(Error::kInvalidRegisterName);
-                            return;
-                        }
-                        detail::simple_tokens_t tokens = detail::simple_tokenise(params, 3);
-                        // r rax
-                        if(tokens._num_tokens == 1)
-                        {
-                            OnDisplayRegister(BitWidthToIntegerDataType(reg_info._bit_width), reg_info);
-                        }
-                        // r rax value OR r rax d[b|w...]
-                        else if(tokens._num_tokens == 2)
-                        {
-                            const DataType cmd_type = command_data_type(params + tokens._token_idx[1]);
-                            if(cmd_type == DataType::kUnknown)
-                            {
-                                long long value;
-                                if(detail::str_to_ll(params + tokens._token_idx[1], value) && runtime::SetReg(reg_info, &value, reg_info._bit_width / 8))
-                                {
-                                    if(OnSetGPRegister)
-                                    {
-                                        // tidy up, in case there's gunk hanging off the end
-                                        (params + tokens._token_end_idx[0])[0] = 0;
-                                        OnSetGPRegister(params, value);
-                                    }
-                                }
-                            }
-                            else
-                            {
-                                OnDisplayRegister(cmd_type, reg_info);
-                            }
-                        }
+                        set_or_display_reg(BitWidthToIntegerDataType(reg_info._bit_width));
                     }
                 default:;
                 }

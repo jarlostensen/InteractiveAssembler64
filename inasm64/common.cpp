@@ -25,6 +25,33 @@ namespace inasm64
             return false;
         }
 
+        number_format_t starts_with_integer(const char* at, const char** first)
+        {
+            if(!at[0])
+                return number_format_t::kUnknown;
+            if(at[0] == '0')
+            {
+                if(at[1] == 'x' || at[1] == 'b')
+                {
+                    at += 2;
+                    if(first)
+                        *first = at;
+                }
+                // 0xabcde....
+                if(at[-1] == 'x')
+                {
+                    return isdigit(at[0]) || (at[0] >= 'a' && at[0] <= 'f') ? number_format_t::kHexadecimal : number_format_t::kUnknown;
+                }
+                // 0b10110011...
+                else if(at[-1] == 'b')
+                {
+                    return (at[0] == '1' || at[0] == '0') ? number_format_t::kBinary : number_format_t::kUnknown;
+                }
+            }
+            // pure decimal integer of at least one digit
+            return isdigit(at[0]) ? number_format_t::kDecimal : number_format_t::kUnknown;
+        }
+
         bool starts_with_decimal_integer(const char* at)
         {
             if(!at[0])
@@ -45,13 +72,7 @@ namespace inasm64
                     *first = at;
                 return isdigit(at[0]) || (at[0] >= 'a' && at[0] <= 'f');
             }
-            do
-            {
-                if(!isdigit(at[0]) && (at[0] < 'a' || at[0] > 'f'))
-                    return false;
-                ++at;
-            } while(at[0] && at[0] != 'h');
-            return at[0];
+            return false;
         }
 
         const char* next_word_or_number(const char* str)

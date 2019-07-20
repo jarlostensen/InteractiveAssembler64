@@ -146,5 +146,7 @@ namespace inasm64
         // invoked on instruction find with the list of prefix-matching instructions supported by the driver
         extern std::function<void(const std::vector<const char*>&)> OnFindInstruction;
 
+        extern std::function<bool(const char*)> OnUnknownCommand;
+
     }  // namespace cli
 }  // namespace inasm64
