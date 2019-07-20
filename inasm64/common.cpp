@@ -25,7 +25,7 @@ namespace inasm64
             return false;
         }
 
-        number_format_t starts_with_integer(const char* at, const char** first)
+        number_format_t starts_with_integer(char* at, char** first)
         {
             if(!at[0])
                 return number_format_t::kUnknown;

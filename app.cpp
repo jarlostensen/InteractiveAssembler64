@@ -365,7 +365,7 @@ void DisplayMemoryAsType(inasm64::cli::DataType type, const char* memory, size_t
         }
         break;
         }
-        if(c < (size - 1))
+        if(c < size)
             std::cout << ", ";
     }
 }

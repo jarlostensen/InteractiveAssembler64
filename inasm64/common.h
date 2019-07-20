@@ -53,7 +53,7 @@ namespace inasm64
             kHexadecimal,
             kUnknown
         };
-        number_format_t starts_with_integer(const char* str, const char** first = nullptr);
+        number_format_t starts_with_integer(char* str, char** first = nullptr);
 
         // converts valid 0x or h representations, as well as whatever stroll supports
         // does not modify value if str is not a valid number

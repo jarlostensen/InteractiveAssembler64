@@ -231,7 +231,10 @@ namespace inasm64
                 return handled && GetError() == Error::kNoError;
             }
 
-            bool read_number_string(const char* str, std::vector<uint8_t>& bytes)
+            // read a number in 0x, 0b, or decimal format at str
+            // reads number up until end of string, whitespace, or ,
+            // next is next character after number, past whitespace or , , or nullptr if end of string
+            bool read_number_string(char* str, std::vector<uint8_t>& bytes, char** next)
             {
                 const auto str_len = strlen(str);
                 auto rp = str;
@@ -251,33 +254,69 @@ namespace inasm64
                     radix = 16;
                     break;
                 }
+
+                const auto str_segment = reinterpret_cast<char*>(_malloca(strlen(str) + 1));
+                auto n = 0;
+                while(rp[n] && (rp[n] != ' ' && rp[n] != ','))
+                {
+                    str_segment[n] = rp[n];
+                    ++n;
+                }
+                str_segment[n] = 0;
+                *next = (rp[n] ? rp + n + 1 : nullptr);
+
                 /*RATPAK*/ ChangeConstants(radix, 128);
-                auto anumber = /*RATPAK*/ StringToNumber(rp, radix, 128);
+                auto anumber = /*RATPAK*/ StringToNumber(str_segment, radix, 128);
+                _freea(str_segment);
+
                 if(!anumber)
                     return false;
                 /*RATPAK*/ PNUMBER number_base_16 = anumber;
                 if(radix != 16)
                 {
                     // always convert to base 16 internally
-                    number_base_16 = /*RATPAK*/ nRadixxtonum(/*RATPAK*/ numtonRadixx(anumber, radix), 16, 128);
+                    auto bnumber = /*RATPAK*/ numtonRadixx(anumber, radix);
+                    number_base_16 = /*RATPAK*/ nRadixxtonum(bnumber, 16, 128);
+                    destroynum(anumber);
+                    destroynum(bnumber);
                 }
-                // now pack digits into bytes
+
+                // now pack digits into bytes, adding exponent first as low bytes
+                auto zeros = number_base_16->exp;
+                while(zeros > 1)
+                {
+                    bytes.push_back(0);
+                    // nibbles
+                    zeros -= 2;
+                }
+                auto mant = number_base_16->mant;
+                auto cdigit = number_base_16->cdigit;
+                if(zeros)
+                {
+                    // remaining bytes will effectively be shifted up by 4 bits to account for this zero
+                    bytes.push_back((*mant++ & 0xff) << 4);
+                    --cdigit;
+                }
+
                 uint8_t nd = 0;
-                for(auto d = 0; d < number_base_16->cdigit; ++d)
+                for(auto d = 0; d < cdigit; ++d)
                 {
                     if(d & 1)
                     {
-                        nd |= uint8_t((number_base_16->mant[d] & 0xf)) << 4;
+                        nd |= uint8_t((mant[d] & 0xf)) << 4;
                         bytes.push_back(nd);
                         nd = 0;
                     }
                     else
                     {
-                        nd |= uint8_t((number_base_16->mant[d] & 0xf));
+                        nd |= uint8_t((mant[d] & 0xf));
                     }
                 }
                 if(nd)
                     bytes.push_back(nd);
+
+                destroynum(number_base_16);
+
                 return true;
             }
 
@@ -286,12 +325,49 @@ namespace inasm64
             // 42,44,45,...
             //
             // assumes line has no leading whitespace and is 00-terminated
-            bool parse_values(DataType type, const char* line, std::vector<uint8_t>& bytes)
+            bool parse_values(DataType type, char* line, std::vector<uint8_t>& bytes)
             {
-                auto result = false;
-                auto rp = line;
-                while(rp[0] || rp[1])
+                size_t required_bytes = 0;
+
+                switch(type)
                 {
+                case DataType::kFloat32:
+                    required_bytes = 4;
+                    break;
+                case DataType::kFloat64:
+                    required_bytes = 8;
+                    break;
+                case DataType::kXmmWord:
+                    required_bytes = 16;
+                    break;
+                case DataType::kYmmWord:
+                    required_bytes = 32;
+                    break;
+                case DataType::kByte:
+                    required_bytes = 1;
+                    break;
+                case DataType::kWord:
+                    required_bytes = 2;
+                    break;
+                case DataType::kDWord:
+                    required_bytes = 4;
+                    break;
+                case DataType::kQWord:
+                    required_bytes = 8;
+                    break;
+                default:;
+                }
+
+                if(!required_bytes)
+                    return false;
+
+                auto result = true;
+                auto rp = line;
+                while(rp && (rp[0] || rp[1]))
+                {
+                    // used to check that we read <= the required number of bytes in each chunk
+                    auto prev_size = bytes.size();
+
                     if(rp[0] == '"')
                     {
                         // read string, always interpreted as 8 bit bytes
@@ -303,90 +379,25 @@ namespace inasm64
                         if(rp[0] == '"')
                             ++rp;
                     }
-                    else
+                    else if(read_number_string(rp, bytes, &rp) && (bytes.size() - prev_size) <= required_bytes)
                     {
-                        char* next = nullptr;
-                        long long value;
-                        size_t byte_count = 0;
-                        size_t required_bytes = 0;
-
-                        switch(type)
+                        if(bytes.size() < required_bytes)
                         {
-                        case DataType::kFloat32:
-                        {
-                            float fval = std::strtof(rp, &next);
-                            if(!errno)
-                            {
-                                memcpy(&value, &fval, 4);
-                                byte_count = 4;
-                                result = true;
-                            }
+                            // pad
+                            auto ullage = required_bytes - bytes.size();
+                            while(ullage--)
+                                bytes.push_back(0);
                         }
-                        break;
-                        case DataType::kFloat64:
-                        {
-                            double dval = std::strtod(rp, &next);
-                            if(!errno)
-                            {
-                                memcpy(&value, &dval, 8);
-                                byte_count = 8;
-                                result = true;
-                            }
-                        }
-                        break;
-                        case DataType::kXmmWord:
-                            required_bytes = 16;
-                            break;
-                        case DataType::kYmmWord:
-                            required_bytes = 32;
-                            break;
-                        case DataType::kByte:
-                            required_bytes = 1;
-                            break;
-                        case DataType::kWord:
-                            required_bytes = 2;
-                            break;
-                        case DataType::kDWord:
-                            required_bytes = 4;
-                            break;
-                        case DataType::kQWord:
-                            required_bytes = 8;
-                            break;
-                        default:;
-                        }
-
-                        if(byte_count)
-                        {
-                            auto value_bytes = reinterpret_cast<const uint8_t*>(&value);
-                            for(unsigned n = 0; n < byte_count; ++n)
-                            {
-                                bytes.push_back(*value_bytes++);
-                            }
-                            rp = next;
-                        }
-                        else if(required_bytes)
-                        {
-                            if(read_number_string(rp, bytes))
-                            {
-                                result = true;
-                                if(bytes.size() < required_bytes)
-                                {
-                                    auto ullage = required_bytes - bytes.size();
-                                    while(ullage--)
-                                        bytes.push_back(0);
-                                }
-                            }
-                            while(rp[0] && rp[0] != ',')
-                                ++rp;
-                            if(rp[0])
-                                ++rp;
-                        }
-
                         // move on to the next value
-                        while((rp[0] || rp[1]) && !isalpha(int(rp[0])) && !isdigit(int(rp[0])) && rp[0] != '-' && rp[0] != '+')
+                        while(rp && (rp[0] || rp[1]) && !isalpha(int(rp[0])) && !isdigit(int(rp[0])) && rp[0] != '-' && rp[0] != '+')
                         {
                             ++rp;
                         }
+                    }
+                    else
+                    {
+                        result = false;
+                        break;
                     }
                 }
 
@@ -444,7 +455,7 @@ namespace inasm64
                 return type;
             }
 
-            void parse_data_type_values(const char* cmd, const char* value_str, std::vector<uint8_t>& data)
+            void parse_data_type_values(const char* cmd, char* value_str, std::vector<uint8_t>& data)
             {
                 DataType type = command_data_type(cmd);
                 if(type == DataType::kUnknown)
@@ -456,7 +467,7 @@ namespace inasm64
             }
 
             // command handlers
-            void data_value_handler(const char* argname, const char* cmd, const char* params)
+            void data_value_handler(const char* argname, const char* cmd, char* params)
             {
                 std::vector<uint8_t> data;
                 parse_data_type_values(cmd, params, data);
@@ -488,26 +499,40 @@ namespace inasm64
                 }
                 const auto set_or_display_reg = [&reg_info, &params](DataType type) {
                     detail::simple_tokens_t tokens = detail::simple_tokenise(params, 3);
-                    // rX xmmN
+                    // display using natural register format: rX xmmN
                     if(tokens._num_tokens == 1)
                     {
                         if(OnDisplayRegister)
-                        {
                             OnDisplayRegister(type, reg_info);
-                        }
                     }
-                    // set: rX xmmN value
-                    // OR
-                    // display as format: rX xmmN d[b|w...]
                     else if(tokens._num_tokens >= 2)
                     {
+                        // set: rX xmmN value
+                        // OR
+                        // set: rX xmmN d[b|w...] values
+                        // OR
+                        // display: rX xmmN d[b|w...]
+                        auto set = true;
                         DataType cmd_type = command_data_type(params + tokens._token_idx[1]);
                         if(cmd_type == DataType::kUnknown)
-                            cmd_type = type;
-                        if(tokens._num_tokens == 3)
+                        {
+                            // set: rX xmmN value
+                            cmd_type = BitWidthToIntegerDataType(reg_info._bit_width);
+                            if(tokens._num_tokens > 2)
+                            {
+                                detail::set_error(Error::kInvalidCommandFormat);
+                                return;
+                            }
+                        }
+                        else if(tokens._num_tokens == 2)
+                        {
+                            // display: rX xmmN d[b|w...]
+                            set = false;
+                        }
+                        if(set)
                         {
                             std::vector<uint8_t> data;
-                            if(parse_values(cmd_type, params + tokens._token_idx[2], data))
+                            if(parse_values(cmd_type, params + tokens._token_idx[tokens._num_tokens > 2 ? 2 : 1], data))
                             {
                                 runtime::SetReg(reg_info, data.data(), data.size());
                             }
