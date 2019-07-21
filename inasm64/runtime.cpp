@@ -1,3 +1,16 @@
+// MIT License
+// Copyright 2019 Jarl Ostensen
+// Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction,
+// including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
+// The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
+//
+// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
+// IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+//
+
+// ===================================================================================================================
+// At the heart of the runtime is a debugger using the Windows Debug APIs, and remote process memory management
+// Also handles register context mapping
 
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
@@ -66,7 +79,7 @@ namespace inasm64
         bool _ctx_changed = false;
         ExecutionContext _rt_context = { 0 };
 
-        bool LoadContext(HANDLE thread)
+        bool load_context(HANDLE thread)
         {
             if(!_active_ctx)
             {
@@ -89,20 +102,20 @@ namespace inasm64
             return GetThreadContext(thread, _active_ctx) == TRUE;
         }
 
-        void SetNexInstructionAddress(LPCVOID at)
+        void set_next_instruction_address(LPCVOID at)
         {
             _active_ctx->Rip = DWORD_PTR(at);
             _ctx_changed = true;
         }
 
-        void EnableTrapFlag()
+        void enable_trap_flag()
         {
             // set trap flag for next instr.
             _active_ctx->EFlags |= 0x100;
             _ctx_changed = true;
         }
 
-        HANDLE ActiveThread()
+        HANDLE active_thread()
         {
             return OpenThread(THREAD_GET_CONTEXT | THREAD_SET_CONTEXT, FALSE, _dbg_event.dwThreadId);
         }
@@ -152,14 +165,14 @@ namespace inasm64
                                 _scratch_memory = _code = _code_end = reinterpret_cast<unsigned char*>(VirtualAllocEx(_process_vm, nullptr, SIZE_T(scratchPadSize), MEM_COMMIT | MEM_RESERVE, PAGE_EXECUTE_READWRITE));
                                 if(_scratch_memory)
                                 {
-                                    const auto thread = ActiveThread();
+                                    const auto thread = active_thread();
 
                                     // set the trap flag so that the first instruction in the code scratch area will be intercepted when it executes
-                                    if(LoadContext(thread))
+                                    if(load_context(thread))
                                     {
                                         // set the next instruction to the beginning of the code scratch area (expecting it will be filled with valid code by someone calling AddCode shortly)
-                                        SetNexInstructionAddress(_code);
-                                        EnableTrapFlag();
+                                        set_next_instruction_address(_code);
+                                        enable_trap_flag();
                                         SetThreadContext(thread, _active_ctx);
                                         _ctx_changed = false;
                                     }
@@ -350,7 +363,7 @@ namespace inasm64
             if(_ctx_changed)
             {
                 // update thread context before we execute, if there are changes
-                SetThreadContext(ActiveThread(), _active_ctx);
+                SetThreadContext(active_thread(), _active_ctx);
                 _ctx_changed = false;
             }
 
@@ -375,7 +388,7 @@ namespace inasm64
                     // the ones we care about
                     case EXCEPTION_SINGLE_STEP:
                     {
-                        const auto thread = ActiveThread();
+                        const auto thread = active_thread();
                         if(!thread)
                         {
                             detail::set_error(Error::kSystemError);
@@ -394,9 +407,9 @@ namespace inasm64
                         _code = next_instr;
 
                         // refresh the context and re-set the trap flag
-                        if(LoadContext(thread))
+                        if(load_context(thread))
                         {
-                            EnableTrapFlag();
+                            enable_trap_flag();
                             SetThreadContext(thread, _active_ctx);
                         }
 
@@ -455,10 +468,10 @@ namespace inasm64
                 return false;
             }
 
-            const auto thread = ActiveThread();
+            const auto thread = active_thread();
             if(thread)
             {
-                SetNexInstructionAddress(at);
+                set_next_instruction_address(at);
                 SetThreadContext(thread, _active_ctx);
                 _code = reinterpret_cast<unsigned char*>(_active_ctx->Rip);
                 _ctx_changed = false;

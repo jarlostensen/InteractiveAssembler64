@@ -1,3 +1,18 @@
+// MIT License
+// Copyright 2019 Jarl Ostensen
+// Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction,
+// including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
+// The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
+//
+// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
+// IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+//
+
+// ========================================================================================================================
+// CLI Command Line Interface
+// Handles commands that drive the runtime and assembler.
+// The code in this file is mostly dealing with parsing and error checking of commands, delegating the generation of code, single stepping, and display output to others (runtime, assembler, application)
+
 //NOTE: this is to workaround a known problem/bug with intellisense and PCH's in vs2019
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
@@ -54,36 +69,13 @@ namespace inasm64
             const void* _last_dump_address = nullptr;
             auto _initialised = false;
 
-            //TODO: helper, could be elsewhere?
-            std::vector<const char*> split_by_space(char* s)
-            {
-                std::vector<const char*> tokens;
-                auto rp = s;
-                auto rp0 = rp;
-                while(rp[0])
-                {
-                    rp0 = rp;
-                    while(rp[0] && rp[0] == ' ')
-                        ++rp;
-                    if(rp[0])
-                    {
-                        rp0 = rp;
-                        while(rp[0] && rp[0] != ' ')
-                            ++rp;
-                        if(rp[0])
-                        {
-                            ++rp;
-                            rp[-1] = 0;
-                        }
-                        tokens.push_back(rp0);
-                    }
-                }
-                return tokens;
-            }
-
+            // commands are of two types:
+            //  type 0 are a command followed by parameters, i.e. "r eax 1234"
             using type_0_handler_t = std::function<void(const char* cmd, char* params)>;
+            //  type 1 are a variable name followed by a command followed by parameters, i.e. "myvec db  1.0,1.0,1.0,1.0"
             using type_1_handler_t = std::function<void(const char* param0, const char* cmd, char* params)>;
 
+            // contains information about acommand, including it's handler and the aliases used to identify it
             struct CommandInfo
             {
                 // 0 delimeted, 00-terminated
@@ -320,22 +312,75 @@ namespace inasm64
                 return true;
             }
 
+            // read a string of floats, comma separated, as 32- or 64 -bit values
+            // NOTE: this is a separate function from read_number_string because ratpak converts floats to the most effective numbers, which isn't always what we want
+            //       i.e. we want 1.0 as 0x3f800000, not just 1
+            bool read_float_string(DataType format, char* str, std::vector<uint8_t>& bytes, char** next)
+            {
+                assert(format == DataType::kFloat32 || format == DataType::kFloat64);
+                auto rp = str;
+                if(detail::starts_with_integer(str, &rp) != detail::number_format_t::kDecimal)
+                    return false;
+                const auto str_len = strlen(str);
+                while(rp[0])
+                {
+                    switch(format)
+                    {
+                    case DataType::kFloat32:
+                    {
+                        const auto val = ::strtof(rp, &rp);
+                        if(!errno)
+                        {
+                            const auto val_ptr = reinterpret_cast<const uint8_t*>(&val);
+                            for(auto b = 0; b < 4; ++b)
+                                bytes.push_back(val_ptr[b]);
+                        }
+                    }
+                    break;
+                    case DataType::kFloat64:
+                    {
+                        const auto val = ::strtold(rp, &rp);
+                        if(!errno)
+                        {
+                            const auto val_ptr = reinterpret_cast<const uint8_t*>(&val);
+                            for(auto b = 0; b < 8; ++b)
+                                bytes.push_back(val_ptr[b]);
+                        }
+                    }
+                    break;
+                    default:;
+                    }
+                    while(rp[0] && rp[0] == ' ' || rp[0] == ',')
+                        ++rp;
+                }
+                if(next)
+                    *next = (rp[0] ? rp : nullptr);
+                return true;
+            }
+
+            // parses values expected to be of the given type
+            // i.e.
             // 0x12,0x13,...
             // "hello world",0
-            // 42,44,45,...
+            // 1.0,2.0,3.0,
+            // etc.
+            //
+            // Will fill the bytes vector to the required number of bytes (i.e. backfill with 0s)
             //
             // assumes line has no leading whitespace and is 00-terminated
             bool parse_values(DataType type, char* line, std::vector<uint8_t>& bytes)
             {
                 size_t required_bytes = 0;
-
+                auto as_float = false;
                 switch(type)
                 {
                 case DataType::kFloat32:
                     required_bytes = 4;
+                    as_float = true;
                     break;
                 case DataType::kFloat64:
                     required_bytes = 8;
+                    as_float = true;
                     break;
                 case DataType::kXmmWord:
                     required_bytes = 16;
@@ -360,44 +405,50 @@ namespace inasm64
 
                 if(!required_bytes)
                     return false;
-
                 auto result = true;
-                auto rp = line;
-                while(rp && (rp[0] || rp[1]))
-                {
-                    // used to check that we read <= the required number of bytes in each chunk
-                    auto prev_size = bytes.size();
 
-                    if(rp[0] == '"')
+                auto rp = line;
+                if(as_float)
+                {
+                    result = read_float_string(type, rp, bytes, &rp);
+                }
+                else
+                {
+                    while(rp && (rp[0] || rp[1]))
                     {
-                        // read string, always interpreted as 8 bit bytes
-                        ++rp;
-                        while((rp[0] || rp[1]) && rp[0] != '"')
-                        {
-                            bytes.push_back(*rp++);
-                        }
+                        // used to check that we read <= the required number of bytes in each chunk
+                        auto prev_size = bytes.size();
+
                         if(rp[0] == '"')
-                            ++rp;
-                    }
-                    else if(read_number_string(rp, bytes, &rp) && (bytes.size() - prev_size) <= required_bytes)
-                    {
-                        if(bytes.size() < required_bytes)
                         {
-                            // pad
-                            auto ullage = required_bytes - bytes.size();
-                            while(ullage--)
-                                bytes.push_back(0);
-                        }
-                        // move on to the next value
-                        while(rp && (rp[0] || rp[1]) && !isalpha(int(rp[0])) && !isdigit(int(rp[0])) && rp[0] != '-' && rp[0] != '+')
-                        {
+                            // read string, always interpreted as 8 bit bytes
                             ++rp;
+                            while((rp[0] || rp[1]) && rp[0] != '"')
+                            {
+                                bytes.push_back(*rp++);
+                            }
+                            if(rp[0] == '"')
+                                ++rp;
                         }
-                    }
-                    else
-                    {
-                        result = false;
-                        break;
+                        else
+                        {
+                            result = read_number_string(rp, bytes, &rp) && (bytes.size() - prev_size) <= required_bytes;
+                            if(result)
+                            {
+                                if(bytes.size() < required_bytes)
+                                {
+                                    // pad
+                                    auto ullage = required_bytes - bytes.size();
+                                    while(ullage--)
+                                        bytes.push_back(0);
+                                }
+                                // move on to the next value
+                                while(rp && (rp[0] || rp[1]) && !isalpha(int(rp[0])) && !isdigit(int(rp[0])) && rp[0] != '-' && rp[0] != '+')
+                                {
+                                    ++rp;
+                                }
+                            }
+                        }
                     }
                 }
 
@@ -455,22 +506,21 @@ namespace inasm64
                 return type;
             }
 
-            void parse_data_type_values(const char* cmd, char* value_str, std::vector<uint8_t>& data)
+            // =========================================================================================
+            // command handlers
+
+            // <varname> d[b|w|d...] <values>
+            void data_value_handler(const char* argname, const char* cmd, char* params)
             {
+                std::vector<uint8_t> data;
                 DataType type = command_data_type(cmd);
                 if(type == DataType::kUnknown)
                 {
                     detail::set_error(Error::kInvalidCommandFormat);
                     return;
                 }
-                parse_values(type, value_str, data);
-            }
+                parse_values(type, params, data);
 
-            // command handlers
-            void data_value_handler(const char* argname, const char* cmd, char* params)
-            {
-                std::vector<uint8_t> data;
-                parse_data_type_values(cmd, params, data);
                 if(!data.empty())
                 {
                     const auto handle = runtime::AllocateMemory(data.size());
@@ -489,6 +539,7 @@ namespace inasm64
                 }
             }
 
+            // r <regname> [value| d[b|w|...] values]
             void register_handler(const char* cmd, char* params)
             {
                 const auto reg_info = GetRegisterInfo(params);
@@ -573,15 +624,6 @@ namespace inasm64
                     break;
                 case 'Z':
                     assert(false);
-                    /*if(detail::is_null_or_empty(params))
-                    {
-                        if(OnDisplayZMMRegisters)
-                            OnDisplayZMMRegisters();
-                    }
-                    else*/
-                    {
-                        set_or_display_reg(DataType::kZmmWord);
-                    }
                     break;
                 case 0:
                     if(detail::is_null_or_empty(params))
@@ -597,32 +639,20 @@ namespace inasm64
                 }
             }  // namespace
 
+            // s, step <address>
             void step_handler(const char*, char* params)
             {
                 auto address = runtime::InstructionPointer();
                 auto stepped = false;
-                if(!detail::is_null_or_empty(params))
-                {
-                    const auto value = strtoll(params, nullptr, 0);
-                    if(value < LLONG_MAX && value > LLONG_MIN)
-                    {
-                        address = reinterpret_cast<const void*>(value);
-                        if(runtime::SetNextInstruction(address))
-                        {
-                            stepped = runtime::Step();
-                        }
-                    }
-                }
-                else
-                {
-                    stepped = runtime::Step();
-                }
+                assert(detail::is_null_or_empty(params));
+                stepped = runtime::Step();
                 if(stepped && OnStep)
                 {
                     OnStep(address);
                 }
             }
 
+            // varname d[b|w|....]
             void display_data_handler(const char* cmd, char* params)
             {
                 if(!OnDisplayData)

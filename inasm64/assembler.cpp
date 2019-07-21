@@ -1,3 +1,18 @@
+// MIT License
+// Copyright 2019 Jarl Ostensen
+// Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction,
+// including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
+// The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
+//
+// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
+// IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+//
+
+// ========================================================================================
+// Assembler front-end
+// The code in this file deals with parsing of an input statement to crate a Statement structure
+// that can be passed to the assembler driver to convert into instruction bytes
+
 //ZZZ: precompiled headers don't work across directory levels, known VS bug
 #include <string>
 #include <cstdint>
@@ -20,109 +35,6 @@ namespace inasm64
 
         namespace
         {
-#ifdef _DEBUG
-            void printstatement(const Statement& statement)
-            {
-                switch(statement._op1._type)
-                {
-                case Statement::kReg:
-                    std::cout << "op1 is Register";
-                    break;
-                case Statement::kImm:
-                    std::cout << "op1 is Immediate";
-                    break;
-                case Statement::kMem:
-                    std::cout << "op1 is Memory";
-                    break;
-                }
-
-                if(statement._op1._width_bits)
-                    std::cout << ", width is " << int(statement._op1._width_bits) << " bytes";
-
-                if(statement._operand_count == 2)
-                {
-                    std::cout << " ";
-                    switch(statement._op2._type)
-                    {
-                    case Statement::kReg:
-                        std::cout << "op2 is Register";
-                        break;
-                    case Statement::kImm:
-                        std::cout << "op2 is Immediate";
-                        break;
-                    case Statement::kMem:
-                        std::cout << "op2 is Memory";
-                        break;
-                    }
-                    if(statement._op2._width_bits)
-                        std::cout << ", width is " << int(statement._op2._width_bits) << " bits";
-                }
-
-                std::cout << std::endl
-                          << "\t";
-
-                if(statement._lock)
-                    std::cout << "lock ";
-                if(statement._rep)
-                    std::cout << "rep ";
-                if(statement._repne)
-                    std::cout << "repne ";
-                std::cout << statement._instruction << " ";
-
-                const auto coutop = [](char type, short width, const Statement::operand& op) {
-                    switch(width)
-                    {
-                    case 1:
-                        std::cout << "byte ";
-                        break;
-                    case 2:
-                        std::cout << "word ";
-                        break;
-                    case 4:
-                        std::cout << "dword ";
-                        break;
-                    case 8:
-                        std::cout << "qword ";
-                        break;
-                    case 0:
-                    default:
-                        break;
-                    }
-                    switch(type)
-                    {
-                    case Statement::kReg:
-                        std::cout << op._op._reg;
-                        break;
-                    case Statement::kImm:
-                        std::cout << op._op._imm;
-                        break;
-                    case Statement::kMem:
-                        if(op._op._mem._seg)
-                            std::cout << op._op._mem._seg << ":";
-                        std::cout << "[";
-                        if(op._op._mem._base)
-                            std::cout << op._op._mem._base;
-                        if(op._op._mem._index)
-                            std::cout << "+" << op._op._mem._index;
-                        if(op._op._mem._scale)
-                            std::cout << "*" << int(op._op._mem._scale) << " ";
-                        if(op._op._mem._displacement)
-                            std::cout << "+" << std::hex << op._op._mem._displacement;
-                        std::cout << "]";
-                        break;
-                    }
-                };
-
-                coutop(statement._op1._type, statement._op1._width_bits, statement._op1);
-                for(auto on = 1; on < statement._operand_count; ++on)
-                {
-                    std::cout << ", ";
-                    coutop(statement._op2._type, statement._op2._width_bits, statement._op2);
-                }
-                std::cout << std::endl;
-            }
-#endif
-
             enum class ParseMode
             {
                 SkipWhitespace,
@@ -130,7 +42,7 @@ namespace inasm64
                 ScanUntilRightBracket
             };
             // first pass tokeniser; split on whitespaces and statement parts separated by ','
-            bool Tokenise(const char* assembly, std::vector<char*>* part, size_t part_size, char* buffer)
+            bool tokenise(const char* assembly, std::vector<char*>* part, size_t part_size, char* buffer)
             {
                 const auto input_len = strlen(assembly);
                 memcpy(buffer, assembly, input_len + 1);
@@ -209,6 +121,7 @@ namespace inasm64
                 return !part[0].empty();
             }
 
+            // intermediate structure holding a tokenized operand
             struct TokenisedOperand
             {
                 char _reg_imm[20] = { 0 };
@@ -219,14 +132,15 @@ namespace inasm64
                 char _displacement[20] = { 0 };
             };
 
-            // a very bespoke "hand rolled" parser for an operand, i.e. variants of
+            // parser for an instruction operand
+            // all sorts, including...
             // fs:[eax + esi * 4 - 0x11223344]
             // fs:[eax + esi*4]
             // fs:[eax]
             // [eax]
             // [0x11223344]
             // ...etc.
-            bool TokeniseOperand(char* operand, TokenisedOperand& op)
+            bool tokenise_operand(char* operand, TokenisedOperand& op)
             {
                 // seg:[base + index*scale + offset], or just a register/immediate
                 const auto op_len = strlen(operand);
@@ -425,7 +339,7 @@ namespace inasm64
             Statement statement;
             memset(&statement, 0, sizeof(statement));
             std::vector<char*> part[3];
-            if(Tokenise(assembly, part, 3, statement._input_tokens))
+            if(tokenise(assembly, part, 3, statement._input_tokens))
             {
                 result = true;
 
@@ -497,7 +411,7 @@ namespace inasm64
 
                         // op1
                         statement._op1._width_bits = check_operand_bit_size_prefix(part[0]);
-                        if(TokeniseOperand(part[0][tl], op1))
+                        if(tokenise_operand(part[0][tl], op1))
                         {
                             statement._operand_count = 1;
                             result = (op1._base[0] || op1._reg_imm[0] || op1._displacement[0]);
@@ -506,7 +420,7 @@ namespace inasm64
                             {
                                 tl = 0;
                                 statement._op2._width_bits = check_operand_bit_size_prefix(part[1]);
-                                result = TokeniseOperand(part[1][tl], op2);
+                                result = tokenise_operand(part[1][tl], op2);
                                 // sanity check; if for example the input has whitespace between the segment register and the :, the segment register would be misread as base.
                                 result = result && (op2._base[0] || op2._displacement[0] || (op2._reg_imm[0] && part[1].size() == 1));
                                 statement._operand_count = 2;
@@ -516,7 +430,7 @@ namespace inasm64
                             {
                                 tl = 0;
                                 statement._op3._width_bits = check_operand_bit_size_prefix(part[2]);
-                                result = TokeniseOperand(part[2][tl], op3);
+                                result = tokenise_operand(part[2][tl], op3);
                                 // sanity check; if for example the input has whitespace between the segment register and the :, the segment register would be misread as base.
                                 result = result && (op3._base[0] || op3._displacement[0] || (op3._reg_imm[0] && part[2].size() == 1));
                                 statement._operand_count = 3;
@@ -575,6 +489,7 @@ namespace inasm64
                                     return width_bits;
                                 };
 
+                                // break down each operand, and aggregate and adjust the widths of each to match the overall statement (addressing width, operand widths)
                                 statement._op1._width_bits = std::max<short>(setup_statement(statement._op1._type, statement._op1, op1), statement._op1._width_bits);
                                 if(statement._operand_count >= 2)
                                 {
