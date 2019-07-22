@@ -439,7 +439,7 @@ namespace inasm64
                             if(result)
                             {
 #define INASM64_ASM_STATEMENT_TYPE(N) \
-    statement._op##N._type = op1._reg_imm[0] ? (isalpha(op##N._reg_imm[0]) ? Statement::kReg : Statement::kImm) : Statement::kMem
+    statement._op##N._type = op##N._reg_imm[0] ? (isalpha(op##N._reg_imm[0]) ? Statement::kReg : Statement::kImm) : Statement::kMem
 
                                 // simple heuristic for each operand (the assembler driver will have the final say in verifying this)
                                 INASM64_ASM_STATEMENT_TYPE(1);
@@ -474,9 +474,8 @@ namespace inasm64
                                         if(op_info._displacement[0] != 0)
                                         {
                                             const auto disp_len = strlen(op_info._displacement);
-                                            const auto base = (op_info._displacement[disp_len - 1] != 'h') ? 0 : 16;
                                             //NOTE: we can use strtol here because the displacement can never be > 32 bits
-                                            op._op._mem._displacement = ::strtol(op_info._displacement, nullptr, base);
+                                            op._op._mem._displacement = ::strtol(op_info._displacement, nullptr, 0);
                                             unsigned long index;
                                             _BitScanReverse64(&index, op._op._mem._displacement > 0 ? op._op._mem._displacement : -op._op._mem._displacement);
                                             op._op._mem._disp_width_bits = char((index + 8) & ~7);

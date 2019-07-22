@@ -740,7 +740,7 @@ namespace inasm64
             if(!_initialised)
             {
                 Type1Command cmd1;
-                cmd1.set_aliases(6, "db", "dw", "dd", "dq", "dx", "dy", "dfs", "dfd");
+                cmd1.set_aliases(8, "db", "dw", "dd", "dq", "dx", "dy", "dfs", "dfd");
                 _help_texts.emplace_back("varname d[b|w|d|q|fs|fd] <data...>", "create a variable \"$varname\" pointing to data");
                 cmd1._handler = data_value_handler;
                 _type_1_handlers.emplace_back(std::move(cmd1));

@@ -574,6 +574,7 @@ int main(int argc, char* argv[])
         auto done = false;
         cli::OnQuit = [&done]() { done = true; };
         cli::OnHelp = [](const cli::help_texts_t& help_texts) {
+			std::cout << "\n";
             const auto cw = console::Width();
             for(const auto& help : help_texts)
             {
