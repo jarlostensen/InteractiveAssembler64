@@ -62,10 +62,14 @@ auto coutreg(const char* reg) -> std::ostream&
 
 std::ostream& coutflags(DWORD flags, DWORD prev = 0)
 {
+	auto changed = false;
     // https://en.wikipedia.org/wiki/FLAGS_register
 #define INASM_IF_EFLAG_DIFF(bitmask, name)    \
     if((flags & bitmask) != (prev & bitmask)) \
-    std::cout << name
+{\
+    std::cout << name;\
+    changed = true;\
+}
 
     INASM_IF_EFLAG_DIFF(0x01, "CF ");
     INASM_IF_EFLAG_DIFF(0x04, "PF ");
@@ -78,13 +82,15 @@ std::ostream& coutflags(DWORD flags, DWORD prev = 0)
     INASM_IF_EFLAG_DIFF(0x800, "OF ");
     //INASM_IF_EFLAG_DIFF(0x10000, "RF ");
     //INASM_IF_EFLAG_DIFF(0x20000, "VM ");
+
+	if(changed)
+        std::cout << "\n";
+
     return std::cout;
 }
 
 void DumpRegs()
 {
-    std::cout << "\n";
-
     //TODO: rework to use runtime instead of direct context access
 
     const auto ctx = inasm64::runtime::Context();
@@ -108,7 +114,6 @@ void DumpRegs()
     coutreg("r14") << ctx->OsContext->R14 << " ";
     coutreg("r15") << ctx->OsContext->R15 << std::endl;
 
-    std::cout << "\n   ";
     coutflags(ctx->OsContext->EFlags) << std::endl;
 }
 
@@ -117,8 +122,6 @@ void DumpDeltaRegs()
     static CONTEXT _prev_context = { 0 };
     static bool _first = true;
     const auto ctx = inasm64::runtime::Context();
-
-    std::cout << "\n";
 
     if(_first)
     {
@@ -583,9 +586,8 @@ int main(int argc, char* argv[])
                 std::cout << help.second << std::endl;
             }
         };
-        cli::OnStep = [](const void* address) {
-            std::cout << "\n"
-                      << std::hex << address << " " << _asm_history[uintptr_t(address)] << "\n";
+        cli::OnStep = [](const void* /*address*/) {
+			std::cout << "\n";
             DumpDeltaRegs();
         };
         cli::OnDisplayGPRegisters = DumpRegs;
