@@ -15,6 +15,38 @@
 
 namespace inasm64
 {
+    namespace detail
+    {
+        // used internally to iterate over registers that have changed between calls to Step
+        struct changed_registers
+        {
+            struct iterator
+            {
+                using value_type = std::pair<RegisterInfo::Register, uint64_t>;
+                using reference = value_type&;
+                using pointer = const value_type*;
+                using difference_type = intptr_t;
+                using iterator_category = std::forward_iterator_tag;
+                iterator() = default;
+
+                iterator operator++();
+                iterator operator++(int);
+                reference operator*();
+                pointer operator->();
+                bool operator==(const iterator& rhs);
+                bool operator!=(const iterator& rhs);
+
+                value_type _val;
+                size_t _i = 0;
+            };
+
+            changed_registers() = default;
+            iterator begin() const;
+            iterator end() const;
+            size_t size() const;
+        };
+    }  // namespace detail
+
     ///<summary>
     /// code execution and single-stepping, code injection
     ///</summary>
@@ -52,6 +84,7 @@ namespace inasm64
         bool SetInstructionLine(size_t line);
         bool CommmitInstructions();
         instruction_index_t NextInstructionIndex();
+        bool GetVariable(const char* name, uintptr_t& value);
 
         ///<summary>
         /// execute one instruction from the current execute address and advance pointers
@@ -59,27 +92,9 @@ namespace inasm64
         /// Use Context() to get information about registers, the executed instruction bytes, etc.
         bool Step();
         ///<summary>
-        /// execution context, valid after each Step()
+        /// iterator over changed registers between last two calls to Step
         ///</summary>
-        struct ExecutionContext
-        {
-            ///<summary>
-            /// OS thread context, extension dependant. See GetEnabledXStateFeatures
-            ///</summary>
-            const CONTEXT* OsContext;
-            ///<summary>
-            /// instruction bytes of currently executed
-            ///</summary>
-            uint8_t Instruction[kMaxAssembledInstructionSize];
-            ///<summary>
-            /// number of bytes in instruction
-            ///</summary>
-            size_t InstructionSize;
-        };
-        ///<summary>
-        /// get current execution context
-        ///</summary>
-        const ExecutionContext* Context();
+        detail::changed_registers ChangedRegisters();
         ///<summary>
         /// address of next instruction to be executed
         ///</summary>
@@ -105,6 +120,12 @@ namespace inasm64
 
         bool SetReg(const RegisterInfo& reg, const void* data, size_t size);
         bool GetReg(const RegisterInfo& reg, void* data, size_t size);
+
+        template <typename T>
+        bool GetReg(const RegisterInfo& reg, T& val)
+        {
+            return GetReg(reg, &val, sizeof(T));
+        }
 
     }  // namespace runtime
 }  // namespace inasm64

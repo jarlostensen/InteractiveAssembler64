@@ -57,19 +57,25 @@ auto cout_bytes_as_number(std::ostream& os, const uint8_t* bytes, size_t count) 
 auto coutreg(const char* reg) -> std::ostream&
 {
     // perhaps I should just have used printf....
-    return std::cout << std::setfill(' ') << std::setw(4) << reg << std::setw(1) << " = 0x" << cout_64_bits << std::hex;
+    return std::cout << std::setfill(' ') << std::setw(4) << reg << std::setw(1) << " = 0x" << cout_64_bits;
+}
+
+auto coutreg(const inasm64::RegisterInfo& reg_info) -> std::ostream&
+{
+    // perhaps I should just have used printf....
+    return std::cout << std::setfill(' ') << std::setw(4) << reg_info._name << std::setw(1) << " = 0x" << std::setfill('0') << std::setw(reg_info._bit_width / 8) << std::hex;
 }
 
 std::ostream& coutflags(DWORD flags, DWORD prev = 0)
 {
-	auto changed = false;
+    auto changed = false;
     // https://en.wikipedia.org/wiki/FLAGS_register
 #define INASM_IF_EFLAG_DIFF(bitmask, name)    \
     if((flags & bitmask) != (prev & bitmask)) \
-{\
-    std::cout << name;\
-    changed = true;\
-}
+    {                                         \
+        std::cout << name;                    \
+        changed = true;                       \
+    }
 
     INASM_IF_EFLAG_DIFF(0x01, "CF ");
     INASM_IF_EFLAG_DIFF(0x04, "PF ");
@@ -83,166 +89,62 @@ std::ostream& coutflags(DWORD flags, DWORD prev = 0)
     //INASM_IF_EFLAG_DIFF(0x10000, "RF ");
     //INASM_IF_EFLAG_DIFF(0x20000, "VM ");
 
-	if(changed)
+    if(changed)
         std::cout << "\n";
 
     return std::cout;
 }
 
+const inasm64::RegisterInfo kRegisterInfos[] = {
+    inasm64::RegisterInfo{ inasm64::RegisterInfo::Register::rax },
+    inasm64::RegisterInfo{ inasm64::RegisterInfo::Register::rbx },
+    inasm64::RegisterInfo{ inasm64::RegisterInfo::Register::rcx },
+    inasm64::RegisterInfo{ inasm64::RegisterInfo::Register::rdx },
+    inasm64::RegisterInfo{ inasm64::RegisterInfo::Register::rsi },
+    inasm64::RegisterInfo{ inasm64::RegisterInfo::Register::rdi },
+    inasm64::RegisterInfo{ inasm64::RegisterInfo::Register::rbp },
+    inasm64::RegisterInfo{ inasm64::RegisterInfo::Register::rsp },
+    inasm64::RegisterInfo{ inasm64::RegisterInfo::Register::r8 },
+    inasm64::RegisterInfo{ inasm64::RegisterInfo::Register::r9 },
+    inasm64::RegisterInfo{ inasm64::RegisterInfo::Register::r10 },
+    inasm64::RegisterInfo{ inasm64::RegisterInfo::Register::r11 },
+    inasm64::RegisterInfo{ inasm64::RegisterInfo::Register::r12 },
+    inasm64::RegisterInfo{ inasm64::RegisterInfo::Register::r13 },
+    inasm64::RegisterInfo{ inasm64::RegisterInfo::Register::r14 },
+    inasm64::RegisterInfo{ inasm64::RegisterInfo::Register::r15 },
+};
+
 void DumpRegs()
 {
-    //TODO: rework to use runtime instead of direct context access
-
-    const auto ctx = inasm64::runtime::Context();
-
-    coutreg("rax") << ctx->OsContext->Rax << " ";
-    coutreg("rbx") << ctx->OsContext->Rbx << " ";
-    coutreg("rcx") << ctx->OsContext->Rcx << " ";
-    coutreg("rdx") << ctx->OsContext->Rdx << std::endl;
-
-    coutreg("rsi") << ctx->OsContext->Rsi << " ";
-    coutreg("rdi") << ctx->OsContext->Rdi << " ";
-    coutreg("rbp") << ctx->OsContext->Rbp << " ";
-    coutreg("rsp") << ctx->OsContext->Rsp << std::endl;
-
-    coutreg("r8") << ctx->OsContext->R8 << " ";
-    coutreg("r9") << ctx->OsContext->R9 << " ";
-    coutreg("r10") << ctx->OsContext->R10 << " ";
-    coutreg("r11") << ctx->OsContext->R11 << std::endl;
-    coutreg("r12") << ctx->OsContext->R12 << " ";
-    coutreg("r13") << ctx->OsContext->R13 << " ";
-    coutreg("r14") << ctx->OsContext->R14 << " ";
-    coutreg("r15") << ctx->OsContext->R15 << std::endl;
-
-    coutflags(ctx->OsContext->EFlags) << std::endl;
+    std::cout << "\n";
+    using namespace inasm64::runtime;
+    for(auto idx = 0; idx < std::size(kRegisterInfos); ++idx)
+    {
+        uint64_t val;
+        inasm64::RegisterInfo reg_info;
+        GetReg(kRegisterInfos[idx], val);
+        coutreg(kRegisterInfos[idx]._name) << val << " ";
+        if(idx && (idx & 3) == 3)
+            std::cout << std::endl;
+    }
 }
 
 void DumpDeltaRegs()
 {
-    static CONTEXT _prev_context = { 0 };
-    static bool _first = true;
-    const auto ctx = inasm64::runtime::Context();
-
-    if(_first)
+    const auto changed_regs = inasm64::runtime::ChangedRegisters();
+    if(changed_regs.size())
+        std::cout << "\n";
+    auto idx = 0;
+    for(const auto& changed : changed_regs)
     {
-        DumpRegs();
-        _first = false;
+        uint64_t val;
+        inasm64::RegisterInfo reg_info{ changed.first };
+        inasm64::runtime::GetReg(reg_info, val);
+        coutreg(reg_info) << val << " ";
+        if(idx && (idx & 3) == 3)
+            std::cout << std::endl;
+        ++idx;
     }
-    else
-    {
-        std::cout << console::green_lo;
-
-        auto newline = false;
-        if(ctx->OsContext->Rax != _prev_context.Rax)
-        {
-            coutreg("rax") << ctx->OsContext->Rax << " ";
-            newline = true;
-        }
-        if(ctx->OsContext->Rbx != _prev_context.Rbx)
-        {
-            coutreg("rbx") << ctx->OsContext->Rbx << " ";
-            newline = true;
-        }
-        if(ctx->OsContext->Rcx != _prev_context.Rcx)
-        {
-            coutreg("rcx") << ctx->OsContext->Rcx << " ";
-            newline = true;
-        }
-        if(ctx->OsContext->Rdx != _prev_context.Rdx)
-        {
-            coutreg("rdx") << ctx->OsContext->Rdx;
-            newline = true;
-        }
-
-        if(newline)
-        {
-            std::cout << std::endl;
-            newline = false;
-        }
-
-        if(ctx->OsContext->Rsi != _prev_context.Rsi)
-        {
-            coutreg("rsi") << ctx->OsContext->Rsi << " ";
-            newline = true;
-        }
-        if(ctx->OsContext->Rdi != _prev_context.Rdi)
-        {
-            coutreg("rdi") << ctx->OsContext->Rdi << " ";
-            newline = true;
-        }
-        if(ctx->OsContext->Rbp != _prev_context.Rbp)
-        {
-            coutreg("rbp") << ctx->OsContext->Rbp << " ";
-            newline = true;
-        }
-        if(ctx->OsContext->Rsp != _prev_context.Rsp)
-        {
-            coutreg("rsp") << ctx->OsContext->Rsp;
-            newline = true;
-        }
-
-        if(newline)
-        {
-            std::cout << std::endl;
-            newline = false;
-        }
-
-        if(ctx->OsContext->R8 != _prev_context.R8)
-        {
-            coutreg("r8") << ctx->OsContext->R8 << " ";
-            newline = true;
-        }
-        if(ctx->OsContext->R9 != _prev_context.R9)
-        {
-            coutreg("r9") << ctx->OsContext->R9 << " ";
-            newline = true;
-        }
-        if(ctx->OsContext->R10 != _prev_context.R10)
-        {
-            coutreg("r10") << ctx->OsContext->R10 << " ";
-            newline = true;
-        }
-        if(ctx->OsContext->R11 != _prev_context.R11)
-        {
-            coutreg("r11") << ctx->OsContext->R11;
-            newline = true;
-        }
-
-        if(newline)
-        {
-            std::cout << std::endl;
-            newline = false;
-        }
-
-        if(ctx->OsContext->R12 != _prev_context.R12)
-        {
-            coutreg("r12") << ctx->OsContext->R12 << " ";
-            newline = true;
-        }
-        if(ctx->OsContext->R13 != _prev_context.R13)
-        {
-            coutreg("r13") << ctx->OsContext->R13 << " ";
-            newline = true;
-        }
-        if(ctx->OsContext->R14 != _prev_context.R14)
-        {
-            coutreg("r14") << ctx->OsContext->R14 << " ";
-            newline = true;
-        }
-        if(ctx->OsContext->R15 != _prev_context.R15)
-        {
-            coutreg("r15") << ctx->OsContext->R15;
-            newline = true;
-        }
-
-        if(newline)
-            std::cout << std::endl;
-        std::cout << "   ";
-        coutflags(ctx->OsContext->EFlags, _prev_context.EFlags) << std::endl;
-
-        std::cout << console::reset_colours;
-    }
-    memcpy(&_prev_context, ctx->OsContext, sizeof(_prev_context));
 }
 
 void DumpReg(const char* regName_, uint64_t value)
@@ -285,7 +187,7 @@ void DumpXmmRegisters()
 void DumpYmmRegisters()
 {
     //TODO:
-    assert(false);
+    /*assert(false);
     const auto ctx = inasm64::runtime::Context();
     DWORD64 featuremask;
     if(GetXStateFeaturesMask(const_cast<PCONTEXT>(ctx->OsContext), &featuremask))
@@ -323,7 +225,7 @@ void DumpYmmRegisters()
     else
     {
         std::cerr << "AVX not supported on this hardware\n";
-    }
+    }*/
 }
 
 void DisplayMemoryAsType(inasm64::cli::DataType type, const char* memory, size_t size)
@@ -577,7 +479,7 @@ int main(int argc, char* argv[])
         auto done = false;
         cli::OnQuit = [&done]() { done = true; };
         cli::OnHelp = [](const cli::help_texts_t& help_texts) {
-			std::cout << "\n";
+            std::cout << "\n";
             const auto cw = console::Width();
             for(const auto& help : help_texts)
             {
@@ -587,7 +489,7 @@ int main(int argc, char* argv[])
             }
         };
         cli::OnStep = [](const void* /*address*/) {
-			std::cout << "\n";
+            std::cout << "\n";
             DumpDeltaRegs();
         };
         cli::OnDisplayGPRegisters = DumpRegs;

@@ -46,6 +46,15 @@ namespace inasm64
         // track allocations in process memory
         std::unordered_map<uintptr_t, size_t> _allocations;
 
+        // runtime variables, such as "execip" and "codesize", etc.
+        inasm64::detail::char_string_map_t _variables;
+        const char* kVariables[] = {
+            "execip",
+            "codesize",
+            "startip",
+            "endip"
+        };
+
         struct instruction_line_info_t
         {
             size_t _line;
@@ -73,11 +82,128 @@ namespace inasm64
         DEBUG_EVENT _dbg_event = { 0 };
         DWORD _continue_status = DBG_CONTINUE;
 
+        PCONTEXT _prev_ctx = nullptr;
         PCONTEXT _active_ctx = nullptr;
         DWORD _ctx_flags = 0;
         DWORD _context_size = 0;
         bool _ctx_changed = false;
-        ExecutionContext _rt_context = { 0 };
+
+        constexpr auto kRaxIndex = static_cast<size_t>(RegisterInfo::Register::rax);
+        constexpr auto kRegisterCount = static_cast<size_t>(RegisterInfo::Register::kInvalid) - kRaxIndex;
+        uint64_t _changed_registers[kRegisterCount];
+        size_t _changed_reg_count = 0;
+    }  // namespace runtime
+
+    namespace detail
+    {
+        using iterator = changed_registers::iterator;
+        void iterator_advance(iterator& iter)
+        {
+            while(iter._i < runtime::kRegisterCount && runtime::_changed_registers[iter._i] == 0)
+            {
+                ++iter._i;
+            }
+            if(iter._i < runtime::kRegisterCount)
+            {
+                iter._val = std::make_pair(static_cast<RegisterInfo::Register>(iter._i + runtime::kRaxIndex), runtime::_changed_registers[iter._i]);
+            }
+        }
+
+        iterator changed_registers::end() const
+        {
+            iterator iter;
+            iter._i = runtime::kRegisterCount;
+            return iter;
+        }
+
+        iterator changed_registers::begin() const
+        {
+            iterator iter;
+            iterator_advance(iter);
+            return iter;
+        }
+
+        size_t changed_registers::size() const
+        {
+            return runtime::_changed_reg_count;
+        }
+
+        iterator iterator::operator++()
+        {
+            ++_i;
+            iterator_advance(*this);
+            return *this;
+        }
+
+        iterator iterator::operator++(int)
+        {
+            auto now = *this;
+            this->operator++();
+            return now;
+        }
+
+        detail::changed_registers::iterator::reference iterator::operator*()
+        {
+            return _val;
+        }
+
+        detail::changed_registers::iterator::pointer iterator::operator->()
+        {
+            return &_val;
+        }
+
+        bool iterator::operator==(const iterator& rhs)
+        {
+            return _i == rhs._i;
+        }
+
+        bool iterator::operator!=(const iterator& rhs)
+        {
+            return _i != rhs._i;
+        }
+    }  // namespace detail
+
+    namespace runtime
+    {
+        detail::changed_registers ChangedRegisters()
+        {
+            return {};
+        }
+
+        void check_register_changes()
+        {
+            memset(_changed_registers, 0, sizeof(_changed_registers));
+
+            const auto reg_delta_mask = [](const size_t size, const uint8_t* ra, const uint8_t* rb) -> uint64_t {
+                uint64_t mask = 0;
+                for(auto n = 0; n < size; ++n)
+                    mask |= (ra[n] != rb[n] ? 1 : 0) << n;
+                return mask;
+            };
+
+#define INASM64_RT_REG_DELTA(reg)                                                                                                                                                                                              \
+    if(_active_ctx->R##reg != _prev_ctx->R##reg)                                                                                                                                                                               \
+    {                                                                                                                                                                                                                          \
+        _changed_registers[static_cast<size_t>(RegisterInfo::Register::r##reg) - kRaxIndex] = reg_delta_mask(8, reinterpret_cast<const uint8_t*>(&_active_ctx->R##reg), reinterpret_cast<const uint8_t*>(&_prev_ctx->R##reg)); \
+    }
+
+            INASM64_RT_REG_DELTA(ax);
+            INASM64_RT_REG_DELTA(bx);
+            INASM64_RT_REG_DELTA(cx);
+            INASM64_RT_REG_DELTA(dx);
+            INASM64_RT_REG_DELTA(si);
+            INASM64_RT_REG_DELTA(di);
+            INASM64_RT_REG_DELTA(sp);
+            INASM64_RT_REG_DELTA(bp);
+            INASM64_RT_REG_DELTA(8);
+            INASM64_RT_REG_DELTA(9);
+            INASM64_RT_REG_DELTA(10);
+            INASM64_RT_REG_DELTA(11);
+            INASM64_RT_REG_DELTA(12);
+            INASM64_RT_REG_DELTA(13);
+            INASM64_RT_REG_DELTA(14);
+            INASM64_RT_REG_DELTA(15);
+        }
 
         bool load_context(HANDLE thread)
         {
@@ -91,15 +217,23 @@ namespace inasm64
                 _ctx_flags = CONTEXT_ALL | xstate_mask;
                 _context_size = 0;
                 InitializeContext(nullptr, _ctx_flags, nullptr, &_context_size);
-                const auto buffer = malloc(_context_size);
+                auto buffer = malloc(_context_size);
                 ZeroMemory(buffer, _context_size);
                 InitializeContext(buffer, _ctx_flags, &_active_ctx, &_context_size);
-                _rt_context.OsContext = _active_ctx;
+
+                buffer = malloc(_context_size);
+                ZeroMemory(buffer, _context_size);
+                _prev_ctx = reinterpret_cast<PCONTEXT>(buffer);
             }
             _active_ctx->ContextFlags = _ctx_flags;
             //NOTE: unsupported masks are ignored as per documentation of this function, so it is safe to always set them
             SetXStateFeaturesMask(_active_ctx, XSTATE_MASK_AVX | XSTATE_MASK_AVX512);
-            return GetThreadContext(thread, _active_ctx) == TRUE;
+
+            memcpy(_prev_ctx, _active_ctx, _context_size);
+            const auto result = GetThreadContext(thread, _active_ctx) == TRUE;
+            if(result)
+                check_register_changes();
+            return result;
         }
 
         void set_next_instruction_address(LPCVOID at)
@@ -175,6 +309,11 @@ namespace inasm64
                                         enable_trap_flag();
                                         SetThreadContext(thread, _active_ctx);
                                         _ctx_changed = false;
+
+                                        _variables["execip"] = uintptr_t(_code);
+                                        _variables["startip"] = uintptr_t(_code);
+                                        _variables["endip"] = uintptr_t(_code);
+                                        _variables["codesize"] = 0;
                                     }
                                     // else a serious error, report or silentl ignore?
 
@@ -311,6 +450,42 @@ namespace inasm64
             };
         }
 
+        bool GetVariable(const char* name, uintptr_t& value)
+        {
+            // check line number variables first
+            if(name[0] == 'l')
+            {
+                char buffer[12];
+                auto rp = name;
+                auto bp = buffer;
+                while(rp[0] && isdigit(rp[0]))
+                {
+                    *bp++ = *rp++;
+                }
+                bp[0] = 0;
+                if(rp[0])
+                {
+                    const auto index = ::strtol(bp, nullptr, 10);
+                    if(!errno && index >= 0 && index < _last_instruction_line)
+                    {
+                        value = uintptr_t(_loaded_instructions[index]._address);
+                        return true;
+                    }
+                }
+            }
+            else
+            {
+                const auto i = _variables.find(name);
+                if(i != _variables.end())
+                {
+                    value = i->second;
+                    return true;
+                }
+            }
+            detail::set_error(Error::kUndefinedVariable);
+            return false;
+        }
+
         bool CommmitInstructions()
         {
             if(_last_instruction_line == _first_instruction_line)
@@ -397,13 +572,6 @@ namespace inasm64
 
                         // advance the code pointer to the next instruction
                         const auto next_instr = reinterpret_cast<unsigned char*>(_dbg_event.u.Exception.ExceptionRecord.ExceptionAddress);
-                        _rt_context.InstructionSize = size_t(next_instr - _code);
-                        //TODO: check that instruction size isn't > max
-                        //TODO: when we have the assembler running we will get this information when the actual code is assembled and store it
-                        //      in an map keyed by address.
-                        SIZE_T written;
-                        ReadProcessMemory(_process_vm, _code, _rt_context.Instruction, _rt_context.InstructionSize, &written);
-                        //TODO: check for error conditions
                         _code = next_instr;
 
                         // refresh the context and re-set the trap flag
@@ -442,14 +610,6 @@ namespace inasm64
             }
 
             return _flags._running && stepped;
-        }
-
-        const ExecutionContext* Context()
-        {
-            if(!_flags._started)
-                return nullptr;
-
-            return &_rt_context;
         }
 
         const void* InstructionPointer()

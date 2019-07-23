@@ -54,6 +54,30 @@ namespace inasm64
 
     namespace detail
     {
+        // used by char* map
+        struct hash_32_fnv1a
+        {
+            static constexpr uint32_t val_32_const = 0x811c9dc5;
+            static constexpr uint32_t prime_32_const = 0x1000193;
+            uint32_t hash_32_fnv1a_const(const char* const str, const uint32_t value = val_32_const) const
+            {
+                return (str[0] == 0) ? value : hash_32_fnv1a_const(str + 1, uint32_t(1ull * (value ^ uint32_t(str[0])) * prime_32_const));
+            }
+            int operator()(const char* str) const
+            {
+                return hash_32_fnv1a_const(str);
+            }
+        };
+        // used by char* map
+        struct striequal
+        {
+            bool operator()(const char* __x, const char* __y) const
+            {
+                return _stricmp(__x, __y) == 0;
+            }
+        };
+        using char_string_map_t = std::unordered_map<const char*, uintptr_t, hash_32_fnv1a, striequal>;
+
         void set_error(Error error);
 
         enum class number_format_t
@@ -65,18 +89,15 @@ namespace inasm64
         };
         number_format_t starts_with_integer(char* str, char** first = nullptr);
 
-        // converts valid 0x or h representations, as well as whatever stroll supports
-        // does not modify value if str is not a valid number
-        bool str_to_ll(const char* str, long long& value);
         // either 0x followed by at least one hex digit, or hex digits followed by a 'h'
         bool starts_with_hex_number(const char* str, const char** first = nullptr);
         // a sequence of base-10 digits
         bool starts_with_decimal_integer(const char* at);
+
         // true if string is just whitespace, or 0 length
         bool is_null_or_empty(const char* str);
-        // returns pointer to *second* word, or nullptr
-        const char* next_word_or_number(const char* str);
 
+        // stores a small set of tokenised string components, split by 0
         struct simple_tokens_t
         {
             // indices to tokens

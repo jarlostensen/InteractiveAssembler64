@@ -23,18 +23,6 @@ namespace inasm64
             _error = error;
         }
 
-        bool str_to_ll(const char* str, long long& value_)
-        {
-            const auto base = (detail::starts_with_hex_number(str) ? 16 : 0);
-            const long long value = ::strtoll(str, nullptr, base);
-            if(value != LLONG_MAX && value != LLONG_MIN)
-            {
-                value_ = value;
-                return true;
-            }
-            return false;
-        }
-
         number_format_t starts_with_integer(char* at, char** first)
         {
             if(!at[0])
@@ -85,15 +73,6 @@ namespace inasm64
                 return isdigit(at[0]) || (at[0] >= 'a' && at[0] <= 'f');
             }
             return false;
-        }
-
-        const char* next_word_or_number(const char* str)
-        {
-            while(str[0] && str[0] != ' ')
-                ++str;
-            while(str[0] && str[0] == ' ')
-                ++str;
-            return str[0] ? str : nullptr;
         }
 
         bool is_null_or_empty(const char* str)

@@ -145,6 +145,15 @@ int main()
     reg_info = inasm64::GetRegisterInfo("gs");
     reg_info = inasm64::GetRegisterInfo("eflags");
 
+    reg_info = inasm64::RegisterInfo{ inasm64::RegisterInfo::Register::si };
+    reg_info = inasm64::RegisterInfo{ inasm64::RegisterInfo::Register::r11 };
+    reg_info = inasm64::RegisterInfo{ inasm64::RegisterInfo::Register::ecx };
+    reg_info = inasm64::RegisterInfo{ inasm64::RegisterInfo::Register::xmm4 };
+    reg_info = inasm64::RegisterInfo{ inasm64::RegisterInfo::Register::spl };
+    reg_info = inasm64::RegisterInfo{ inasm64::RegisterInfo::Register::gs };
+    reg_info = inasm64::RegisterInfo{ inasm64::RegisterInfo::Register::eflags };
+    reg_info = inasm64::RegisterInfo{ inasm64::RegisterInfo::Register::r9b };
+
     //TODO: bespoke tests, this is just to aid development at the moment. Might pull in google test at some point...
     using namespace inasm64;
     assembler::Initialise();

@@ -218,6 +218,114 @@ namespace inasm64
         }
     }
 
+    RegisterInfo::RegisterInfo(Register register_)
+        : _register{ register_ }
+    {
+        if(register_ == Register::eflags)
+        {
+            _class = RegClass::kFlags;
+            _greatest_enclosing_register = register_;
+            _name = "eflags";
+            _bit_width = 32;
+        }
+        else
+        {
+            const auto ord = static_cast<size_t>(register_);
+            if(ord >= static_cast<size_t>(Register::cs))
+            {
+                _class = RegClass::kSegment;
+                _greatest_enclosing_register = register_;
+                _name = kSegmentRegisters[ord - static_cast<size_t>(Register::cs)];
+                _bit_width = 16;
+            }
+            else if(ord >= static_cast<size_t>(Register::zmm0))
+            {
+                _class = RegClass::kZmm;
+                _greatest_enclosing_register = register_;
+                _name = kZmmRegisters[ord - static_cast<size_t>(Register::zmm0)];
+                _bit_width = 512;
+            }
+            else if(ord >= static_cast<size_t>(Register::ymm0))
+            {
+                _class = RegClass::kYmm;
+                _greatest_enclosing_register = static_cast<Register>(ord - static_cast<size_t>(Register::ymm0) + static_cast<size_t>(Register::zmm0));
+                _name = kYmmRegisters[ord - static_cast<size_t>(Register::ymm0)];
+                _bit_width = 256;
+            }
+            else if(ord >= static_cast<size_t>(Register::xmm0))
+            {
+                _class = RegClass::kXmm;
+                _greatest_enclosing_register = static_cast<Register>(ord - static_cast<size_t>(Register::xmm0) + static_cast<size_t>(Register::zmm0));
+                _name = kXmmRegisters[ord - static_cast<size_t>(Register::xmm0)];
+                _bit_width = 128;
+            }
+            else if(ord >= static_cast<size_t>(Register::rax))
+            {
+                _class = RegClass::kGpr;
+                _greatest_enclosing_register = _register;
+                _name = kGpr64[ord - static_cast<size_t>(Register::rax)]._name;
+                _bit_width = 64;
+            }
+            else if(ord >= static_cast<size_t>(Register::eax))
+            {
+                _class = RegClass::kGpr;
+                _greatest_enclosing_register = static_cast<Register>(ord - static_cast<size_t>(Register::eax) + static_cast<size_t>(Register::rax));
+                _name = kGpr32[ord - static_cast<size_t>(Register::eax)]._name;
+                _bit_width = 32;
+            }
+            else if(ord >= static_cast<size_t>(Register::ax))
+            {
+                _class = RegClass::kGpr;
+                _greatest_enclosing_register = static_cast<Register>(ord - static_cast<size_t>(Register::ax) + static_cast<size_t>(Register::rax));
+                _name = kGpr16[ord - static_cast<size_t>(Register::ax)]._name;
+                _bit_width = 16;
+            }
+            else
+            {
+                _class = RegClass::kGpr;
+                _bit_width = 8;
+                _name = kGpr8[ord]._name;
+
+                switch(register_)
+                {
+                case Register::al:
+                case Register::ah:
+                    _greatest_enclosing_register = Register::rax;
+                    break;
+                case Register::bl:
+                case Register::bh:
+                    _greatest_enclosing_register = Register::rbx;
+                    break;
+                case Register::cl:
+                case Register::ch:
+                    _greatest_enclosing_register = Register::rcx;
+                    break;
+                case Register::dl:
+                case Register::dh:
+                    _greatest_enclosing_register = Register::rdx;
+                    break;
+                case Register::sil:
+                    _greatest_enclosing_register = Register::rsi;
+                    break;
+                case Register::dil:
+                    _greatest_enclosing_register = Register::rdi;
+                    break;
+                case Register::spl:
+                    _greatest_enclosing_register = Register::rsp;
+                    break;
+                case Register::bpl:
+                    _greatest_enclosing_register = Register::rbp;
+                    break;
+                default:
+                {
+                    _greatest_enclosing_register = static_cast<Register>(ord - static_cast<size_t>(Register::r8b) + static_cast<size_t>(Register::r8));
+                }
+                break;
+                }
+            }
+        }
+    }
+
     RegisterInfo GetRegisterInfo(const char* reg)
     {
         //NOTE: we might get the name as part of a longer string, so calculate length as the first white-space separated word

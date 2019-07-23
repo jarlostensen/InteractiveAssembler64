@@ -851,14 +851,14 @@ namespace inasm64
             }
             auto is_empty = !wp;
 
-            // replace meta variables $<name>
+            // replace meta variables $<name> and runtime variables @<name>
             while(cmdLinePtr[nv])
             {
-                while(cmdLinePtr[nv] && cmdLinePtr[nv] != '$')
+                while(cmdLinePtr[nv] && cmdLinePtr[nv] != '$' && cmdLinePtr[nv] != '@')
                 {
                     cmdLineBuffer[wp++] = cmdLinePtr[nv++];
                 }
-                if(cmdLinePtr[nv])
+                if(const auto tag = cmdLinePtr[nv])
                 {
                     auto nv1 = nv + 1;
                     while(cmdLinePtr[nv] && (cmdLinePtr[nv] != ' ' && cmdLinePtr[nv] != ',' && cmdLinePtr[nv] != ']'))
@@ -875,9 +875,14 @@ namespace inasm64
                         memcpy(strbuff, cmdLinePtr + nv1, wl);
                         strbuff[wl] = 0;
                         uintptr_t val = 0;
-                        if(globvars::Get(strbuff, val))
+                        if(tag == '$')
+                            result = globvars::Get(strbuff, val);
+                        else
+                            result = runtime::GetVariable(strbuff, val);
+                        if(result)
                         {
-                            char numbuff[64] = { '0', 'x' };
+                            // convert to hex so that the parser picks it up correctly (a bit tedious...could be nicer)
+                            char numbuff[66] = { '0', 'x' };
                             const auto conv_count = sprintf_s(numbuff + 2, sizeof(numbuff) - 2, "%llx", val);
                             if(conv_count)
                             {

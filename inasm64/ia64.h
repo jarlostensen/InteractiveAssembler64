@@ -163,6 +163,7 @@ namespace inasm64
         const char* _name = nullptr;
         RegisterInfo() = default;
         RegisterInfo(RegClass klass, Register register_, short width, const char* name = nullptr);
+        explicit RegisterInfo(Register register_);
         operator bool() const
         {
             return _bit_width && _class != RegClass::kInvalid;
