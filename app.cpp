@@ -460,11 +460,16 @@ void DisplaySystemInformation()
     if(featureFlags & (XSTATE_MASK_AVX512 | XSTATE_MASK_AVX))
     {
         if((featureFlags & XSTATE_MASK_AVX) == XSTATE_MASK_AVX)
+        {
             std::cout << "AVX ";
+            if(ExtendedCpuFeatureSupported(ExtendedCpuFeature::kAvx2))
+                std::cout << "AVX2 ";
+        }
         if((featureFlags & XSTATE_MASK_AVX512) == XSTATE_MASK_AVX512)
             std::cout << "AVX512 ";
         std::cout << "supported\n";
     }
+
     std::cout << std::endl;
 }
 

@@ -189,5 +189,17 @@ namespace inasm64
     };
 
     bool SseLevelSupported(SseLevel level);
-    bool AvxSupported();
+
+    enum class ExtendedCpuFeature
+    {
+        kAvx = 0,
+        kAvx2,
+        kAvx512bw,
+        kAvx512dq,
+        kAvx512vl,
+        kAvx512vnni,
+        kVaes,
+        kGfni,
+    };
+    bool ExtendedCpuFeatureSupported(ExtendedCpuFeature level);
 }  // namespace inasm64

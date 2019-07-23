@@ -67,8 +67,8 @@ namespace inasm64
             "cs", "ds", "es", "ss", "fs", "gs"
         };
 
-        // all of this checking is based on https://gist.github.com/hi2p-perim/7855506
-
+        // based on https://gist.github.com/hi2p-perim/7855506
+        // and https://en.wikipedia.org/wiki/CPUID
         struct sys_flags_t
         {
             bool _checked : 1;
@@ -81,6 +81,16 @@ namespace inasm64
             bool _sse4a : 1;
             bool _sse5 : 1;
             bool _avx : 1;
+            bool _avx2 : 1;
+            bool _avx512f : 1;
+            bool _avx512dq : 1;
+            bool _avx512ifma : 1;
+            bool _avx512er : 1;
+            bool _avx512bw : 1;
+            bool _avx512vl : 1;
+            bool _avx512vnni : 1;
+            bool _gfni : 1;
+            bool _vaes : 1;
 
             // https://software.intel.com/en-us/blogs/2011/04/14/is-avx-enabled/
             bool _os_xsave_xstor : 1;
@@ -125,6 +135,22 @@ namespace inasm64
                 _sys_flags._sse4a = (regs[2] & (1 << 6)) != 0;
                 _sys_flags._sse5 = (regs[2] & (1 << 11)) != 0;
             }
+
+            // function 7; extended features
+            cpuid(7, 0, regs);
+            _sys_flags._avx2 = (regs[1] & (1 << 5)) != 0;
+            if(_sys_flags._avx2)
+            {
+                _sys_flags._avx512f = (regs[1] & (1 << 16)) != 0;
+                _sys_flags._avx512dq = (regs[1] & (1 << 17)) != 0;
+                _sys_flags._avx512ifma = (regs[1] & (1 << 21)) != 0;
+                _sys_flags._avx512er = (regs[1] & (1 << 27)) != 0;
+                _sys_flags._avx512bw = (regs[1] & (1 << 30)) != 0;
+                _sys_flags._avx512vl = (regs[1] & (1 << 31)) != 0;
+                _sys_flags._avx512vnni = (regs[2] & (1 << 11)) != 0;
+            }
+            _sys_flags._gfni = (regs[2] & (1 << 8)) != 0;
+            _sys_flags._vaes = (regs[2] & (1 << 9)) != 0;
 
             _sys_flags._checked = true;
         }
@@ -427,9 +453,28 @@ namespace inasm64
         return false;
     }
 
-    bool AvxSupported()
+    bool ExtendedCpuFeatureSupported(ExtendedCpuFeature level)
     {
         check_system();
-        return _sys_flags._avx;
+        switch(level)
+        {
+        case ExtendedCpuFeature::kAvx:
+            return _sys_flags._avx;
+        case ExtendedCpuFeature::kAvx2:
+            return _sys_flags._avx2;
+        case ExtendedCpuFeature::kAvx512bw:
+            return _sys_flags._avx512bw;
+        case ExtendedCpuFeature::kAvx512dq:
+            return _sys_flags._avx512dq;
+        case ExtendedCpuFeature::kAvx512vl:
+            return _sys_flags._avx512vl;
+        case ExtendedCpuFeature::kAvx512vnni:
+            return _sys_flags._avx512vnni;
+        case ExtendedCpuFeature::kGfni:
+            return _sys_flags._gfni;
+        case ExtendedCpuFeature::kVaes:
+            return _sys_flags._vaes;
+        }
+        return false;
     }
 }  // namespace inasm64
