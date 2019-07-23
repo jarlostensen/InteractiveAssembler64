@@ -47,14 +47,7 @@ namespace inasm64
         {
             xed_encoder_request_t req;
             xed_encoder_request_zero_set_mode(&req, &_state64);
-            xed_encoder_request_set_effective_operand_width(&req, statement._op1._width_bits);
-
-            //ZZZ: this doesn't seem to work, or have the intended effect, the 0xf2 or 0xf3 prefixes don't get emitted by XED by just setting these
-            //     instead we have to use the special rep/ne_ instruction prefix for the iclass (see below)
-            /*if(statement._rep)
-                xed_encoder_request_set_rep(&req);
-            else if(statement._repne)
-                xed_encoder_request_set_repne(&req);*/
+            xed_encoder_request_set_effective_operand_width(&req, statement._operands[0]._width_bits);
 
             char uc_buffer[64];
             const auto uc_string = [&uc_buffer](const char* str, const char* prefix = nullptr) {
@@ -211,7 +204,7 @@ namespace inasm64
                     switch(instr)
                     {
                     case XED_ICLASS_MOV:
-                        switch(statement._op1._width_bits)
+                        switch(statement._operands[0]._width_bits)
                         {
                         case 8:
                             if(width_bits > 8)
@@ -256,20 +249,10 @@ namespace inasm64
                 return true;
             };
 
-            if(statement._operand_count)
+            for(auto op = 0; op < statement._operand_count; ++op)
             {
-                if(!build_xed_op(0, statement._op1._type, statement._op1._width_bits, statement._op1))
+                if(!build_xed_op(op, statement._operands[op]._type, statement._operands[op]._width_bits, statement._operands[op]))
                     return 0;
-                if(statement._operand_count >= 2)
-                {
-                    if(!build_xed_op(1, statement._op2._type, statement._op2._width_bits, statement._op2))
-                        return 0;
-                    if(statement._operand_count == 3)
-                    {
-                        if(!build_xed_op(2, statement._op3._type, statement._op3._width_bits, statement._op3))
-                            return 0;
-                    }
-                }
             }
 
             unsigned char ibuffer[XED_MAX_INSTRUCTION_BYTES];

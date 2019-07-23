@@ -64,12 +64,11 @@ namespace inasm64
                     const char* _reg = nullptr;
                     uint64_t _imm;
                     MemoryOperandTokens _mem;
-                    //NOTE: non-trivial default constructor
                     op_()
                     {
                     }
                 } _op;
-            } _op1, _op2, _op3;
+            }* _operands = nullptr;
 
             static constexpr size_t kMaxStatementLength = 256;
             char _input_tokens[kMaxStatementLength] = { 0 };
