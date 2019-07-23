@@ -91,6 +91,7 @@ namespace inasm64
             bool _avx512vnni : 1;
             bool _gfni : 1;
             bool _vaes : 1;
+            bool _aes : 1;
 
             // https://software.intel.com/en-us/blogs/2011/04/14/is-avx-enabled/
             bool _os_xsave_xstor : 1;
@@ -109,6 +110,7 @@ namespace inasm64
             int regs[4] = { 0 };
             cpuid(1, 0, regs);
 
+            _sys_flags._aes = (regs[2] & (1 << 25)) != 0;
             _sys_flags._sse = (regs[3] & (1 << 25)) != 0;
             _sys_flags._sse2 = (regs[3] & (1 << 26)) != 0;
             _sys_flags._sse3 = (regs[2] & 1) != 0;
@@ -474,6 +476,8 @@ namespace inasm64
             return _sys_flags._gfni;
         case ExtendedCpuFeature::kVaes:
             return _sys_flags._vaes;
+        case ExtendedCpuFeature::kAes:
+            return _sys_flags._aes;
         }
         return false;
     }

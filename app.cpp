@@ -412,48 +412,53 @@ void DisplayRegister(cli::DataType type, const RegisterInfo& reg_info)
 
 void DisplaySystemInformation()
 {
-    auto sse_supported = false;
+    auto supported = false;
     if(SseLevelSupported(SseLevel::kSse))
     {
         std::cout << "SSE ";
-        sse_supported = true;
+        supported = true;
     }
     if(SseLevelSupported(SseLevel::kSse2))
     {
         std::cout << "SSE2 ";
-        sse_supported = true;
+        supported = true;
     }
     if(SseLevelSupported(SseLevel::kSse3))
     {
         std::cout << "SSE3 ";
-        sse_supported = true;
+        supported = true;
     }
     if(SseLevelSupported(SseLevel::kSsse3))
     {
         std::cout << "SSSE3 ";
-        sse_supported = true;
+        supported = true;
     }
     if(SseLevelSupported(SseLevel::kSse4_1))
     {
         std::cout << "SSE4_1 ";
-        sse_supported = true;
+        supported = true;
     }
     if(SseLevelSupported(SseLevel::kSse4_2))
     {
         std::cout << "SSE4_2 ";
-        sse_supported = true;
+        supported = true;
     }
     if(SseLevelSupported(SseLevel::kSse4a))
     {
         std::cout << "SSE4a ";
-        sse_supported = true;
+        supported = true;
     }
     if(SseLevelSupported(SseLevel::kSse5))
     {
         std::cout << "SSE5 ";
-        sse_supported = true;
+        supported = true;
     }
-    if(sse_supported)
+    if(ExtendedCpuFeatureSupported(ExtendedCpuFeature::kAes))
+    {
+        std::cout << "AES ";
+        supported = true;
+    }
+    if(supported)
         std::cout << "supported\n";
 
     DWORD64 featureFlags = GetEnabledXStateFeatures();

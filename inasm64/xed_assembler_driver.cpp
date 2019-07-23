@@ -47,7 +47,8 @@ namespace inasm64
         {
             xed_encoder_request_t req;
             xed_encoder_request_zero_set_mode(&req, &_state64);
-            xed_encoder_request_set_effective_operand_width(&req, statement._operands[0]._width_bits);
+            if(statement._operand_count)
+                xed_encoder_request_set_effective_operand_width(&req, statement._operands[0]._width_bits);
 
             char uc_buffer[64];
             const auto uc_string = [&uc_buffer](const char* str, const char* prefix = nullptr) {
