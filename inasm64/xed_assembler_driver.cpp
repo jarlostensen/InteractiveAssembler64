@@ -93,7 +93,9 @@ namespace inasm64
 
             xed_encoder_request_set_iclass(&req, xed_instruction);
 
-            const auto build_xed_op = [&req, &uc_string, &uc_buffer, &statement](unsigned op_order, char type, short width_bits, const Statement::operand& op) -> bool {
+            // AVX512vl mode depends on the type of instruction and the register operands. We try to detect it here based on the operand register classes (see xed_enc_lang.c)
+            xed_int_t vl = -1;
+            const auto build_xed_op = [&req, &uc_string, &uc_buffer, &statement, &vl](unsigned op_order, char type, short width_bits, const Statement::operand& op) -> bool {
                 switch(type)
                 {
                 case Statement::kReg:
@@ -108,6 +110,11 @@ namespace inasm64
                     const auto operand_reg = static_cast<xed_operand_enum_t>(static_cast<char>(XED_OPERAND_REG0) + op_order);
                     xed_encoder_request_set_reg(&req, operand_reg, op1_xed_reg);
                     xed_encoder_request_set_operand_order(&req, op_order, operand_reg);
+                    const auto reg_class = xed_reg_class(op1_xed_reg);
+                    // see xed_enc_lang.c; this is part of a heuristic to determine "vl" settings of the instruction
+                    if(reg_class == XED_REG_CLASS_XMM)
+                        vl = 0;
+                    //TODO: ymm,zmm
                 }
                 break;
                 case Statement::kMem:
@@ -254,6 +261,10 @@ namespace inasm64
                 if(!build_xed_op(op, statement._operands[op]._type, statement._operands[op]._width_bits, statement._operands[op]))
                     return 0;
             }
+
+            //NOTE: what if the instruction isn't an AVX512 instruction, why does this not have a negative effect?
+            if(vl >= 0)
+                xed3_operand_set_vl(&req, (xed_uint_t)vl);
 
             unsigned char ibuffer[XED_MAX_INSTRUCTION_BYTES];
             unsigned ilen = XED_MAX_INSTRUCTION_BYTES;
