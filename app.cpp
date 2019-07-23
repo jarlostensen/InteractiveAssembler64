@@ -26,6 +26,8 @@
 #include "inasm64/globvars.h"
 
 // ====================================================================================
+
+using namespace inasm64;
 //
 
 // each line of assembled input, against its address.
@@ -60,7 +62,7 @@ auto coutreg(const char* reg) -> std::ostream&
     return std::cout << std::setfill(' ') << std::setw(4) << reg << std::setw(1) << " = 0x" << cout_64_bits;
 }
 
-auto coutreg(const inasm64::RegisterInfo& reg_info) -> std::ostream&
+auto coutreg(const RegisterInfo& reg_info) -> std::ostream&
 {
     // perhaps I should just have used printf....
     return std::cout << std::setfill(' ') << std::setw(4) << reg_info._name << std::setw(1) << " = 0x" << std::setfill('0') << std::setw(reg_info._bit_width / 8) << std::hex;
@@ -95,35 +97,38 @@ std::ostream& coutflags(DWORD flags, DWORD prev = 0)
     return std::cout;
 }
 
-const inasm64::RegisterInfo kRegisterInfos[] = {
-    inasm64::RegisterInfo{ inasm64::RegisterInfo::Register::rax },
-    inasm64::RegisterInfo{ inasm64::RegisterInfo::Register::rbx },
-    inasm64::RegisterInfo{ inasm64::RegisterInfo::Register::rcx },
-    inasm64::RegisterInfo{ inasm64::RegisterInfo::Register::rdx },
-    inasm64::RegisterInfo{ inasm64::RegisterInfo::Register::rsi },
-    inasm64::RegisterInfo{ inasm64::RegisterInfo::Register::rdi },
-    inasm64::RegisterInfo{ inasm64::RegisterInfo::Register::rbp },
-    inasm64::RegisterInfo{ inasm64::RegisterInfo::Register::rsp },
-    inasm64::RegisterInfo{ inasm64::RegisterInfo::Register::r8 },
-    inasm64::RegisterInfo{ inasm64::RegisterInfo::Register::r9 },
-    inasm64::RegisterInfo{ inasm64::RegisterInfo::Register::r10 },
-    inasm64::RegisterInfo{ inasm64::RegisterInfo::Register::r11 },
-    inasm64::RegisterInfo{ inasm64::RegisterInfo::Register::r12 },
-    inasm64::RegisterInfo{ inasm64::RegisterInfo::Register::r13 },
-    inasm64::RegisterInfo{ inasm64::RegisterInfo::Register::r14 },
-    inasm64::RegisterInfo{ inasm64::RegisterInfo::Register::r15 },
+const RegisterInfo kRegisterInfos[] = {
+    RegisterInfo{ RegisterInfo::Register::rax },
+    RegisterInfo{ RegisterInfo::Register::rbx },
+    RegisterInfo{ RegisterInfo::Register::rcx },
+    RegisterInfo{ RegisterInfo::Register::rdx },
+    RegisterInfo{ RegisterInfo::Register::rsi },
+    RegisterInfo{ RegisterInfo::Register::rdi },
+    RegisterInfo{ RegisterInfo::Register::rbp },
+    RegisterInfo{ RegisterInfo::Register::rsp },
+    RegisterInfo{ RegisterInfo::Register::r8 },
+    RegisterInfo{ RegisterInfo::Register::r9 },
+    RegisterInfo{ RegisterInfo::Register::r10 },
+    RegisterInfo{ RegisterInfo::Register::r11 },
+    RegisterInfo{ RegisterInfo::Register::r12 },
+    RegisterInfo{ RegisterInfo::Register::r13 },
+    RegisterInfo{ RegisterInfo::Register::r14 },
+    RegisterInfo{ RegisterInfo::Register::r15 },
+    RegisterInfo{ RegisterInfo::Register::eflags },
 };
 
 void DumpRegs()
 {
     std::cout << "\n";
-    using namespace inasm64::runtime;
+    using namespace runtime;
     for(auto idx = 0; idx < std::size(kRegisterInfos); ++idx)
     {
         uint64_t val;
-        inasm64::RegisterInfo reg_info;
         GetReg(kRegisterInfos[idx], val);
-        coutreg(kRegisterInfos[idx]._name) << val << " ";
+        if(kRegisterInfos[idx]._class != RegisterInfo::RegClass::kFlags)
+            coutreg(kRegisterInfos[idx]._name) << val << " ";
+        else
+            coutflags(DWORD(val), 0);
         if(idx && (idx & 3) == 3)
             std::cout << std::endl;
     }
@@ -131,16 +136,32 @@ void DumpRegs()
 
 void DumpDeltaRegs()
 {
-    const auto changed_regs = inasm64::runtime::ChangedRegisters();
+    const auto changed_regs = runtime::ChangedRegisters();
     if(changed_regs.size())
         std::cout << "\n";
     auto idx = 0;
     for(const auto& changed : changed_regs)
     {
-        uint64_t val;
-        inasm64::RegisterInfo reg_info{ changed.first };
-        inasm64::runtime::GetReg(reg_info, val);
-        coutreg(reg_info) << val << " ";
+        RegisterInfo reg_info{ changed.first };
+        if(reg_info._class == RegisterInfo::RegClass::kXmm)
+        {
+            uint8_t val[16];
+            runtime::GetReg(reg_info, &val, sizeof(val));
+            std::cout << reg_info._name << " ";
+            cout_bytes_as_number(std::cout, val, sizeof(val));
+        }
+        else
+        {
+            uint64_t val;
+            runtime::GetReg(reg_info, val);
+            if(reg_info._class != RegisterInfo::RegClass::kFlags)
+                coutreg(reg_info) << val << " ";
+            else
+            {
+                std::cout << "\n";
+                coutflags(DWORD(val), 0);
+            }
+        }
         if(idx && (idx & 3) == 3)
             std::cout << std::endl;
         ++idx;
@@ -188,7 +209,7 @@ void DumpYmmRegisters()
 {
     //TODO:
     /*assert(false);
-    const auto ctx = inasm64::runtime::Context();
+    const auto ctx = runtime::Context();
     DWORD64 featuremask;
     if(GetXStateFeaturesMask(const_cast<PCONTEXT>(ctx->OsContext), &featuremask))
     {
@@ -228,9 +249,9 @@ void DumpYmmRegisters()
     }*/
 }
 
-void DisplayMemoryAsType(inasm64::cli::DataType type, const char* memory, size_t size)
+void DisplayMemoryAsType(cli::DataType type, const char* memory, size_t size)
 {
-    using namespace inasm64::cli;
+    using namespace cli;
     for(unsigned c = 0; c < size;)
     {
         const auto rp = memory + c;
@@ -284,12 +305,12 @@ void DisplayMemoryAsType(inasm64::cli::DataType type, const char* memory, size_t
     }
 }
 
-void DumpMemory(inasm64::cli::DataType type, const void* remote_address, size_t size_)
+void DumpMemory(cli::DataType type, const void* remote_address, size_t size_)
 {
     //NOTE: all commands are being invoked on the same line as the input, a bit cumbersome but...
     std::cout << "\n";
 
-    using namespace inasm64::cli;
+    using namespace cli;
     constexpr auto kBytesPerRow = 16;
     constexpr auto kRows = 4;
 
@@ -300,7 +321,7 @@ void DumpMemory(inasm64::cli::DataType type, const void* remote_address, size_t 
     const auto local_buffer = new char[buffer_size];
     // clear the buffer
     memset(local_buffer, 0, buffer_size);
-    inasm64::runtime::ReadBytes(remote_address, local_buffer, size);
+    runtime::ReadBytes(remote_address, local_buffer, size);
     auto n = 0;
     auto address = reinterpret_cast<const uint8_t*>(remote_address);
 
@@ -327,7 +348,7 @@ void DumpMemory(inasm64::cli::DataType type, const void* remote_address, size_t 
     }
 }
 
-void DisplayRegister(inasm64::cli::DataType type, const inasm64::RegisterInfo& reg_info)
+void DisplayRegister(cli::DataType type, const RegisterInfo& reg_info)
 {
     using namespace inasm64;
     std::cout << "\n\t" << reg_info._name << ": ";
@@ -351,7 +372,7 @@ void DisplayRegister(inasm64::cli::DataType type, const inasm64::RegisterInfo& r
     {
         uint8_t val[8];
         runtime::GetReg(reg_info, val, sizeof(val));
-        if(type == inasm64::cli::DataType::kDWord)
+        if(type == cli::DataType::kDWord)
         {
             cout_bytes_as_number(std::cout, val, reg_info._bit_width / 8);
         }
@@ -365,7 +386,7 @@ void DisplayRegister(inasm64::cli::DataType type, const inasm64::RegisterInfo& r
     {
         uint8_t val[16];
         runtime::GetReg(reg_info, val, sizeof(val));
-        if(type == inasm64::cli::DataType::kXmmWord)
+        if(type == cli::DataType::kXmmWord)
         {
             cout_bytes_as_number(std::cout, val, sizeof(val));
         }
@@ -392,42 +413,42 @@ void DisplayRegister(inasm64::cli::DataType type, const inasm64::RegisterInfo& r
 void DisplaySystemInformation()
 {
     auto sse_supported = false;
-    if(inasm64::SseLevelSupported(inasm64::SseLevel::kSse))
+    if(SseLevelSupported(SseLevel::kSse))
     {
         std::cout << "SSE ";
         sse_supported = true;
     }
-    if(inasm64::SseLevelSupported(inasm64::SseLevel::kSse2))
+    if(SseLevelSupported(SseLevel::kSse2))
     {
         std::cout << "SSE2 ";
         sse_supported = true;
     }
-    if(inasm64::SseLevelSupported(inasm64::SseLevel::kSse3))
+    if(SseLevelSupported(SseLevel::kSse3))
     {
         std::cout << "SSE3 ";
         sse_supported = true;
     }
-    if(inasm64::SseLevelSupported(inasm64::SseLevel::kSsse3))
+    if(SseLevelSupported(SseLevel::kSsse3))
     {
         std::cout << "SSSE3 ";
         sse_supported = true;
     }
-    if(inasm64::SseLevelSupported(inasm64::SseLevel::kSse4_1))
+    if(SseLevelSupported(SseLevel::kSse4_1))
     {
         std::cout << "SSE4_1 ";
         sse_supported = true;
     }
-    if(inasm64::SseLevelSupported(inasm64::SseLevel::kSse4_2))
+    if(SseLevelSupported(SseLevel::kSse4_2))
     {
         std::cout << "SSE4_2 ";
         sse_supported = true;
     }
-    if(inasm64::SseLevelSupported(inasm64::SseLevel::kSse4a))
+    if(SseLevelSupported(SseLevel::kSse4a))
     {
         std::cout << "SSE4a ";
         sse_supported = true;
     }
-    if(inasm64::SseLevelSupported(inasm64::SseLevel::kSse5))
+    if(SseLevelSupported(SseLevel::kSse5))
     {
         std::cout << "SSE5 ";
         sse_supported = true;
@@ -453,7 +474,7 @@ int main(int argc, char* argv[])
     {
         // when running as debuggee we should never get here
         const auto key = ::strtoll(argv[1], nullptr, 10);
-        if(key == inasm64::kTrapModeArgumentValue)
+        if(key == kTrapModeArgumentValue)
         {
             std::cerr << console::red << "Fatal runtime error: faulty trap\n";
             return -1;
@@ -526,7 +547,7 @@ int main(int argc, char* argv[])
         };
         cli::OnAssembleError = [&input, &input_start_cursor_x, &clear_next_input_on_key]() -> bool {
             to_right_column();
-            std::cerr << console::red << "\t" << inasm64::ErrorMessage(inasm64::GetError()) << console::reset_colours;
+            std::cerr << console::red << "\t" << ErrorMessage(GetError()) << console::reset_colours;
             console::SetCursorX(0);
             clear_next_input_on_key = true;
             return true;
@@ -568,7 +589,7 @@ int main(int argc, char* argv[])
                 if(cli::ActiveMode() != cli::Mode::Assembling)
                 {
                     to_right_column();
-                    std::cerr << console::red << inasm64::ErrorMessage(inasm64::GetError()) << console::reset_colours;
+                    std::cerr << console::red << ErrorMessage(GetError()) << console::reset_colours;
                     console::SetCursorX(0);
                 }
                 clear_next_input_on_key = true;

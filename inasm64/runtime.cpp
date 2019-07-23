@@ -203,7 +203,37 @@ namespace inasm64
             INASM64_RT_REG_DELTA(13);
             INASM64_RT_REG_DELTA(14);
             INASM64_RT_REG_DELTA(15);
-        }
+
+#define INASM64_RT_XREG_DELTA(reg)                                                                                                                                  \
+    if(_active_ctx->Xmm##reg.Low != _prev_ctx->Xmm##reg.Low || _active_ctx->Xmm##reg.High != _prev_ctx->Xmm##reg.High)                                              \
+    {                                                                                                                                                               \
+        auto mask = reg_delta_mask(8, reinterpret_cast<const uint8_t*>(&_active_ctx->Xmm##reg.Low), reinterpret_cast<const uint8_t*>(&_prev_ctx->Xmm##reg.Low));    \
+        mask |= reg_delta_mask(8, reinterpret_cast<const uint8_t*>(&_active_ctx->Xmm##reg.High), reinterpret_cast<const uint8_t*>(&_prev_ctx->Xmm##reg.High)) << 8; \
+        _changed_registers[static_cast<size_t>(RegisterInfo::Register::xmm##reg) - kRaxIndex] = mask;                                                               \
+    }
+
+            INASM64_RT_XREG_DELTA(0);
+            INASM64_RT_XREG_DELTA(1);
+            INASM64_RT_XREG_DELTA(2);
+            INASM64_RT_XREG_DELTA(3);
+            INASM64_RT_XREG_DELTA(4);
+            INASM64_RT_XREG_DELTA(5);
+            INASM64_RT_XREG_DELTA(6);
+            INASM64_RT_XREG_DELTA(7);
+            INASM64_RT_XREG_DELTA(8);
+            INASM64_RT_XREG_DELTA(9);
+            INASM64_RT_XREG_DELTA(10);
+            INASM64_RT_XREG_DELTA(11);
+            INASM64_RT_XREG_DELTA(12);
+            INASM64_RT_XREG_DELTA(13);
+            INASM64_RT_XREG_DELTA(14);
+            INASM64_RT_XREG_DELTA(15);
+
+            if(_active_ctx->EFlags != _prev_ctx->EFlags)
+            {
+                _changed_registers[static_cast<size_t>(RegisterInfo::Register::eflags) - kRaxIndex] = reg_delta_mask(4, reinterpret_cast<const uint8_t*>(&_active_ctx->EFlags), reinterpret_cast<const uint8_t*>(&_prev_ctx->EFlags));
+            }
+        }  // namespace runtime
 
         bool load_context(HANDLE thread)
         {
