@@ -112,10 +112,13 @@ namespace inasm64
                     xed_encoder_request_set_reg(&req, operand_reg, op1_xed_reg);
                     xed_encoder_request_set_operand_order(&req, op_order, operand_reg);
                     const auto reg_class = xed_reg_class(op1_xed_reg);
-                    // see xed_enc_lang.c; this is part of a heuristic to determine "vl" settings of the instruction
+                    // see xed_enc_lang.c; this is part of a heuristic to determine "vector length" settings of the instruction
                     if(reg_class == XED_REG_CLASS_XMM)
                         vl = 0;
-                    //TODO: ymm,zmm
+                    else if (reg_class == XED_REG_CLASS_YMM && vl < 1)
+						vl = 1;
+                    else if(reg_class == XED_REG_CLASS_ZMM && vl < 2)
+						vl = 2;
                 }
                 break;
                 case Statement::kMem:

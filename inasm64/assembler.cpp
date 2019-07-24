@@ -370,7 +370,7 @@ namespace inasm64
 
                 if(instr_index < part[0].size())
                 {
-                    const auto check_operand_bit_size_prefix = [&instr_index](const std::vector<char*>& tokens) -> char {
+                    const auto check_operand_bit_size_prefix = [&instr_index](const std::vector<char*>& tokens) -> short {
                         if((instr_index + 1) < tokens.size())
                         {
                             if(strncmp(tokens[instr_index], "byte", 4) == 0)
@@ -392,6 +392,21 @@ namespace inasm64
                             {
                                 ++instr_index;
                                 return 64;
+                            }
+                            if(strncmp(tokens[instr_index], "xmmword", 7) == 0)
+                            {
+                                ++instr_index;
+                                return 128;
+                            }
+                            if(strncmp(tokens[instr_index], "ymmword", 7) == 0)
+                            {
+                                ++instr_index;
+                                return 256;
+                            }
+                            if(strncmp(tokens[instr_index], "zmmword", 7) == 0)
+                            {
+                                ++instr_index;
+                                return 512;
                             }
                             // xmmword etc.
                         }
@@ -452,6 +467,11 @@ namespace inasm64
                                     _BitScanReverse64(&index, op._op._mem._displacement > 0 ? op._op._mem._displacement : -op._op._mem._displacement);
                                     op._op._mem._disp_width_bits = char((index + 8) & ~7);
                                 }
+                                else
+                                {
+									op._op._mem._displacement = 0;
+                                    op._op._mem._disp_width_bits =0;
+								}
                                 // impliciinstr_indexy 32 bits, may be overridden by prefix or the size of op1
                                 width_bits = 32;
                             }
@@ -467,7 +487,7 @@ namespace inasm64
                                 break;
                             statement._operands[p]._width_bits = check_operand_bit_size_prefix(part[p]);
                             result = tokenise_operand(part[p][instr_index], op_tokens[p]);
-                            result = result && (op_tokens[p]._base[0] || op_tokens[p]._displacement[0] || (op_tokens[p]._reg_imm[0] && part[1].size() == 1));
+                            result = result && (op_tokens[p]._base[0] || op_tokens[p]._displacement[0] || op_tokens[p]._reg_imm[0]);
                             if(!result)
                                 break;
                             statement._operands[p]._type = op_tokens[p]._reg_imm[0] ? (isalpha(op_tokens[p]._reg_imm[0]) ? Statement::kReg : Statement::kImm) : Statement::kMem;
