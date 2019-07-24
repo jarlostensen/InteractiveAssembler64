@@ -233,20 +233,7 @@ namespace inasm64
                 const auto format = detail::starts_with_integer(str, &rp);
                 if(format == detail::number_format_t::kUnknown)
                     return false;
-                uint32_t radix = 0;
-                switch(format)
-                {
-                case detail::number_format_t::kBinary:
-                    radix = 2;
-                    break;
-                case detail::number_format_t::kDecimal:
-                    radix = 10;
-                    break;
-                case detail::number_format_t::kHexadecimal:
-                    radix = 16;
-                    break;
-                }
-
+                const auto radix = static_cast<uint32_t>(format);
                 const auto str_segment = reinterpret_cast<char*>(_malloca(strlen(str) + 1));
                 auto n = 0;
                 while(rp[n] && (rp[n] != ' ' && rp[n] != ','))
@@ -260,6 +247,9 @@ namespace inasm64
                 /*RATPAK*/ ChangeConstants(radix, 128);
                 auto anumber = /*RATPAK*/ StringToNumber(str_segment, radix, 128);
                 _freea(str_segment);
+
+                //NOTE: see app.cpp:Calculator, we can actually use RATPAK's NumberToString here, with the FMT_FLOAT format,
+                //      but leaving this in here as a reminder of how the number format actually works
 
                 if(!anumber)
                     return false;
