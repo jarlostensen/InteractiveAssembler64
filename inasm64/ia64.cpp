@@ -92,6 +92,7 @@ namespace inasm64
             bool _gfni : 1;
             bool _vaes : 1;
             bool _aes : 1;
+            bool _fma : 1;
 
             // https://software.intel.com/en-us/blogs/2011/04/14/is-avx-enabled/
             bool _os_xsave_xstor : 1;
@@ -110,6 +111,8 @@ namespace inasm64
             int regs[4] = { 0 };
             cpuid(1, 0, regs);
 
+            // also: https://software.intel.com/en-us/articles/how-to-detect-new-instruction-support-in-the-4th-generation-intel-core-processor-family
+
             _sys_flags._aes = (regs[2] & (1 << 25)) != 0;
             _sys_flags._sse = (regs[3] & (1 << 25)) != 0;
             _sys_flags._sse2 = (regs[3] & (1 << 26)) != 0;
@@ -119,6 +122,7 @@ namespace inasm64
             _sys_flags._sse4_2 = (regs[2] & (1 << 20)) != 0;
             _sys_flags._avx = (regs[2] & (1 << 28)) != 0;
             _sys_flags._os_xsave_xstor = (regs[2] & (1 << 27)) != 0;
+            _sys_flags._fma = (regs[2] & (1 << 12)) != 0;
 
             // Intel-IA64 Dev guide 14.3
             if(_sys_flags._os_xsave_xstor)
@@ -478,6 +482,8 @@ namespace inasm64
             return _sys_flags._vaes;
         case ExtendedCpuFeature::kAes:
             return _sys_flags._aes;
+        case ExtendedCpuFeature::kFma:
+            return _sys_flags._fma;
         }
         return false;
     }

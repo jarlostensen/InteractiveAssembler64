@@ -439,6 +439,11 @@ void DisplaySystemInformation()
         std::cout << "AES ";
         supported = true;
     }
+    if(ExtendedCpuFeatureSupported(ExtendedCpuFeature::kFma))
+    {
+        std::cout << "FMA ";
+        supported = true;
+    }
     if(supported)
         std::cout << "supported\n";
 

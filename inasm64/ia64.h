@@ -201,6 +201,7 @@ namespace inasm64
         kVaes,
         kGfni,
         kAes,
+        kFma
     };
     bool ExtendedCpuFeatureSupported(ExtendedCpuFeature level);
 }  // namespace inasm64
