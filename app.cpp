@@ -189,12 +189,12 @@ void DumpXmmRegisters()
     using namespace inasm64;
 
     //TESTING;
-    /*char yd[256];
+    char yd[256];
     runtime::GetReg({ RegisterInfo::RegClass::kYmm,
                         RegisterInfo::Register::ymm0,
                         256 },
         yd, sizeof(yd));
-*/
+
     for(auto i = 0; i < 16; ++i)
     {
         RegisterInfo reg_info{

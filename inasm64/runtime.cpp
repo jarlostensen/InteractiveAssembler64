@@ -18,6 +18,9 @@
 #include <unordered_map>
 #include <cassert>
 
+// we use some intrinsics to initialise AVX etc.
+#include <immintrin.h>
+
 #include <memory>
 #include "common.h"
 #include "ia64.h"
@@ -87,6 +90,8 @@ namespace inasm64
         DWORD _ctx_flags = 0;
         DWORD _context_size = 0;
         bool _ctx_changed = false;
+        // if AVX supported we load these with the Ymm registers in load_context
+        PM128A _ymm = nullptr;
 
         constexpr auto kRaxIndex = static_cast<size_t>(RegisterInfo::Register::rax);
         constexpr auto kRegisterCount = static_cast<size_t>(RegisterInfo::Register::kInvalid) - kRaxIndex;
@@ -254,12 +259,40 @@ namespace inasm64
                 buffer = malloc(_context_size);
                 ZeroMemory(buffer, _context_size);
                 _prev_ctx = reinterpret_cast<PCONTEXT>(buffer);
+                InitializeContext(buffer, _ctx_flags, &_prev_ctx, &_context_size);
+
+                if(ExtendedCpuFeatureSupported(ExtendedCpuFeature::kAvx))
+                {
+                    // poke AVX to get the ymm registers enabled in the context (see below)
+                    (void)_mm256_setzero_pd();
+                }
             }
             _active_ctx->ContextFlags = _ctx_flags;
             //NOTE: unsupported masks are ignored as per documentation of this function, so it is safe to always set them
             SetXStateFeaturesMask(_active_ctx, XSTATE_MASK_AVX | XSTATE_MASK_AVX512);
 
-            memcpy(_prev_ctx, _active_ctx, _context_size);
+            // load Ymm registers, if supported
+            if(ExtendedCpuFeatureSupported(ExtendedCpuFeature::kAvx))
+            {
+                DWORD64 featuremask;
+                if(GetXStateFeaturesMask(const_cast<PCONTEXT>(_active_ctx), &featuremask))
+                {
+                    if((featuremask & XSTATE_MASK_AVX) == XSTATE_MASK_AVX)
+                    {
+                        DWORD featureLength = 0;
+                        _ymm = (PM128A)LocateXStateFeature(const_cast<PCONTEXT>(_active_ctx), XSTATE_AVX, &featureLength);
+                    }
+                    // not set yet
+                }
+                else
+                //zzz: general error, under what conditions can this happen?
+                {
+                    _ymm = nullptr;
+                }
+            }
+
+            // update tracking context
+            CopyContext(_prev_ctx, _ctx_flags, _active_ctx);
             const auto result = GetThreadContext(thread, _active_ctx) == TRUE;
             if(result)
                 check_register_changes();
@@ -934,26 +967,25 @@ namespace inasm64
                 return false;
             }
 
-            //WIP:
             if(reg._class == RegisterInfo::RegClass::kYmm)
             {
-                DWORD64 featuremask;
-                if(GetXStateFeaturesMask(const_cast<PCONTEXT>(_active_ctx), &featuremask))
+                if(_ymm)
                 {
-                    if((featuremask & XSTATE_MASK_AVX) == XSTATE_MASK_AVX)
-                    {
-                        DWORD featureLength = 0;
-                        const auto Ymm = (PM128A)LocateXStateFeature(const_cast<PCONTEXT>(_active_ctx), XSTATE_AVX, &featureLength);
-                        if(Ymm)
-                        {
-                            const auto ord = static_cast<size_t>(reg._register);
-                            memcpy(data, &Ymm[ord].Low, sizeof(M128A::Low));
-                            memcpy(reinterpret_cast<uint8_t*>(data) + sizeof(M128A::Low), &Ymm[ord].High, sizeof(M128A::High));
-                            return true;
-                        }
-                    }
+                    const auto ord = static_cast<size_t>(reg._register);
+                    memcpy(data, &_ymm[ord].Low, sizeof(M128A::Low));
+                    memcpy(reinterpret_cast<uint8_t*>(data) + sizeof(M128A::Low), &_ymm[ord].High, sizeof(M128A::High));
+                    return true;
                 }
+                else if(!ExtendedCpuFeatureSupported(ExtendedCpuFeature::kAvx))
+                {
+                    detail::set_error(Error::kUnsupportedCpuFeature);
+                    return false;
+                }
+                // just set them to 0 if not initialised
+                memset(data, 0, size);
             }
+            //TODO:
+            assert(reg._class != RegisterInfo::RegClass::kZmm);
 
             const uint8_t* reg_ptr = nullptr;
             switch(reg._class)
@@ -1161,6 +1193,6 @@ namespace inasm64
                 memcpy(data, reg_ptr, size);
             }
             return true;
-        }
-    }  // namespace runtime
+        }  // namespace runtime
+    }      // namespace runtime
 }  // namespace inasm64

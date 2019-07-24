@@ -45,6 +45,7 @@ namespace inasm64
         kInvalidRegisterName,
         kCliUnknownCommand,
         kInvalidInputValueFormat,
+        kUnsupportedCpuFeature,
         kAccessViolation,
         kSystemError,
     };

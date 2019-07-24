@@ -178,6 +178,8 @@ namespace inasm64
             return "invalid register for this operation";
         case Error::kInvalidInputValueFormat:
             return "input number format is invalid";
+        case Error::kUnsupportedCpuFeature:
+            return "this feature is unsupported on this CPU";
         case Error::kEncodeError:
             return "General encoder error";
         default:
