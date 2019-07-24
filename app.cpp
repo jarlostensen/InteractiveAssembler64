@@ -25,6 +25,9 @@
 #include "inasm64/cli.h"
 #include "inasm64/globvars.h"
 
+// the Microsoft calculator for large numbers
+#include "external/Ratpack/ratpak.h"
+
 // ====================================================================================
 
 using namespace inasm64;
@@ -208,37 +211,23 @@ void DumpXmmRegisters()
 
 void DumpYmmRegisters()
 {
-    //    //TODO:
-    //    const auto ctx = runtime::Context();
-    //    DWORD64 featuremask;
-    //    if(GetXStateFeaturesMask(const_cast<PCONTEXT>(ctx->OsContext), &featuremask))
-    //    {
-    //        if((featuremask & XSTATE_MASK_AVX) == XSTATE_MASK_AVX)
-    //        {
-    //            DWORD featureLength = 0;
-    //            const auto Ymm = (PM128A)LocateXStateFeature(const_cast<PCONTEXT>(ctx->OsContext), XSTATE_AVX, &featureLength);
-    //            if(Ymm)
-    //            {
-    //#define DUMP_YMM_REGISTER(index) coutreg(STRINGIZE(ymm##index)) << Ymm[index].High << cout_64_bits << Ymm[index].Low << " "
-    //                DUMP_YMM_REGISTER(0);
-    //                DUMP_YMM_REGISTER(1) << std::endl;
-    //                DUMP_YMM_REGISTER(2);
-    //                DUMP_YMM_REGISTER(3) << std::endl;
-    //                DUMP_YMM_REGISTER(4);
-    //                DUMP_YMM_REGISTER(5) << std::endl;
-    //                DUMP_YMM_REGISTER(6);
-    //                DUMP_YMM_REGISTER(7) << std::endl;
-    //                DUMP_YMM_REGISTER(8);
-    //                DUMP_YMM_REGISTER(9) << std::endl;
-    //                DUMP_YMM_REGISTER(10);
-    //                DUMP_YMM_REGISTER(11) << std::endl;
-    //                DUMP_YMM_REGISTER(12);
-    //                DUMP_YMM_REGISTER(13) << std::endl;
-    //                DUMP_YMM_REGISTER(14);
-    //                DUMP_YMM_REGISTER(15) << std::endl;
-    //            }
-    //        }
-    //    }
+    std::cout << "\n";
+
+    for(auto i = 0; i < 16; ++i)
+    {
+        RegisterInfo reg_info{
+            RegisterInfo::RegClass::kYmm,
+            static_cast<RegisterInfo::Register>(static_cast<int>(RegisterInfo::Register::ymm0) + i),
+            256
+        };
+        uint8_t val[32];
+        runtime::GetReg(reg_info, val, sizeof(val));
+        std::cout << "ymm" << std::dec << i << " ";
+        if(i < 10)
+            std::cout << " ";
+        cout_bytes_as_number(std::cout, val, sizeof(val)) << " ";
+        std::cout << std::endl;
+    }
 }
 
 void DisplayMemoryAsType(cli::DataType type, const char* memory, size_t size)
@@ -470,6 +459,42 @@ void DisplaySystemInformation()
     std::cout << std::endl;
 }
 
+bool Calculator(const char* statement)
+{
+    std::cout << "\n";
+    char* first;
+    const auto format = detail::starts_with_integer(const_cast<char*>(statement), &first);
+    if(format == detail::number_format_t::kUnknown)
+        return false;
+
+    const auto radix = static_cast<uint32_t>(format);
+    ChangeConstants(radix, 128);
+    auto n0 = StringToNumber(first, radix, 128);
+    auto internal_n = numtonRadixx(n0, radix);
+    auto bin = n0;
+    auto dec = n0;
+    auto hex = n0;
+    if(radix != 2)
+        bin = nRadixxtonum(internal_n, 2, 128);
+    if(radix != 10)
+        dec = nRadixxtonum(internal_n, 10, 128);
+    if(radix != 16)
+        hex = nRadixxtonum(internal_n, 16, 128);
+    std::wcout << L" 0x" << NumberToString(hex, FMT_FLOAT, 16, 128) << L"\n";
+    std::wcout << L" " << NumberToString(dec, FMT_FLOAT, 10, 128) << L"\n";
+    std::wcout << L" 0b" << NumberToString(bin, FMT_FLOAT, 2, 128) << L"\n";
+
+    destroynum(n0);
+    destroynum(internal_n);
+    if(radix != 2)
+        destroynum(bin);
+    if(radix != 10)
+        destroynum(dec);
+    if(radix != 16)
+        destroynum(hex);
+    return true;
+}
+
 int main(int argc, char* argv[])
 {
     if(argc == 2)
@@ -521,6 +546,7 @@ int main(int argc, char* argv[])
         cli::OnDisplayRegister = DisplayRegister;
         cli::OnDisplayData = DumpMemory;
         cli::OnSetGPRegister = DumpReg;
+        cli::OnUnknownCommand = Calculator;
 
         std::string input;
         short input_start_cursor_x;

@@ -29,6 +29,8 @@ namespace inasm64
                 return number_format_t::kUnknown;
             if(at[0] == '-' || at[0] == '+')
                 ++at;
+            if(first)
+                *first = at;
             if(at[0] == '0')
             {
                 if(at[1] == 'x' || at[1] == 'b')

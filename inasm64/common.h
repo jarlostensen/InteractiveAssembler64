@@ -83,9 +83,9 @@ namespace inasm64
 
         enum class number_format_t
         {
-            kBinary,
-            kDecimal,
-            kHexadecimal,
+            kBinary = 2,
+            kDecimal = 10,
+            kHexadecimal = 16,
             kUnknown
         };
         number_format_t starts_with_integer(char* str, char** first = nullptr);

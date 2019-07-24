@@ -106,6 +106,9 @@ namespace inasm64
             return 0;
         }
 
+        // =================================================================================
+        // CLI event handlers
+
         // varname has been set to value (in globvars)
         extern std::function<void(const char* varname, uintptr_t value)> OnDataValueSet;
 
@@ -155,6 +158,7 @@ namespace inasm64
         // invoked on instruction find with the list of prefix-matching instructions supported by the driver
         extern std::function<void(const std::vector<const char*>&)> OnFindInstruction;
 
+        // invoked if no CLI handler handles a command
         extern std::function<bool(const char*)> OnUnknownCommand;
 
     }  // namespace cli
