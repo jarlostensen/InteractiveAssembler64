@@ -120,11 +120,11 @@ namespace inasm64
             _sys_flags._avx = (regs[2] & (1 << 28)) != 0;
             _sys_flags._os_xsave_xstor = (regs[2] & (1 << 27)) != 0;
 
-            if(_sys_flags._os_xsave_xstor && _sys_flags._avx)
+            // Intel-IA64 Dev guide 14.3
+            if(_sys_flags._os_xsave_xstor)
             {
                 // check xcr0 register for xmm and/or ymm enabled
                 const auto xcr0 = uint32_t(_xgetbv(0));
-                // if the OS doesn't support XSAVE/XSTOR we need to disable this
                 _sys_flags._avx = (xcr0 & 6) == 6;
             }
 

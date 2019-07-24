@@ -934,6 +934,27 @@ namespace inasm64
                 return false;
             }
 
+            //WIP:
+            if(reg._class == RegisterInfo::RegClass::kYmm)
+            {
+                DWORD64 featuremask;
+                if(GetXStateFeaturesMask(const_cast<PCONTEXT>(_active_ctx), &featuremask))
+                {
+                    if((featuremask & XSTATE_MASK_AVX) == XSTATE_MASK_AVX)
+                    {
+                        DWORD featureLength = 0;
+                        const auto Ymm = (PM128A)LocateXStateFeature(const_cast<PCONTEXT>(_active_ctx), XSTATE_AVX, &featureLength);
+                        if(Ymm)
+                        {
+                            const auto ord = static_cast<size_t>(reg._register);
+                            memcpy(data, &Ymm[ord].Low, sizeof(M128A::Low));
+                            memcpy(reinterpret_cast<uint8_t*>(data) + sizeof(M128A::Low), &Ymm[ord].High, sizeof(M128A::High));
+                            return true;
+                        }
+                    }
+                }
+            }
+
             const uint8_t* reg_ptr = nullptr;
             switch(reg._class)
             {

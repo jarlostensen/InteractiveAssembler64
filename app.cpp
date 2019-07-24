@@ -187,6 +187,14 @@ void DumpXmmRegisters()
 {
     std::cout << "\n";
     using namespace inasm64;
+
+    //TESTING;
+    /*char yd[256];
+    runtime::GetReg({ RegisterInfo::RegClass::kYmm,
+                        RegisterInfo::Register::ymm0,
+                        256 },
+        yd, sizeof(yd));
+*/
     for(auto i = 0; i < 16; ++i)
     {
         RegisterInfo reg_info{
@@ -207,46 +215,37 @@ void DumpXmmRegisters()
 
 void DumpYmmRegisters()
 {
-    //TODO:
-    /*assert(false);
-    const auto ctx = runtime::Context();
-    DWORD64 featuremask;
-    if(GetXStateFeaturesMask(const_cast<PCONTEXT>(ctx->OsContext), &featuremask))
-    {
-        if((featuremask & XSTATE_MASK_AVX) == XSTATE_MASK_AVX)
-        {
-            DWORD featureLength = 0;
-            const auto Ymm = (PM128A)LocateXStateFeature(const_cast<PCONTEXT>(ctx->OsContext), XSTATE_AVX, &featureLength);
-            if(Ymm)
-            {
-#define DUMP_YMM_REGISTER(index) coutreg(STRINGIZE(ymm##index)) << Ymm[index].High << cout_64_bits << Ymm[index].Low << " "
-                DUMP_YMM_REGISTER(0);
-                DUMP_YMM_REGISTER(1) << std::endl;
-                DUMP_YMM_REGISTER(2);
-                DUMP_YMM_REGISTER(3) << std::endl;
-                DUMP_YMM_REGISTER(4);
-                DUMP_YMM_REGISTER(5) << std::endl;
-                DUMP_YMM_REGISTER(6);
-                DUMP_YMM_REGISTER(7) << std::endl;
-                DUMP_YMM_REGISTER(8);
-                DUMP_YMM_REGISTER(9) << std::endl;
-                DUMP_YMM_REGISTER(10);
-                DUMP_YMM_REGISTER(11) << std::endl;
-                DUMP_YMM_REGISTER(12);
-                DUMP_YMM_REGISTER(13) << std::endl;
-                DUMP_YMM_REGISTER(14);
-                DUMP_YMM_REGISTER(15) << std::endl;
-            }
-        }
-        else
-        {
-            std::cout << "AVX registers not initialised (all zero)\n";
-        }
-    }
-    else
-    {
-        std::cerr << "AVX not supported on this hardware\n";
-    }*/
+    //    //TODO:
+    //    const auto ctx = runtime::Context();
+    //    DWORD64 featuremask;
+    //    if(GetXStateFeaturesMask(const_cast<PCONTEXT>(ctx->OsContext), &featuremask))
+    //    {
+    //        if((featuremask & XSTATE_MASK_AVX) == XSTATE_MASK_AVX)
+    //        {
+    //            DWORD featureLength = 0;
+    //            const auto Ymm = (PM128A)LocateXStateFeature(const_cast<PCONTEXT>(ctx->OsContext), XSTATE_AVX, &featureLength);
+    //            if(Ymm)
+    //            {
+    //#define DUMP_YMM_REGISTER(index) coutreg(STRINGIZE(ymm##index)) << Ymm[index].High << cout_64_bits << Ymm[index].Low << " "
+    //                DUMP_YMM_REGISTER(0);
+    //                DUMP_YMM_REGISTER(1) << std::endl;
+    //                DUMP_YMM_REGISTER(2);
+    //                DUMP_YMM_REGISTER(3) << std::endl;
+    //                DUMP_YMM_REGISTER(4);
+    //                DUMP_YMM_REGISTER(5) << std::endl;
+    //                DUMP_YMM_REGISTER(6);
+    //                DUMP_YMM_REGISTER(7) << std::endl;
+    //                DUMP_YMM_REGISTER(8);
+    //                DUMP_YMM_REGISTER(9) << std::endl;
+    //                DUMP_YMM_REGISTER(10);
+    //                DUMP_YMM_REGISTER(11) << std::endl;
+    //                DUMP_YMM_REGISTER(12);
+    //                DUMP_YMM_REGISTER(13) << std::endl;
+    //                DUMP_YMM_REGISTER(14);
+    //                DUMP_YMM_REGISTER(15) << std::endl;
+    //            }
+    //        }
+    //    }
 }
 
 void DisplayMemoryAsType(cli::DataType type, const char* memory, size_t size)
