@@ -4,7 +4,7 @@
 
 ``#inasm64``
 
-This project is Work-In-Progress, but the end goal is pretty clear; a simple command line interactive IA 64 assembler inspired by the old DOS debug.exe. With it you can interatively enter and run IA-64 [_64-bit Long Mode_](https://en.wikipedia.org/wiki/Long_mode) assembly for Intel CPUs.
+This project is Work-In-Progress, but the end goal is pretty clear; a simple command line interactive Intel® 64 assembler inspired by the old DOS debug.exe. With it you can interatively enter and run Intel® 64 [_64-bit Long Mode_](https://en.wikipedia.org/wiki/Long_mode) assembly for Intel CPUs.
 
 ## Why?
 Because I think it's nice to be able to just write some lines of assembly and see them execute immediately. There are a lot of  instructions available on modern CPUs and being able to try them out and see the effect interactively is nice. 
@@ -41,7 +41,7 @@ The project is broken down into three main components living under the root name
 - The CLI (Command Line Interface)
 
 ## Runtime ``inasm64::runtime``
-The runtime takes binary IA-64 instructions as input and lets you execute them, one by one. 
+The runtime takes binary Intel® 64 instructions as input and lets you execute them, one by one. 
 At the core of the runtime is a debugger (using the Windows DebugAPI) which single-steps the code to run. It also provides access to the execution context (registers, flags).
 
 ## Assembler ``inasm64::assembler``
