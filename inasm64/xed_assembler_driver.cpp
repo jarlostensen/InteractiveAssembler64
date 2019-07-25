@@ -115,10 +115,10 @@ namespace inasm64
                     // see xed_enc_lang.c; this is part of a heuristic to determine "vector length" settings of the instruction
                     if(reg_class == XED_REG_CLASS_XMM)
                         vl = 0;
-                    else if (reg_class == XED_REG_CLASS_YMM && vl < 1)
-						vl = 1;
+                    else if(reg_class == XED_REG_CLASS_YMM && vl < 1)
+                        vl = 1;
                     else if(reg_class == XED_REG_CLASS_ZMM && vl < 2)
-						vl = 2;
+                        vl = 2;
                 }
                 break;
                 case Statement::kMem:
@@ -322,6 +322,8 @@ namespace inasm64
                         }
                     }
                     ++prefix_start;
+                    if(prefix_start == std::size(inasm64::xed_instruction_table))
+                        break;
                 }
             }
         }
