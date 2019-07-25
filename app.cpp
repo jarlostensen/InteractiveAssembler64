@@ -456,6 +456,8 @@ void DisplaySystemInformation()
             if(ExtendedCpuFeatureSupported(ExtendedCpuFeature::kAvx2))
                 std::cout << "AVX2 ";
         }
+        //NOTE: This seems to be incorrect, or at least not be detected properly when running through Intel SDE
+        //      CPUID avx512 capabilities are reported correctly
         if((featureFlags & XSTATE_MASK_AVX512) == XSTATE_MASK_AVX512)
             std::cout << "AVX512 ";
         std::cout << "supported\n";
