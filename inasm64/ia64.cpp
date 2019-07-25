@@ -360,6 +360,8 @@ namespace inasm64
 
     RegisterInfo GetRegisterInfo(const char* reg)
     {
+        if(!reg)
+            return {};
         //NOTE: we might get the name as part of a longer string, so calculate length as the first white-space separated word
         auto str = reg;
         while(str[0] && str[0] != ' ')

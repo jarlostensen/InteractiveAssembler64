@@ -537,10 +537,13 @@ namespace inasm64
             void register_handler(const char* cmd, char* params)
             {
                 const auto reg_info = GetRegisterInfo(params);
-                if(!reg_info)
-                {
-                    detail::set_error(Error::kInvalidRegisterName);
-                    return;
+                if(params)
+                {                    
+                    if(!reg_info)
+                    {
+                        detail::set_error(Error::kInvalidRegisterName);
+                        return;
+                    }
                 }
                 const auto set_or_display_reg = [&reg_info, &params](DataType type) {
                     detail::simple_tokens_t tokens = detail::simple_tokenise(params, 3);
