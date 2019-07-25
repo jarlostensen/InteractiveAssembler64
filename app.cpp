@@ -515,7 +515,7 @@ int main(int argc, char* argv[])
 
     console::Initialise();
 
-    std::cout << console::yellow << "inasm64: The IA 64 Interactive Assembler\n\n"
+    std::cout << console::yellow << "inasm64: The x64 Interactive Assembler\n\n"
               << console::reset_colours;
     using namespace inasm64;
     DisplaySystemInformation();
