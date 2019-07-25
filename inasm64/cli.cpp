@@ -164,6 +164,8 @@ namespace inasm64
                             ++rp;
                             while(rp[0] && rp[0] == ' ')
                                 ++rp;
+                            if(detail::is_null_or_empty(rp))
+                                rp = nullptr;
                             command._handler(cmd1_name, rp);
                             handled = true;
                             break;
@@ -196,6 +198,8 @@ namespace inasm64
                                     ++rp;
                                     while(rp[0] && rp[0] == ' ')
                                         ++rp;
+                                    if(detail::is_null_or_empty(rp))
+                                        rp = nullptr;
                                     command._handler(cmd1Line, cmd1_name, rp);
                                     handled = true;
                                     break;
@@ -630,12 +634,28 @@ namespace inasm64
             }  // namespace
 
             // s, step <address>
-            void step_handler(const char*, char* params)
+            void step_handler(const char*, char* loc)
             {
-                auto address = runtime::InstructionPointer();
-                auto stepped = false;
-                assert(detail::is_null_or_empty(params));
-                stepped = runtime::Step();
+                if(loc)
+                {
+                    //TODO: accept hex (i.e. full address)
+                    if(detail::starts_with_decimal_integer(loc))
+                    {
+                        size_t line = ::strtol(loc, nullptr, 10);
+                        if(errno || !runtime::SetNextExecuteLine(line))
+                        {
+                            detail::set_error(Error::kInvalidAddress);
+                            return;
+                        }
+                    }
+                    else
+                    {
+                        detail::set_error(Error::kInvalidCommandFormat);
+                        return;
+                    }
+                }
+                const auto address = runtime::InstructionPointer();
+                const auto stepped = runtime::Step();
                 if(stepped && OnStep)
                 {
                     OnStep(address);
@@ -722,6 +742,30 @@ namespace inasm64
                         OnDisplayRegister(type, reg_info);
                 }
             }
+
+            void assemble_handler(const char*, char* loc)
+            {
+                if(loc)
+                {
+                    if(detail::starts_with_decimal_integer(loc))
+                    {
+                        size_t line = ::strtol(loc, nullptr, 10);
+                        if(errno || !runtime::SetInstructionLine(line))
+                        {
+                            detail::set_error(Error::kInvalidAddress);
+                            return;
+                        }
+                    }
+                    else
+                    {
+                        detail::set_error(Error::kInvalidCommandFormat);
+                        return;
+                    }
+                }
+                _mode = Mode::Assembling;
+                if(OnStartAssembling)
+                    OnStartAssembling();
+            }
         }  // namespace
 
         bool
@@ -748,17 +792,13 @@ namespace inasm64
                 _type_0_handlers.emplace_back(std::move(cmd0));
 
                 cmd0.set_aliases(2, "p", "step");
-                _help_texts.emplace_back("p|step [address]", "single-step next instruction, or at address");
+                _help_texts.emplace_back("p|step [address|line]", "single-step next instruction, or at address/line");
                 cmd0._handler = step_handler;
                 _type_0_handlers.emplace_back(std::move(cmd0));
 
                 cmd0.set_aliases(2, "a", "asm");
-                _help_texts.emplace_back("a|asm", "enter assembly mode");
-                cmd0._handler = [](const char*, char*) {
-                    _mode = Mode::Assembling;
-                    if(OnStartAssembling)
-                        OnStartAssembling();
-                };
+                _help_texts.emplace_back("a|asm [address|line]", "enter assembly mode, next or at address/line");
+                cmd0._handler = assemble_handler;
                 _type_0_handlers.emplace_back(std::move(cmd0));
 
                 cmd0.set_aliases(2, "q", "quit");

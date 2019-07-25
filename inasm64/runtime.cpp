@@ -90,8 +90,8 @@ namespace inasm64
         DWORD _ctx_flags = 0;
         DWORD _context_size = 0;
         bool _ctx_changed = false;
-        // if AVX supported we load these with the Ymm registers in load_context; not these are the *upper* 128 bits of the 
-		// ymm registers, the lower 128 bits are aliased into the xmm registers
+        // if AVX supported we load these with the Ymm registers in load_context; not these are the *upper* 128 bits of the
+        // ymm registers, the lower 128 bits are aliased into the xmm registers
         PM128A _ymm = nullptr;
 
         constexpr auto kRaxIndex = static_cast<size_t>(RegisterInfo::Register::rax);
@@ -487,6 +487,7 @@ namespace inasm64
                     }
                 }
                 //NOTE: _first_instruction_line is modified by SetInstructionLine
+                ++_instruction_line;
             }
             return { line._line, line._address };
         }
@@ -503,7 +504,7 @@ namespace inasm64
 
         instruction_index_t NextInstructionIndex()
         {
-            if(_loaded_instructions.empty())
+            if(_loaded_instructions.empty() || !_instruction_line)
                 return {
                     0,
                     uintptr_t(_code)
@@ -512,6 +513,18 @@ namespace inasm64
                 _instruction_line,
                 _loaded_instructions[_instruction_line - 1]._address + _loaded_instructions[_instruction_line - 1]._instruction_size
             };
+        }
+
+        bool SetNextExecuteLine(size_t line)
+        {
+            if(line >= _last_instruction_line)
+            {
+                detail::set_error(Error::kInvalidAddress);
+                return false;
+            }
+            set_next_instruction_address(LPCVOID(_loaded_instructions[line]._address));
+            _code = reinterpret_cast<unsigned char*>(_loaded_instructions[line]._address);
+            return true;
         }
 
         bool GetVariable(const char* name, uintptr_t& value)
@@ -974,13 +987,13 @@ namespace inasm64
                 {
                     const auto ord = static_cast<size_t>(reg._register) - static_cast<size_t>(RegisterInfo::Register::ymm0);
                     const auto data_ptr = reinterpret_cast<uint8_t*>(data);
-					// if this asserts the context structure is not aligned so that we can just index into it
-					assert(offsetof(CONTEXT,Xmm1) - offsetof(CONTEXT,Xmm0) == sizeof(M128A));
-                    assert(uintptr_t(_ymm+1) - uintptr_t(_ymm) == sizeof(M128A));
-					// context xmm holds low 128 bits
-					memcpy(data_ptr, (&_active_ctx->Xmm0 + ord), sizeof(M128A));
+                    // if this asserts the context structure is not aligned so that we can just index into it
+                    assert(offsetof(CONTEXT, Xmm1) - offsetof(CONTEXT, Xmm0) == sizeof(M128A));
+                    assert(uintptr_t(_ymm + 1) - uintptr_t(_ymm) == sizeof(M128A));
+                    // context xmm holds low 128 bits
+                    memcpy(data_ptr, (&_active_ctx->Xmm0 + ord), sizeof(M128A));
                     // context ymm holds high 128 bits
-                    memcpy(data_ptr + sizeof(M128A), _ymm+ord, sizeof(M128A));
+                    memcpy(data_ptr + sizeof(M128A), _ymm + ord, sizeof(M128A));
                     return true;
                 }
                 else if(!ExtendedCpuFeatureSupported(ExtendedCpuFeature::kAvx))

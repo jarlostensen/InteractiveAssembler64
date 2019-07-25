@@ -76,16 +76,31 @@ namespace inasm64
             uintptr_t _address = 0;
         };
         ///<summary>
-        /// add an instruction to be committed by a call to CommittInstructions
+        /// add an instruction at the next line number
         ///</summary>
         /// returns information about the logical line, and target address, of the instruction
+        /// to commit instructions to runtime memory, call CommitInstructions
         instruction_index_t AddInstruction(const void* bytes, size_t size);
-        //WIP: these are going to become the only parts of the public interface dealing with execution location
+        ///<summary>
+        /// set the line number for the next AddInstruction
+        ///</summary>
         bool SetInstructionLine(size_t line);
+        ///<summary>
+        /// set the line number for the next Step
+        ///</summary>
+        bool SetNextExecuteLine(size_t line);
+        ///<summary>
+        /// commit instructions added so far to runtime memory
+        ///</summary>
         bool CommmitInstructions();
+        ///<summary>
+        /// returns information about the next instruction index, i.e. for the next AddInstruction
+        ///</summary>
         instruction_index_t NextInstructionIndex();
+        ///<summary>
+        /// returns the value of a runtime variable, if exists
+        ///<summary>
         bool GetVariable(const char* name, uintptr_t& value);
-
         ///<summary>
         /// execute one instruction from the current execute address and advance pointers
         ///</summary>
@@ -117,8 +132,13 @@ namespace inasm64
         /// returns the size of the given allocation, or 0 if not found
         ///</summary>
         size_t AllocationSize(const void* handle);
-
+        ///<summary>
+        /// set the value of the given register in the runtime context
+        ///</summary>
         bool SetReg(const RegisterInfo& reg, const void* data, size_t size);
+        ///<summary>
+        /// get the value of the given register in the runtime context
+        ///</summary>
         bool GetReg(const RegisterInfo& reg, void* data, size_t size);
 
         template <typename T>
