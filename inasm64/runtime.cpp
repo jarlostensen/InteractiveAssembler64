@@ -786,37 +786,49 @@ namespace inasm64
             if(reg._class == RegisterInfo::RegClass::kSegment || reg._class == RegisterInfo::RegClass::kFlags)
                 return false;
 
+            auto ok = false;
             char* reg_ptr = nullptr;
             auto data_ptr = reinterpret_cast<const char*>(data);
             switch(reg._greatest_enclosing_register)
             {
-#define RT_GPRREG_SET(letter)                                                       \
-    case RegisterInfo::Register::r##letter##x:                                      \
-        switch(reg._register)                                                       \
-        {                                                                           \
-        case RegisterInfo::Register::##letter##l:                                   \
-            assert(size == 1);                                                      \
-            _active_ctx->R##letter##x &= ~0xff;                                     \
-            _active_ctx->R##letter##x |= DWORD64(data_ptr[0]);                      \
-            break;                                                                  \
-        case RegisterInfo::Register::##letter##h:                                   \
-            assert(size == 1);                                                      \
-            _active_ctx->R##letter##x &= ~0xff00;                                   \
-            _active_ctx->R##letter##x |= DWORD64(data_ptr[0] << 8);                 \
-            break;                                                                  \
-        case RegisterInfo::Register::##letter##x:                                   \
-            assert(size == 2);                                                      \
-            _active_ctx->R##letter##x &= ~0xffff;                                   \
-            _active_ctx->R##letter##x |= DWORD64(data_ptr[0] | (data_ptr[1] << 8)); \
-            break;                                                                  \
-        case RegisterInfo::Register::e##letter##x:                                  \
-            assert(size == 4);                                                      \
-        case RegisterInfo::Register::r##letter##x:                                  \
-            assert(size >= 4);                                                      \
-            reg_ptr = reinterpret_cast<char*>(&_active_ctx->R##letter##x);          \
-            break;                                                                  \
-        default:;                                                                   \
-        }                                                                           \
+#define RT_GPRREG_SET(letter)                                                           \
+    case RegisterInfo::Register::r##letter##x:                                          \
+        switch(reg._register)                                                           \
+        {                                                                               \
+        case RegisterInfo::Register::##letter##l:                                       \
+            if(size == 1)                                                               \
+            {                                                                           \
+                _active_ctx->R##letter##x &= ~0xff;                                     \
+                _active_ctx->R##letter##x |= DWORD64(data_ptr[0]);                      \
+                ok = true;                                                              \
+            }                                                                           \
+            break;                                                                      \
+        case RegisterInfo::Register::##letter##h:                                       \
+            if(size == 1)                                                               \
+            {                                                                           \
+                _active_ctx->R##letter##x &= ~0xff00;                                   \
+                _active_ctx->R##letter##x |= DWORD64(data_ptr[0] << 8);                 \
+                ok = true;                                                              \
+            }                                                                           \
+            break;                                                                      \
+        case RegisterInfo::Register::##letter##x:                                       \
+            if(size == 2)                                                               \
+            {                                                                           \
+                _active_ctx->R##letter##x &= ~0xffff;                                   \
+                _active_ctx->R##letter##x |= DWORD64(data_ptr[0] | (data_ptr[1] << 8)); \
+                ok = true;                                                              \
+            }                                                                           \
+            break;                                                                      \
+        case RegisterInfo::Register::e##letter##x:                                      \
+        case RegisterInfo::Register::r##letter##x:                                      \
+            if(size >= 4)                                                               \
+            {                                                                           \
+                reg_ptr = reinterpret_cast<char*>(&_active_ctx->R##letter##x);          \
+                ok = true;                                                              \
+            }                                                                           \
+            break;                                                                      \
+        default:;                                                                       \
+        }                                                                               \
         break
                 RT_GPRREG_SET(a);
                 RT_GPRREG_SET(b);
@@ -826,15 +838,17 @@ namespace inasm64
                 switch(reg._register)
                 {
                 case RegisterInfo::Register::sil:
-                    assert(size == 1);
-                    _active_ctx->Rsi &= ~0xff;
-                    _active_ctx->Rsi |= DWORD64(data_ptr[0]);
+                    if(size == 1)
+                    {
+                        _active_ctx->Rsi &= ~0xff;
+                        _active_ctx->Rsi |= DWORD64(data_ptr[0]);
+                        ok = true;
+                    }
                     break;
                 case RegisterInfo::Register::esi:
-                    assert(size == 4);
                 case RegisterInfo::Register::rsi:
-                    assert(size >= 4);
-                    reg_ptr = reinterpret_cast<char*>(&_active_ctx->Rsi);
+                    if(size >= 4)
+                        reg_ptr = reinterpret_cast<char*>(&_active_ctx->Rsi);
                     break;
                 }
                 break;
@@ -842,15 +856,17 @@ namespace inasm64
                 switch(reg._register)
                 {
                 case RegisterInfo::Register::dil:
-                    assert(size == 1);
-                    _active_ctx->Rdi &= ~0xff;
-                    _active_ctx->Rdi |= DWORD64(data_ptr[0]);
+                    if(size == 1)
+                    {
+                        _active_ctx->Rdi &= ~0xff;
+                        _active_ctx->Rdi |= DWORD64(data_ptr[0]);
+                        ok = true;
+                    }
                     break;
                 case RegisterInfo::Register::edi:
-                    assert(size == 4);
                 case RegisterInfo::Register::rdi:
-                    assert(size >= 4);
-                    reg_ptr = reinterpret_cast<char*>(&_active_ctx->Rdi);
+                    if(size >= 4)
+                        reg_ptr = reinterpret_cast<char*>(&_active_ctx->Rdi);
                     break;
                 }
                 break;
@@ -858,15 +874,17 @@ namespace inasm64
                 switch(reg._register)
                 {
                 case RegisterInfo::Register::spl:
-                    assert(size == 1);
-                    _active_ctx->Rsp &= ~0xff;
-                    _active_ctx->Rsp |= DWORD64(data_ptr[0]);
+                    if(size == 1)
+                    {
+                        _active_ctx->Rsp &= ~0xff;
+                        _active_ctx->Rsp |= DWORD64(data_ptr[0]);
+                        ok = true;
+                    }
                     break;
                 case RegisterInfo::Register::esp:
-                    assert(size == 4);
                 case RegisterInfo::Register::rsp:
-                    assert(size >= 4);
-                    reg_ptr = reinterpret_cast<char*>(&_active_ctx->Rsp);
+                    if(size >= 4)
+                        reg_ptr = reinterpret_cast<char*>(&_active_ctx->Rsp);
                     break;
                 }
                 break;
@@ -874,43 +892,50 @@ namespace inasm64
                 switch(reg._register)
                 {
                 case RegisterInfo::Register::bpl:
-                    assert(size == 1);
-                    _active_ctx->Rbp &= ~0xff;
-                    _active_ctx->Rbp |= DWORD64(data_ptr[0]);
+                    if(size == 1)
+                    {
+                        _active_ctx->Rbp &= ~0xff;
+                        _active_ctx->Rbp |= DWORD64(data_ptr[0]);
+                        ok = true;
+                    }
                     break;
                 case RegisterInfo::Register::ebp:
-                    assert(size == 4);
                 case RegisterInfo::Register::rbp:
-                    assert(size >= 4);
-                    reg_ptr = reinterpret_cast<char*>(&_active_ctx->Rbp);
+                    if(size >= 4)
+                        reg_ptr = reinterpret_cast<char*>(&_active_ctx->Rbp);
                     break;
                 }
                 break;
 
-#define RT_RREG_SET(index)                                                      \
-    case RegisterInfo::Register::r##index:                                      \
-    {                                                                           \
-        switch(reg._register)                                                   \
-        {                                                                       \
-        case RegisterInfo::Register::r##index##b:                               \
-            assert(size == 1);                                                  \
-            _active_ctx->R##index &= ~0xff;                                     \
-            _active_ctx->R##index |= DWORD64(data_ptr[0]);                      \
-            break;                                                              \
-        case RegisterInfo::Register::r##index##w:                               \
-            assert(size == 2);                                                  \
-            _active_ctx->R##index &= ~0xffff;                                   \
-            _active_ctx->R##index |= DWORD64(data_ptr[0] | (data_ptr[1] << 8)); \
-            break;                                                              \
-        case RegisterInfo::Register::r##index##d:                               \
-            assert(size == 4);                                                  \
-        case RegisterInfo::Register::r##index##:                                \
-            assert(size >= 4);                                                  \
-            reg_ptr = reinterpret_cast<char*>(&_active_ctx->R##index);          \
-            break;                                                              \
-        default:;                                                               \
-        }                                                                       \
-    }                                                                           \
+#define RT_RREG_SET(index)                                                          \
+    case RegisterInfo::Register::r##index:                                          \
+    {                                                                               \
+        switch(reg._register)                                                       \
+        {                                                                           \
+        case RegisterInfo::Register::r##index##b:                                   \
+            if(size == 1)                                                           \
+            {                                                                       \
+                _active_ctx->R##index &= ~0xff;                                     \
+                _active_ctx->R##index |= DWORD64(data_ptr[0]);                      \
+                ok = true;                                                          \
+            }                                                                       \
+            break;                                                                  \
+        case RegisterInfo::Register::r##index##w:                                   \
+            if(size == 2)                                                           \
+            {                                                                       \
+                _active_ctx->R##index &= ~0xffff;                                   \
+                _active_ctx->R##index |= DWORD64(data_ptr[0] | (data_ptr[1] << 8)); \
+                ok = true;                                                          \
+            }                                                                       \
+            break;                                                                  \
+        case RegisterInfo::Register::r##index##d:                                   \
+        case RegisterInfo::Register::r##index##:                                    \
+            if(size >= 4)                                                           \
+                reg_ptr = reinterpret_cast<char*>(&_active_ctx->R##index);          \
+            break;                                                                  \
+        default:;                                                                   \
+        }                                                                           \
+    }                                                                               \
     break
 
                 RT_RREG_SET(8);
@@ -923,20 +948,18 @@ namespace inasm64
                 RT_RREG_SET(15);
 
                 //TODO:
-#define RT_XYZREG_SET(index)                                             \
-    case RegisterInfo::Register::zmm##index:                             \
-    {                                                                    \
-        switch(reg._register)                                            \
-        {                                                                \
-        case RegisterInfo::Register::xmm##index:                         \
-            assert(size == 16);                                          \
-            reg_ptr = reinterpret_cast<char*>(&_active_ctx->Xmm##index); \
-            break;                                                       \
-        default:                                                         \
-            assert(false);                                               \
-            break;                                                       \
-        }                                                                \
-    }                                                                    \
+#define RT_XYZREG_SET(index)                                                 \
+    case RegisterInfo::Register::zmm##index:                                 \
+    {                                                                        \
+        switch(reg._register)                                                \
+        {                                                                    \
+        case RegisterInfo::Register::xmm##index:                             \
+            if(size == 16)                                                   \
+                reg_ptr = reinterpret_cast<char*>(&_active_ctx->Xmm##index); \
+            break;                                                           \
+        default:;                                                            \
+        }                                                                    \
+    }                                                                        \
     break
 
                 RT_XYZREG_SET(0);
@@ -962,11 +985,10 @@ namespace inasm64
             if(reg_ptr)
             {
                 memcpy(reg_ptr, data_ptr, size);
+                ok = true;
             }
 
-            _ctx_changed = true;
-
-            return true;
+            return _ctx_changed = ok;
         }  // namespace runtime
 
         bool GetReg(const RegisterInfo& reg, void* data, size_t size)

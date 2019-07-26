@@ -346,6 +346,8 @@ namespace inasm64
                     }
                     while(rp[0] && rp[0] == ' ' || rp[0] == ',')
                         ++rp;
+                    if(rp[0] && detail::starts_with_integer(rp, nullptr) != detail::number_format_t::kDecimal)
+                        return false;
                 }
                 if(next)
                     *next = (rp[0] ? rp : nullptr);
@@ -538,7 +540,7 @@ namespace inasm64
             {
                 const auto reg_info = GetRegisterInfo(params);
                 if(params)
-                {                    
+                {
                     if(!reg_info)
                     {
                         detail::set_error(Error::kInvalidRegisterName);
@@ -585,7 +587,8 @@ namespace inasm64
                                 runtime::SetReg(reg_info, data.data(), data.size());
                             }
                         }
-                        OnDisplayRegister(cmd_type, reg_info);
+                        if(GetError() == Error::kNoError)
+                            OnDisplayRegister(cmd_type, reg_info);
                     }
                     else
                     {
