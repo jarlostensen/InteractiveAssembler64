@@ -144,6 +144,7 @@ int main()
     reg_info = inasm64::GetRegisterInfo("spl");
     reg_info = inasm64::GetRegisterInfo("gs");
     reg_info = inasm64::GetRegisterInfo("eflags");
+    reg_info = inasm64::GetRegisterInfo("k13");
 
     reg_info = inasm64::RegisterInfo{ inasm64::RegisterInfo::Register::si };
     reg_info = inasm64::RegisterInfo{ inasm64::RegisterInfo::Register::r11 };

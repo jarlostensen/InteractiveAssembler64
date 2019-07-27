@@ -55,13 +55,19 @@ namespace inasm64
             { "rax", 3 }, { "rbx", 3 }, { "rcx", 3 }, { "rdx", 3 }, { "rsi", 3 }, { "rdi", 3 }, { "rsp", 3 }, { "rbp", 3 }, { "r8", 2 }, { "r9", 2 }, { "r10", 3 }, { "r11", 3 }, { "r12", 3 }, { "r13", 3 }, { "r14", 3 }, { "r15", 3 }
         };
         const char* kXmmRegisters[] = {
-            "xmm0", "xmm1", "xmm2", "xmm3", "xmm4", "xmm5", "xmm6", "xmm7", "xmm8", "xmm9", "xmm10", "xmm11", "xmm12", "xmm13", "xmm14", "xmm15"
+            "xmm0", "xmm1", "xmm2", "xmm3", "xmm4", "xmm5", "xmm6", "xmm7", "xmm8", "xmm9", "xmm10", "xmm11", "xmm12", "xmm13", "xmm14", "xmm15",
+            "xmm16", "xmm17", "xmm18", "xmm19", "xmm20", "xmm21", "xmm22", "xmm23", "xmm24", "xmm25", "xmm26", "xmm27", "xmm28", "xmm29", "xmm30", "xmm31"
         };
         const char* kYmmRegisters[] = {
-            "ymm0", "ymm1", "ymm2", "ymm3", "ymm4", "ymm5", "ymm6", "ymm7", "ymm8", "ymm9", "ymm10", "ymm11", "ymm12", "ymm13", "ymm14", "ymm15"
+            "ymm0", "ymm1", "ymm2", "ymm3", "ymm4", "ymm5", "ymm6", "ymm7", "ymm8", "ymm9", "ymm10", "ymm11", "ymm12", "ymm13", "ymm14", "ymm15",
+            "ymm16", "ymm17", "ymm18", "ymm19", "ymm20", "ymm21", "ymm22", "ymm23", "ymm24", "ymm25", "ymm26", "ymm27", "ymm28", "ymm29", "ymm30", "ymm31"
         };
         const char* kZmmRegisters[] = {
-            "zmm0", "zmm1", "zmm2", "zmm3", "zmm4", "zmm5", "zmm6", "zmm7", "zmm8", "zmm9", "zmm10", "zmm11", "zmm12", "zmm13", "zmm14", "zmm15"
+            "zmm0", "zmm1", "zmm2", "zmm3", "zmm4", "zmm5", "zmm6", "zmm7", "zmm8", "zmm9", "zmm10", "zmm11", "zmm12", "zmm13", "zmm14", "zmm15",
+            "zmm16", "zmm17", "zmm18", "zmm19", "zmm20", "zmm21", "zmm22", "zmm23", "zmm24", "zmm25", "zmm26", "zmm27", "zmm28", "zmm29", "zmm30", "zmm31"
+        };
+        const char* kOpmask[] = {
+            "k0", "k1", "k2", "k3", "k4", "k5", "k6", "k7"
         };
         const char* kSegmentRegisters[] = {
             "cs", "ds", "es", "ss", "fs", "gs"
@@ -170,82 +176,89 @@ namespace inasm64
         , _bit_width{ width }
         , _name{ name }
     {
-        if(register_ != Register::kInvalid)
+        if(_register != Register::kInvalid)
         {
             const auto ord = static_cast<int>(_register);
-            if(ord >= static_cast<int>(Register::zmm0))
+            if(ord < static_cast<int>(Register::cs))
             {
-                _greatest_enclosing_register = _register;
-                _name = kZmmRegisters[ord - static_cast<int>(Register::zmm0)];
-            }
-            else if(ord >= static_cast<int>(Register::ymm0))
-            {
-                _greatest_enclosing_register = static_cast<Register>(ord - static_cast<int>(Register::ymm0) + static_cast<int>(Register::zmm0));
-                _name = kYmmRegisters[ord - static_cast<int>(Register::ymm0)];
-            }
-            else if(ord >= static_cast<int>(Register::xmm0))
-            {
-                _greatest_enclosing_register = static_cast<Register>(ord - static_cast<int>(Register::xmm0) + static_cast<int>(Register::zmm0));
-                _name = kXmmRegisters[ord - static_cast<int>(Register::xmm0)];
-            }
-            else if(ord >= static_cast<int>(Register::rax))
-            {
-                _greatest_enclosing_register = _register;
-                _name = kGpr64[ord - static_cast<int>(Register::rax)]._name;
-            }
-            else if(ord >= static_cast<int>(Register::r8d))
-            {
-                _greatest_enclosing_register = static_cast<Register>(ord - static_cast<int>(Register::r8d) + static_cast<int>(Register::r8));
-                _name = kGpr32[ord - static_cast<int>(Register::eax)]._name;
-            }
-            else if(ord >= static_cast<int>(Register::eax))
-            {
-                _greatest_enclosing_register = static_cast<Register>(ord - static_cast<int>(Register::eax) + static_cast<int>(Register::rax));
-                _name = kGpr32[ord - static_cast<int>(Register::eax)]._name;
-            }
-            else if(ord >= static_cast<int>(Register::r8w))
-            {
-                _greatest_enclosing_register = static_cast<Register>(ord - static_cast<int>(Register::r8w) + static_cast<int>(Register::r8));
-                _name = kGpr16[ord - static_cast<int>(Register::ax)]._name;
-            }
-            else if(ord >= static_cast<int>(Register::ax))
-            {
-                _greatest_enclosing_register = static_cast<Register>(ord - static_cast<int>(Register::ax) + static_cast<int>(Register::rax));
-                _name = kGpr16[ord - static_cast<int>(Register::ax)]._name;
-            }
-            else if(ord >= static_cast<int>(Register::r8b))
-            {
-                _greatest_enclosing_register = static_cast<Register>(ord - static_cast<int>(Register::r8b) + static_cast<int>(Register::r8));
-                _name = kGpr8[ord - static_cast<int>(Register::al)]._name;
-            }
-            else
-            {
-                switch(_register)
+                if(ord >= static_cast<int>(Register::k0))
                 {
-                case Register::al:
-                case Register::ah:
-                    _greatest_enclosing_register = Register::rax;
-                    break;
-                case Register::bl:
-                case Register::bh:
-                    _greatest_enclosing_register = Register::rbx;
-                    break;
-                case Register::cl:
-                case Register::ch:
-                    _greatest_enclosing_register = Register::rcx;
-                    break;
-                case Register::dl:
-                case Register::dh:
-                    _greatest_enclosing_register = Register::rdx;
-                    break;
-                default:
+                    _name = kOpmask[ord - static_cast<int>(Register::k0)];
+                }
+                else if(ord >= static_cast<int>(Register::zmm0))
                 {
-                    // byte special registers (sil, dil, etc)
-                    _greatest_enclosing_register = static_cast<Register>(ord - static_cast<int>(Register::sil) + static_cast<int>(Register::rsi));
+                    _greatest_enclosing_register = _register;
+                    _name = kZmmRegisters[ord - static_cast<int>(Register::zmm0)];
                 }
-                break;
+                else if(ord >= static_cast<int>(Register::ymm0))
+                {
+                    _greatest_enclosing_register = static_cast<Register>(ord - static_cast<int>(Register::ymm0) + static_cast<int>(Register::zmm0));
+                    _name = kYmmRegisters[ord - static_cast<int>(Register::ymm0)];
                 }
-                _name = kGpr8[ord - static_cast<int>(Register::al)]._name;
+                else if(ord >= static_cast<int>(Register::xmm0))
+                {
+                    _greatest_enclosing_register = static_cast<Register>(ord - static_cast<int>(Register::xmm0) + static_cast<int>(Register::zmm0));
+                    _name = kXmmRegisters[ord - static_cast<int>(Register::xmm0)];
+                }
+                else if(ord >= static_cast<int>(Register::rax))
+                {
+                    _greatest_enclosing_register = _register;
+                    _name = kGpr64[ord - static_cast<int>(Register::rax)]._name;
+                }
+                else if(ord >= static_cast<int>(Register::r8d))
+                {
+                    _greatest_enclosing_register = static_cast<Register>(ord - static_cast<int>(Register::r8d) + static_cast<int>(Register::r8));
+                    _name = kGpr32[ord - static_cast<int>(Register::eax)]._name;
+                }
+                else if(ord >= static_cast<int>(Register::eax))
+                {
+                    _greatest_enclosing_register = static_cast<Register>(ord - static_cast<int>(Register::eax) + static_cast<int>(Register::rax));
+                    _name = kGpr32[ord - static_cast<int>(Register::eax)]._name;
+                }
+                else if(ord >= static_cast<int>(Register::r8w))
+                {
+                    _greatest_enclosing_register = static_cast<Register>(ord - static_cast<int>(Register::r8w) + static_cast<int>(Register::r8));
+                    _name = kGpr16[ord - static_cast<int>(Register::ax)]._name;
+                }
+                else if(ord >= static_cast<int>(Register::ax))
+                {
+                    _greatest_enclosing_register = static_cast<Register>(ord - static_cast<int>(Register::ax) + static_cast<int>(Register::rax));
+                    _name = kGpr16[ord - static_cast<int>(Register::ax)]._name;
+                }
+                else if(ord >= static_cast<int>(Register::r8b))
+                {
+                    _greatest_enclosing_register = static_cast<Register>(ord - static_cast<int>(Register::r8b) + static_cast<int>(Register::r8));
+                    _name = kGpr8[ord - static_cast<int>(Register::al)]._name;
+                }
+                else
+                {
+                    switch(_register)
+                    {
+                    case Register::al:
+                    case Register::ah:
+                        _greatest_enclosing_register = Register::rax;
+                        break;
+                    case Register::bl:
+                    case Register::bh:
+                        _greatest_enclosing_register = Register::rbx;
+                        break;
+                    case Register::cl:
+                    case Register::ch:
+                        _greatest_enclosing_register = Register::rcx;
+                        break;
+                    case Register::dl:
+                    case Register::dh:
+                        _greatest_enclosing_register = Register::rdx;
+                        break;
+                    default:
+                    {
+                        // byte special registers (sil, dil, etc)
+                        _greatest_enclosing_register = static_cast<Register>(ord - static_cast<int>(Register::sil) + static_cast<int>(Register::rsi));
+                    }
+                    break;
+                    }
+                    _name = kGpr8[ord - static_cast<int>(Register::al)]._name;
+                }
             }
         }
     }
@@ -269,6 +282,13 @@ namespace inasm64
                 _greatest_enclosing_register = register_;
                 _name = kSegmentRegisters[ord - static_cast<size_t>(Register::cs)];
                 _bit_width = 16;
+            }
+            else if(ord >= static_cast<size_t>(Register::k0))
+            {
+                _class = RegClass::kOpmask;
+                _greatest_enclosing_register = register_;
+                _name = kOpmask[ord - static_cast<size_t>(Register::k0)];
+                _bit_width = 64;
             }
             else if(ord >= static_cast<size_t>(Register::zmm0))
             {
@@ -367,6 +387,15 @@ namespace inasm64
         while(str[0] && str[0] != ' ')
             ++str;
         const auto reg_len = size_t(str - reg);
+        if(reg_len < 2)
+            return {};
+        if(reg[0] == 'k')
+        {
+            const auto idx = ::strtol(reg + 1, nullptr, 10);
+            if(!errno && idx > 0 && idx <= static_cast<int>(RegisterInfo::Register::k7) - static_cast<int>(RegisterInfo::Register::k0))
+                return RegisterInfo{ static_cast<RegisterInfo::Register>(static_cast<int>(RegisterInfo::Register::k0) + idx) };
+            return {};
+        }
         if(reg[1] == 'm')
         {
             if(reg_len > 3 && reg[2] == 'm')
@@ -375,6 +404,7 @@ namespace inasm64
                 // https://en.wikipedia.org/wiki/AVX-512#Encoding_and_features
 
                 const auto id = strtol(reg + 3, nullptr, 10);
+                //TODO: range depends on AVX mode, if we support AVX512 then the number of registers goes up to 32
                 if(errno && (id < 0 || id > 15))
                     return kInvalidRegister;
 
