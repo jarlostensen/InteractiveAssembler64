@@ -203,6 +203,7 @@ namespace inasm64
     {
         kAvx = 0,
         kAvx2,
+        kAvx512f,
         kAvx512bw,
         kAvx512dq,
         kAvx512vl,

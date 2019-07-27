@@ -500,6 +500,8 @@ namespace inasm64
             return _sys_flags._avx;
         case ExtendedCpuFeature::kAvx2:
             return _sys_flags._avx2;
+        case ExtendedCpuFeature::kAvx512f:
+            return _sys_flags._avx512f;
         case ExtendedCpuFeature::kAvx512bw:
             return _sys_flags._avx512bw;
         case ExtendedCpuFeature::kAvx512dq:

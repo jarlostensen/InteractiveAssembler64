@@ -264,8 +264,11 @@ namespace inasm64
 
                 if(ExtendedCpuFeatureSupported(ExtendedCpuFeature::kAvx))
                 {
-                    // poke AVX to get the ymm registers enabled in the context (see below)
+                    // poke AVX to get the ymm and zmm registers enabled in the context (see below)
                     (void)_mm256_setzero_pd();
+                    if(ExtendedCpuFeatureSupported(ExtendedCpuFeature::kAvx512vl))
+                        //NOTE: this doesn't appear to have any effect
+                        (void)_mm512_setzero_pd();
                 }
             }
             _active_ctx->ContextFlags = _ctx_flags;

@@ -444,12 +444,24 @@ void DisplaySystemInformation()
         std::cout << "FMA ";
         supported = true;
     }
+    if(ExtendedCpuFeatureSupported(ExtendedCpuFeature::kAvx512f))
+    {
+        std::cout << "AVX512f ";
+        supported = true;
+    }
+    if(ExtendedCpuFeatureSupported(ExtendedCpuFeature::kAvx512vl))
+    {
+        std::cout << "AVX512vl ";
+        supported = true;
+    }
+
     if(supported)
-        std::cout << "supported\n";
+        std::cout << "reported (CPUID)\n";
 
     DWORD64 featureFlags = GetEnabledXStateFeatures();
     if(featureFlags & (XSTATE_MASK_AVX512 | XSTATE_MASK_AVX))
     {
+        std::cout << "OS enabled X state features: ";
         if((featureFlags & XSTATE_MASK_AVX) == XSTATE_MASK_AVX)
         {
             std::cout << "AVX ";
@@ -460,7 +472,6 @@ void DisplaySystemInformation()
         //      CPUID avx512 capabilities are reported correctly
         if((featureFlags & XSTATE_MASK_AVX512) == XSTATE_MASK_AVX512)
             std::cout << "AVX512 ";
-        std::cout << "supported\n";
     }
 
     std::cout << std::endl;
@@ -520,10 +531,11 @@ int main(int argc, char* argv[])
     std::cout << console::yellow << "inasm64: The x64 Interactive Assembler\n\n"
               << console::reset_colours;
     using namespace inasm64;
-    DisplaySystemInformation();
 
     if(assembler::Initialise() && runtime::Start() && cli::Initialise())
     {
+        DisplaySystemInformation();
+
         cli::OnDataValueSet = [](const char* name, uintptr_t value) {
             std::cout << "\t$" << name << " is set to 0x" << std::hex << value << std::endl;
         };
