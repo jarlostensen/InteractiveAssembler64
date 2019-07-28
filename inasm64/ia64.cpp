@@ -130,7 +130,7 @@ namespace inasm64
             _sys_flags._os_xsave_xstor = (regs[2] & (1 << 27)) != 0;
             _sys_flags._fma = (regs[2] & (1 << 12)) != 0;
 
-            // Intel-IA64 Dev guide 14.3
+            // Intel x64 Dev guide 14.3
             if(_sys_flags._os_xsave_xstor)
             {
                 // check xcr0 register for xmm and/or ymm enabled
@@ -150,16 +150,19 @@ namespace inasm64
 
             // function 7; extended features
             cpuid(7, 0, regs);
-            _sys_flags._avx2 = (regs[1] & (1 << 5)) != 0;
-            if(_sys_flags._avx2)
+            if(_sys_flags._avx)
             {
-                _sys_flags._avx512f = (regs[1] & (1 << 16)) != 0;
-                _sys_flags._avx512dq = (regs[1] & (1 << 17)) != 0;
-                _sys_flags._avx512ifma = (regs[1] & (1 << 21)) != 0;
-                _sys_flags._avx512er = (regs[1] & (1 << 27)) != 0;
-                _sys_flags._avx512bw = (regs[1] & (1 << 30)) != 0;
-                _sys_flags._avx512vl = (regs[1] & (1 << 31)) != 0;
-                _sys_flags._avx512vnni = (regs[2] & (1 << 11)) != 0;
+                _sys_flags._avx2 = (regs[1] & (1 << 5)) != 0;
+                if(_sys_flags._avx2)
+                {
+                    _sys_flags._avx512f = (regs[1] & (1 << 16)) != 0;
+                    _sys_flags._avx512dq = (regs[1] & (1 << 17)) != 0;
+                    _sys_flags._avx512ifma = (regs[1] & (1 << 21)) != 0;
+                    _sys_flags._avx512er = (regs[1] & (1 << 27)) != 0;
+                    _sys_flags._avx512bw = (regs[1] & (1 << 30)) != 0;
+                    _sys_flags._avx512vl = (regs[1] & (1 << 31)) != 0;
+                    _sys_flags._avx512vnni = (regs[2] & (1 << 11)) != 0;
+                }
             }
             _sys_flags._gfni = (regs[2] & (1 << 8)) != 0;
             _sys_flags._vaes = (regs[2] & (1 << 9)) != 0;
