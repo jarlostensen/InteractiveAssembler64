@@ -333,7 +333,7 @@ namespace inasm64
             return _xed_assembler_driver.Initialise();
         }
 
-        bool Assemble(const char* assembly, AssembledInstructionInfo& info)
+        bool Assemble(const char* assembly, AssembledInstructionInfo& info, uintptr_t instructionRip)
         {
             constexpr size_t kMaxOperands = 6;
             auto result = false;
@@ -421,7 +421,6 @@ namespace inasm64
                     {
                         // assume error
                         result = false;
-                        detail::set_error(Error::kInvalidInstructionFormat);
 
                         auto p = 0;
                         while(!part[p].empty())
@@ -431,9 +430,12 @@ namespace inasm64
                         }
 
                         if(!statement._operand_count)
+                        {
+                            detail::set_error(Error::kInvalidInstructionFormat);
                             return false;
+                        }
 
-                        const auto setup_statement = [](char type, Statement::operand& op, const TokenisedOperand& op_info) -> short {
+                        const auto setup_statement = [instructionRip](char type, Statement::operand& op, const TokenisedOperand& op_info) -> short {
                             //NOTE: we can safely pass pointers to op_info fields around here, they'll never leave the scope of the parent function and it's descendants
                             short width_bits = 0;
                             switch(type)
@@ -461,17 +463,40 @@ namespace inasm64
                                 if(op_info._displacement[0] != 0)
                                 {
                                     const auto disp_len = strlen(op_info._displacement);
-                                    //NOTE: we can use strtol here because the displacement can never be > 32 bits
-                                    op._op._mem._displacement = ::strtol(op_info._displacement, nullptr, 0);
+                                    if(disp_len > 8)
+                                    {
+                                        // > 32 bit displacements need to be converted into RIP relative offsets
+
+                                        // only allowed for pure displacements (check this...)
+                                        if(!instructionRip || op._op._mem._base || op._op._mem._seg || op._op._mem._index || op._op._mem._scale!=1)
+                                        {
+                                            detail::set_error(Error::kInvalidAddress);
+                                            return 0;
+                                        }
+                                        const auto long_disp = ::strtoll(op_info._displacement, nullptr, 0);
+                                        if(errno)
+                                        {
+                                            detail::set_error(Error::kInvalidAddress);
+                                            return 0;
+                                        }
+
+                                        op._op._mem._displacement = int(long_disp - (long long)(instructionRip));
+                                        op._op._mem._base = "rip";
+                                    }
+                                    else
+                                    {
+                                        //NOTE: we can use strtol here because the displacement can never be > 32 bits
+                                        op._op._mem._displacement = ::strtol(op_info._displacement, nullptr, 0);
+                                    }
                                     unsigned long index;
                                     _BitScanReverse64(&index, op._op._mem._displacement > 0 ? op._op._mem._displacement : -op._op._mem._displacement);
                                     op._op._mem._disp_width_bits = char((index + 8) & ~7);
                                 }
                                 else
                                 {
-									op._op._mem._displacement = 0;
-                                    op._op._mem._disp_width_bits =0;
-								}
+                                    op._op._mem._displacement = 0;
+                                    op._op._mem._disp_width_bits = 0;
+                                }
                                 // impliciinstr_indexy 32 bits, may be overridden by prefix or the size of op1
                                 width_bits = 32;
                             }
@@ -493,6 +518,9 @@ namespace inasm64
                             statement._operands[p]._type = op_tokens[p]._reg_imm[0] ? (isalpha(op_tokens[p]._reg_imm[0]) ? Statement::kReg : Statement::kImm) : Statement::kMem;
                             // break down each operand, and aggregate and adjust the widths of each to match the overall statement (addressing width, operand widths)
                             statement._operands[p]._width_bits = std::max<short>(setup_statement(statement._operands[p]._type, statement._operands[p], op_tokens[p]), statement._operands[p]._width_bits);
+                            if(GetError() != Error::kNoError)
+                                return false;
+
                             // implicit override by reg size of dest operand, we don't require a ptr modifier
                             if(p && statement._operands[p]._type == Statement::kMem && statement._operands[p]._width_bits != statement._operands[0]._width_bits)
                             {

@@ -32,9 +32,10 @@ namespace inasm64
         bool Initialise();
 
         ///<summary>
-        /// assemble a given, single line, input statement into IA 64 instruction bytes
+        /// assemble a given, single line, input statement into x64 instruction bytes
         ///</summary>
-        bool Assemble(const char* assembly, AssembledInstructionInfo& asm_info);
+		// NOTE: if instructionRip != 0 it will be used to generate a RIP relative address, iff the instruction requires it.
+        bool Assemble(const char* assembly, AssembledInstructionInfo& asm_info, uintptr_t instrutionRip);
         ///<summary>
         /// the active driver
         ///</summary>

@@ -165,7 +165,7 @@ namespace inasm64
                     {
                         uc_string(op._op._mem._index);
                         index = str2xed_reg_enum_t(uc_buffer);
-                        if(base == XED_REG_INVALID)
+                        if(index == XED_REG_INVALID)
                         {
                             detail::set_error(Error::kInvalidDestRegistername);
                             return false;

@@ -951,8 +951,9 @@ namespace inasm64
                 }
                 else
                 {
+                    auto index = runtime::NextInstructionIndex();
                     assembler::AssembledInstructionInfo asm_info;
-                    if(!assembler::Assemble(cmdLineBuffer, asm_info))
+                    if(!assembler::Assemble(cmdLineBuffer, asm_info, index._address))
                     {
                         if(OnAssembleError)
                             _mode = OnAssembleError() ? Mode::Assembling : Mode::Processing;
@@ -961,7 +962,7 @@ namespace inasm64
                     }
                     else
                     {
-                        const auto index = runtime::AddInstruction(asm_info._instruction, asm_info._size);
+                        index = runtime::AddInstruction(asm_info._instruction, asm_info._size);
                         result = index._address != 0;
                         if(result && OnAssembling)
                             OnAssembling(index, asm_info);
