@@ -835,7 +835,7 @@ namespace inasm64
                 _help_texts.emplace_back("fi|find <prefix>", "find and list all supported instructions begining with prefix");
                 cmd0._handler = [](const char*, char* prefix) {
                     std::vector<const char*> instructions;
-                    assembler::Driver()->FindMatchingInstructions(prefix, instructions);
+                    assembler::driver::FindMatchingInstructions(prefix, instructions);
                     if(!instructions.empty() && OnFindInstruction)
                         OnFindInstruction(instructions);
                 };

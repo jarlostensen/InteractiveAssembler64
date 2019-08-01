@@ -13,8 +13,6 @@ namespace inasm64
 {
     namespace assembler
     {
-        struct IAssemblerDriver;
-
         ///<summary>
         /// information about an assembled instruction
         ///</summary>
@@ -34,11 +32,7 @@ namespace inasm64
         ///<summary>
         /// assemble a given, single line, input statement into x64 instruction bytes
         ///</summary>
-		// NOTE: if instructionRip != 0 it will be used to generate a RIP relative address, iff the instruction requires it.
+        // NOTE: if instructionRip != 0 it will be used to generate a RIP relative address, iff the instruction requires it.
         bool Assemble(const char* assembly, AssembledInstructionInfo& asm_info, uintptr_t instrutionRip);
-        ///<summary>
-        /// the active driver
-        ///</summary>
-        IAssemblerDriver* Driver();
     }  // namespace assembler
 }  // namespace inasm64

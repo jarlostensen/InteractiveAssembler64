@@ -35,7 +35,7 @@ void test_assemble(const std::string& statement)
     using namespace inasm64;
     assembler::Initialise();
     assembler::AssembledInstructionInfo info;
-    if(!assembler::Assemble(statement.c_str(), info))
+    if(!assembler::Assemble(statement.c_str(), info, 0))
         std::cerr << inasm64::ErrorMessage(inasm64::GetError()) << std::endl;
     else
         cinsout(info);
@@ -170,7 +170,7 @@ int main()
     test_assemble("mov rbx,1");
     test_assemble("add rax, rbx");
     test_assemble("rep stosb");
-    test_assemble("repne scasw");
+    test_assemble("repne scasb");
     test_assemble("add rax, 0x44332211");
     test_assemble("mov eax,[ebx]");
     test_assemble("inc rax");

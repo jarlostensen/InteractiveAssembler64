@@ -32,9 +32,6 @@ namespace inasm64
 {
     namespace assembler
     {
-        XedAssemblerDriver _xed_assembler_driver;
-        IAssemblerDriver* _assembler_driver = nullptr;
-
         namespace
         {
             enum class ParseMode
@@ -330,8 +327,7 @@ namespace inasm64
 
         bool Initialise()
         {
-            _assembler_driver = &_xed_assembler_driver;
-            return _xed_assembler_driver.Initialise();
+            return driver::Initialise();
         }
 
         bool Assemble(const char* assembly, AssembledInstructionInfo& info, uintptr_t instructionRip)
@@ -539,7 +535,7 @@ namespace inasm64
                                 statement._operands[1]._width_bits = statement._operands[0]._width_bits;
                             }
                             // we need to "relocate" rip relative memory operands once we know how many bytes the instruction it
-                            if(statement._operands[p]._type == Statement::kMem && !strcmp(statement._operands[p]._op._mem._base, "rip"))
+                            if(statement._operands[p]._type == Statement::kMem && statement._operands[p]._op._mem._base && !strcmp(statement._operands[p]._op._mem._base, "rip"))
                             {
                                 //zzz: can only be one of these per statement, right?
                                 assert(rip_rel_op < 0);
@@ -565,8 +561,8 @@ namespace inasm64
 
             if(result)
             {
-                const auto buffer = reinterpret_cast<uint8_t*>(_malloca(_assembler_driver->MaxInstructionSize()));
-                auto instr_len = _assembler_driver->Assemble(statement, buffer, _assembler_driver->MaxInstructionSize());
+                const auto buffer = reinterpret_cast<uint8_t*>(_malloca(driver::MaxInstructionSize()));
+                auto instr_len = driver::Assemble(statement, buffer, driver::MaxInstructionSize());
                 result = instr_len > 0;
                 if(result)
                 {
@@ -574,7 +570,7 @@ namespace inasm64
                     {
                         // need to adjust displacement by the size of the instruction, then re-generate instruction
                         statement._operands[rip_rel_op]._op._mem._displacement -= int(instr_len);
-                        instr_len = _assembler_driver->Assemble(statement, buffer, _assembler_driver->MaxInstructionSize());
+                        instr_len = driver::Assemble(statement, buffer, driver::MaxInstructionSize());
                         // a simple fixup should never cause this to fail
                         assert(instr_len);
                     }
@@ -584,10 +580,6 @@ namespace inasm64
                 _freea(buffer);
             }
             return result;
-        }
-        IAssemblerDriver* Driver()
-        {
-            return _assembler_driver;
         }
     }  // namespace assembler
 }  // namespace inasm64
