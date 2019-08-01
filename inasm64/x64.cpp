@@ -9,7 +9,7 @@
 //
 
 #include <string>
-#include "ia64.h"
+#include "x64.h"
 
 #include <intrin.h>
 

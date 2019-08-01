@@ -24,7 +24,7 @@
 #include <iostream>
 
 #include "common.h"
-#include "ia64.h"
+#include "x64.h"
 #include "assembler.h"
 #include "xed_assembler_driver.h"
 

@@ -2,7 +2,7 @@
 #include <windows.h>
 
 #include "../inasm64/common.h"
-#include "../inasm64/ia64.h"
+#include "../inasm64/x64.h"
 #include "../inasm64/runtime.h"
 #include "../inasm64/assembler.h"
 #include "../inasm64/cli.h"

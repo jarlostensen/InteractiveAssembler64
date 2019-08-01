@@ -23,7 +23,7 @@
 
 #include <memory>
 #include "common.h"
-#include "ia64.h"
+#include "x64.h"
 #include "runtime.h"
 
 #if !defined(_WIN64)

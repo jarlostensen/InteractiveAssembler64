@@ -45,9 +45,6 @@
     <ClCompile Include="..\stdafx.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="..\inasm64\ia64.cpp">
-      <Filter>Source Files\inasm64</Filter>
-    </ClCompile>
     <ClCompile Include="..\inasm64\globvars.cpp">
       <Filter>Source Files\inasm64</Filter>
     </ClCompile>
@@ -89,6 +86,9 @@
     </ClCompile>
     <ClCompile Include="..\external\Ratpack\transh.cpp">
       <Filter>external\Ratpak</Filter>
+    </ClCompile>
+    <ClCompile Include="..\inasm64\x64.cpp">
+      <Filter>Source Files\inasm64</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

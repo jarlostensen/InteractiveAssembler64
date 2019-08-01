@@ -48,9 +48,6 @@
     <ClCompile Include="inasm64\xed_assembler_driver.cpp">
       <Filter>Source Files\inasm64</Filter>
     </ClCompile>
-    <ClCompile Include="inasm64\ia64.cpp">
-      <Filter>Source Files\inasm64</Filter>
-    </ClCompile>
     <ClCompile Include="inasm64\globvars.cpp">
       <Filter>Source Files\inasm64</Filter>
     </ClCompile>
@@ -96,6 +93,9 @@
     <ClCompile Include="external\Ratpack\transh.cpp">
       <Filter>external\Ratpak</Filter>
     </ClCompile>
+    <ClCompile Include="inasm64\x64.cpp">
+      <Filter>Source Files\inasm64</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="inasm64\runtime.h">
@@ -119,9 +119,6 @@
     <ClInclude Include="inasm64\xed_assembler_driver.h">
       <Filter>Source Files\inasm64</Filter>
     </ClInclude>
-    <ClInclude Include="inasm64\ia64.h">
-      <Filter>Source Files\inasm64</Filter>
-    </ClInclude>
     <ClInclude Include="inasm64\globvars.h">
       <Filter>Source Files\inasm64</Filter>
     </ClInclude>
@@ -139,6 +136,9 @@
     </ClInclude>
     <ClInclude Include="external\Ratpack\ratpak.h">
       <Filter>external\Ratpak</Filter>
+    </ClInclude>
+    <ClInclude Include="inasm64\x64.h">
+      <Filter>Source Files\inasm64</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

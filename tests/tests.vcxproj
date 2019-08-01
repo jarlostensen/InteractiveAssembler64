@@ -187,8 +187,8 @@
     <ClCompile Include="..\inasm64\cli.cpp" />
     <ClCompile Include="..\inasm64\common.cpp" />
     <ClCompile Include="..\inasm64\globvars.cpp" />
-    <ClCompile Include="..\inasm64\ia64.cpp" />
     <ClCompile Include="..\inasm64\runtime.cpp" />
+    <ClCompile Include="..\inasm64\x64.cpp" />
     <ClCompile Include="..\inasm64\xed_assembler_driver.cpp" />
     <ClCompile Include="..\inasm64\xed_iclass_instruction_set.cpp" />
     <ClCompile Include="..\stdafx.cpp">
