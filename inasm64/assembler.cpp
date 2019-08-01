@@ -18,6 +18,7 @@
 #include <cstdint>
 #include <vector>
 #include <array>
+#include <cassert>
 #include <algorithm>
 
 #include <iostream>
@@ -341,6 +342,8 @@ namespace inasm64
             Statement statement;
             memset(&statement, 0, sizeof(statement));
             std::vector<char*> part[kMaxOperands];
+            int rip_rel_op = -1;
+
             if(tokenise(assembly, part, 3, statement._input_tokens))
             {
                 result = true;
@@ -474,6 +477,9 @@ namespace inasm64
                                     if(op._op._mem._disp_width_bits > 32)
                                     {
                                         // > 32 bit displacements need to be converted into RIP relative offsets
+                                        // NOTE: we calculate the offset here, relative to the passed-in instruction IP, but
+                                        // RIP relative addressing is always relative to the start of the *next* instruction, so we'll have to do
+                                        // a double pass when we generate the code (se call to driver below)
 
                                         if(op._op._mem._base)
                                         {
@@ -532,6 +538,13 @@ namespace inasm64
                             {
                                 statement._operands[1]._width_bits = statement._operands[0]._width_bits;
                             }
+                            // we need to "relocate" rip relative memory operands once we know how many bytes the instruction it
+                            if(statement._operands[p]._type == Statement::kMem && !strcmp(statement._operands[p]._op._mem._base, "rip"))
+                            {
+                                //zzz: can only be one of these per statement, right?
+                                assert(rip_rel_op < 0);
+                                rip_rel_op = p;
+                            }
 
                             // only used for p=0
                             instr_index = 0;
@@ -553,10 +566,18 @@ namespace inasm64
             if(result)
             {
                 const auto buffer = reinterpret_cast<uint8_t*>(_malloca(_assembler_driver->MaxInstructionSize()));
-                const auto instr_len = _assembler_driver->Assemble(statement, buffer, _assembler_driver->MaxInstructionSize());
+                auto instr_len = _assembler_driver->Assemble(statement, buffer, _assembler_driver->MaxInstructionSize());
                 result = instr_len > 0;
                 if(result)
                 {
+                    if(rip_rel_op >= 0)
+                    {
+                        // need to adjust displacement by the size of the instruction, then re-generate instruction
+                        statement._operands[rip_rel_op]._op._mem._displacement -= int(instr_len);
+                        instr_len = _assembler_driver->Assemble(statement, buffer, _assembler_driver->MaxInstructionSize());
+                        // a simple fixup should never cause this to fail
+                        assert(instr_len);
+                    }
                     memcpy(const_cast<uint8_t*>(info._instruction), buffer, instr_len);
                     const_cast<size_t&>(info._size) = instr_len;
                 }

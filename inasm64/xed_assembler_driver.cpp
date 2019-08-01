@@ -96,6 +96,8 @@ namespace inasm64
 
             // AVX512vl mode depends on the type of instruction and the register operands. We try to detect it here based on the operand register classes (see xed_enc_lang.c)
             xed_int_t vl = -1;
+
+            // builds a single operand, register, memory, or immediate, and adds it to the XED encoder context.
             const auto build_xed_op = [&req, &uc_string, &uc_buffer, &statement, &vl](unsigned op_order, char type, short width_bits, const Statement::operand& op) -> bool {
                 switch(type)
                 {
@@ -124,8 +126,8 @@ namespace inasm64
                 case Statement::kMem:
                 {
                     const auto instr = xed_encoder_request_get_iclass(&req);
-                    //ZZZ: this is what XED calls an "AGEN" (Address Generation) but it's not at all clear to me
-                    //	   and also...what other instructions use this?
+                    // this is what XED calls an "AGEN" (Address Generation) instruction and as per XED documentation LEA is the only instruction
+                    // that qualifies for this set up. This could change!
                     if(instr == XED_ICLASS_LEA)
                     {
                         xed_encoder_request_set_agen(&req);
