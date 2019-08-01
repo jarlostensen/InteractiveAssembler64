@@ -462,35 +462,41 @@ namespace inasm64
                                 op._op._mem._scale = char(::strtol(op_info._scale, nullptr, 0));
                                 if(op_info._displacement[0] != 0)
                                 {
-                                    const auto disp_len = strlen(op_info._displacement);
-                                    if(disp_len > 8)
+                                    const auto long_disp = ::strtoll(op_info._displacement, nullptr, 0);
+                                    if(errno)
+                                    {
+                                        detail::set_error(Error::kInvalidAddress);
+                                        return 0;
+                                    }
+                                    unsigned long msb_index;
+                                    _BitScanReverse64(&msb_index, long_disp > 0 ? long_disp : -long_disp);
+                                    op._op._mem._disp_width_bits = char((msb_index + 8) & ~7);
+                                    if(op._op._mem._disp_width_bits > 32)
                                     {
                                         // > 32 bit displacements need to be converted into RIP relative offsets
 
-                                        // only allowed for pure displacements (check this...)
-                                        if(!instructionRip || op._op._mem._base || op._op._mem._seg || op._op._mem._index || op._op._mem._scale!=1)
+                                        if(op._op._mem._base)
                                         {
-                                            detail::set_error(Error::kInvalidAddress);
-                                            return 0;
-                                        }
-                                        const auto long_disp = ::strtoll(op_info._displacement, nullptr, 0);
-                                        if(errno)
-                                        {
+                                            // can't do both!
                                             detail::set_error(Error::kInvalidAddress);
                                             return 0;
                                         }
 
+                                        // only allowed for pure displacements (check this...)
+                                        if(!instructionRip || op._op._mem._base || op._op._mem._seg || op._op._mem._index || op._op._mem._scale != 1)
+                                        {
+                                            detail::set_error(Error::kInvalidAddress);
+                                            return 0;
+                                        }
                                         op._op._mem._displacement = int(long_disp - (long long)(instructionRip));
                                         op._op._mem._base = "rip";
                                     }
                                     else
                                     {
                                         //NOTE: we can use strtol here because the displacement can never be > 32 bits
-                                        op._op._mem._displacement = ::strtol(op_info._displacement, nullptr, 0);
+                                        op._op._mem._displacement = int(long_disp);
                                     }
-                                    unsigned long index;
-                                    _BitScanReverse64(&index, op._op._mem._displacement > 0 ? op._op._mem._displacement : -op._op._mem._displacement);
-                                    op._op._mem._disp_width_bits = char((index + 8) & ~7);
+                                    op._op._mem._disp_width_bits = 32;
                                 }
                                 else
                                 {
