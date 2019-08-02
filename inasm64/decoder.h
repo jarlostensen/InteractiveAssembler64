@@ -26,16 +26,20 @@ namespace inasm64
                 kAvx,
                 kAvx512,
                 kSyscall,
-                kVTx,
-                kRing0,
+                kVmcall,
                 kUnknown,
             };
 
             InstructionClass _class = InstructionClass::kUnknown;
+            // if supported natively by the active CPU (via CPUID)
+            bool _supported : 1;
+            bool _ring0 : 1;
 
             InstructionInfo() = default;
         };
-
+        ///<summary>
+        /// Decode instruction bytes and return information about it
+        ///</summary>
         InstructionInfo Decode(const void* instruction, size_t length);
 
     }  // namespace decoder

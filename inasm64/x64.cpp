@@ -15,6 +15,12 @@
 
 namespace inasm64
 {
+    void Cpuid::operator()(int leaf, int subleaf)
+    {
+        if(leaf != _leaf || subleaf != _subleaf)
+            __cpuidex(_regs, _leaf = leaf, _subleaf = subleaf);
+    }
+
     namespace detail
     {
         struct register_lut_entry

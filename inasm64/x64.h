@@ -13,8 +13,20 @@
 namespace inasm64
 {
     ///<summary>
+    /// simple helper for invoking cpuid
+    ///</summary>
+    /// keeps results, only re-issues if leaf and/or subleaf change
+    struct Cpuid
+    {
+        int _regs[4] = { 0 };
+        int _leaf = 0;
+        int _subleaf = 0;
+        void operator()(int leaf, int subleaf);
+    };
+
+    ///<summary>
     ///contains basic information about a register
-    ///</summary?
+    ///</summary>
     struct RegisterInfo
     {
         //NOTE: deliberately not following the convention of using a 'k' prefix for enums, to be able to keep register "natural" names

@@ -143,16 +143,71 @@ namespace inasm64
             if(xed_error == XED_ERROR_NONE)
             {
                 InstructionInfo info;
-                const xed_inst_t* xi = xed_decoded_inst_inst(&xedd);
-                const auto noperands = xed_inst_noperands(xi);
-                const auto iform = xed_decoded_inst_get_iform_enum(&xedd);
                 const auto iclass = xed_decoded_inst_get_iclass(&xedd);
-                const auto max_iform = xed_iform_max_per_iclass(iclass);
+                const auto isaset = xed_decoded_inst_get_isa_set(&xedd);
+
+                // check if this instruction is supported natively by the hardware
+                Cpuid cpuid;
+                for(auto i = 0; i < XED_MAX_CPUID_BITS_PER_ISA_SET; i++)
+                {
+                    xed_cpuid_bit_enum_t cpuidbit = xed_get_cpuid_bit_for_isa_set(isaset, i);
+                    if(cpuidbit == XED_CPUID_BIT_INVALID)
+                        break;
+                    xed_cpuid_rec_t crec;
+                    int r = xed_get_cpuid_rec(cpuidbit, &crec);
+                    if(r)
+                    {
+                        cpuid(crec.leaf, crec.subleaf);
+                        switch(crec.reg)
+                        {
+                        case XED_REG_EAX:
+                            info._supported = (cpuid._regs[0] & (1 << crec.bit)) != 0;
+                            break;
+                        case XED_REG_EBX:
+                            info._supported = (cpuid._regs[1] & (1 << crec.bit)) != 0;
+                            break;
+                        case XED_REG_ECX:
+                            info._supported = (cpuid._regs[2] & (1 << crec.bit)) != 0;
+                            break;
+                        case XED_REG_EDX:
+                            info._supported = (cpuid._regs[3] & (1 << crec.bit)) != 0;
+                            break;
+                        default:;
+                        }
+                    }
+                }
+
+                info._ring0 = xed_decoded_inst_get_attribute(&xedd, XED_ATTRIBUTE_RING0) != 0;
 
                 //ZZZ: the XED enums are interleaved with some VT-X instructions, is this check going to be reliable or is there a XED function to get the ranges?
-                if((iclass >= XED_ICLASS_INT && iclass <= XED_ICLASS_INTO) || (iclass >= XED_ICLASS_IRET && iclass <= XED_ICLASS_JZ))
+                if((iclass >= XED_ICLASS_INT && iclass <= XED_ICLASS_INTO) || (iclass >= XED_ICLASS_IRET && iclass <= XED_ICLASS_JZ) ||
+                    (iclass == XED_ICLASS_CALL_FAR || iclass == XED_ICLASS_CALL_NEAR))
+                {
                     info._class = InstructionInfo::InstructionClass::kBranching;
-
+                }
+                else if(iclass == XED_ICLASS_SYSCALL || iclass == XED_ICLASS_SYSCALL_AMD)
+                {
+                    info._class = InstructionInfo::InstructionClass::kSyscall;
+                }
+                else if(iclass == XED_ICLASS_VMCALL)
+                {
+                    info._class = InstructionInfo::InstructionClass::kVmcall;
+                }
+                else
+                {
+                    if(xed_classify_sse(&xedd))
+                    {
+                        info._class = InstructionInfo::InstructionClass::kSse;
+                    }
+                    else if(xed_classify_avx(&xedd))
+                    {
+                        info._class = InstructionInfo::InstructionClass::kAvx;
+                    }
+                    else if(xed_classify_avx512(&xedd))
+                    {
+                        info._class = InstructionInfo::InstructionClass::kAvx512;
+                    }
+                }
                 return info;
             }
             return {};

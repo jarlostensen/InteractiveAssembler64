@@ -464,7 +464,11 @@ namespace inasm64
             // decode the instruction bytes to check for unsupported instructions
             // NOTE: this will be where we inject markers for emulation when the underlying CPU doesn'ts support the required instruction
             const auto decoded = decoder::Decode(bytes, size);
-            if(decoded._class == decoder::InstructionInfo::InstructionClass::kBranching)
+            if(!decoded._supported ||
+                decoded._ring0 ||
+                decoded._class == decoder::InstructionInfo::InstructionClass::kBranching ||
+                decoded._class == decoder::InstructionInfo::InstructionClass::kSyscall ||
+                decoded._class == decoder::InstructionInfo::InstructionClass::kVmcall)
             {
                 detail::set_error(Error::kUnsupportedInstructionType);
                 return {};
