@@ -24,6 +24,7 @@
 #include <memory>
 #include "common.h"
 #include "x64.h"
+#include "decoder.h"
 #include "runtime.h"
 
 #if !defined(_WIN64)
@@ -54,8 +55,6 @@ namespace inasm64
         const char* kVariables[] = {
             "execip",
             "codesize",
-            "startip",
-            "endip"
         };
 
         struct instruction_line_info_t
@@ -378,8 +377,6 @@ namespace inasm64
                                         _ctx_changed = false;
 
                                         _variables["execip"] = uintptr_t(_code);
-                                        _variables["startip"] = uintptr_t(_code);
-                                        _variables["endip"] = uintptr_t(_code);
                                         _variables["codesize"] = 0;
                                     }
                                     // else a serious error, report or silentl ignore?
@@ -464,6 +461,15 @@ namespace inasm64
                 return {};
             }
 
+            // decode the instruction bytes to check for unsupported instructions
+            // NOTE: this will be where we inject markers for emulation when the underlying CPU doesn'ts support the required instruction
+            const auto decoded = decoder::Decode(bytes, size);
+            if(decoded._class == decoder::InstructionInfo::InstructionClass::kBranching)
+            {
+                detail::set_error(Error::kUnsupportedInstructionType);
+                return {};
+            }
+
             instruction_line_info_t line;
             line._line = _instruction_line;
             memcpy(line._instruction_bytes, bytes, size);
@@ -527,6 +533,7 @@ namespace inasm64
             }
             set_next_instruction_address(LPCVOID(_loaded_instructions[line]._address));
             _code = reinterpret_cast<unsigned char*>(_loaded_instructions[line]._address);
+            _variables["execip"] = uintptr_t(_code);
             return true;
         }
 
@@ -536,14 +543,14 @@ namespace inasm64
             if(name[0] == 'l')
             {
                 char buffer[12];
-                auto rp = name;
+                auto rp = name + 1;
                 auto bp = buffer;
                 while(rp[0] && isdigit(rp[0]))
                 {
                     *bp++ = *rp++;
                 }
                 bp[0] = 0;
-                if(rp[0])
+                if(size_t(bp) - size_t(buffer) > 0)
                 {
                     const auto index = ::strtol(bp, nullptr, 10);
                     if(!errno && index >= 0 && index < _last_instruction_line)
@@ -592,6 +599,7 @@ namespace inasm64
                     return false;
                 }
             }
+
             _instruction_line = _first_instruction_line = _last_instruction_line;
             if(_loaded_instructions[_last_instruction_line - 1]._address >= uintptr_t(_code_end))
                 _code_end = reinterpret_cast<unsigned char*>(_loaded_instructions[_last_instruction_line - 1]._address + _loaded_instructions[_last_instruction_line - 1]._instruction_size);

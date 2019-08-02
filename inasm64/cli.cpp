@@ -881,11 +881,11 @@ namespace inasm64
             const auto cmdLinePtr = commandLine_;
 
             // skip past leading whitespace
-            while(cmdLinePtr[nv] && cmdLinePtr[nv] != ' ')
+            while(cmdLinePtr[nv] && cmdLinePtr[nv] == ' ')
             {
-                cmdLineBuffer[wp++] = cmdLinePtr[nv++];
+                ++nv;
             }
-            auto is_empty = !wp;
+            auto is_empty = !cmdLinePtr[nv];
 
             // replace meta variables $<name> and runtime variables @<name>
             while(cmdLinePtr[nv])
@@ -964,7 +964,15 @@ namespace inasm64
                     {
                         index = runtime::AddInstruction(asm_info._instruction, asm_info._size);
                         result = index._address != 0;
-                        if(result && OnAssembling)
+                        if(!result)
+                        {
+                            //ZZZ: strictly this is a runtime error, but it's in assembly mode...so...
+                            if(OnAssembleError)
+                                _mode = OnAssembleError() ? Mode::Assembling : Mode::Processing;
+                            else
+                                _mode = Mode::Processing;
+                        }
+                        else if(OnAssembling)
                             OnAssembling(index, asm_info);
                     }
                 }

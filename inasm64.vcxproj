@@ -181,6 +181,7 @@
     <ClCompile Include="inasm64\assembler.cpp" />
     <ClCompile Include="inasm64\cli.cpp" />
     <ClCompile Include="inasm64\common.cpp" />
+    <ClCompile Include="inasm64\decoder.cpp" />
     <ClCompile Include="inasm64\globvars.cpp" />
     <ClCompile Include="inasm64\x64.cpp" />
     <ClCompile Include="inasm64\xed_iclass_instruction_set.cpp" />
@@ -202,6 +203,7 @@
     <ClInclude Include="inasm64\assembler_driver.h" />
     <ClInclude Include="inasm64\cli.h" />
     <ClInclude Include="inasm64\common.h" />
+    <ClInclude Include="inasm64\decoder.h" />
     <ClInclude Include="inasm64\globvars.h" />
     <ClInclude Include="inasm64\x64.h" />
     <ClInclude Include="inasm64\xed_iclass_instruction_set.h" />

@@ -182,6 +182,8 @@ namespace inasm64
             return "input number format is invalid";
         case Error::kUnsupportedCpuFeature:
             return "this feature is unsupported on this CPU";
+        case Error::kUnsupportedInstructionType:
+            return "unsupported instruction (for now)";
         case Error::kEncodeError:
             return "General encoder error";
         default:

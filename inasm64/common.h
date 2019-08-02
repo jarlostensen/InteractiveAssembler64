@@ -29,6 +29,7 @@ namespace inasm64
         kNoMoreCode,
         kCodeBufferFull,
         kInvalidCommandFormat,
+        kUnsupportedInstructionType,
         kUnrecognizedRegisterName,
         kInvalidAddress,
         kInvalidInstructionFormat,
