@@ -431,10 +431,11 @@ namespace inasm64
                             result = read_number_string(rp, bytes, &rp) && (bytes.size() - prev_size) <= required_bytes;
                             if(result)
                             {
-                                if(bytes.size() < required_bytes)
+                                const auto bytes_read = bytes.size() - prev_size;
+                                if(bytes_read < required_bytes)
                                 {
                                     // pad
-                                    auto ullage = required_bytes - bytes.size();
+                                    auto ullage = required_bytes - bytes_read;
                                     while(ullage--)
                                         bytes.push_back(0);
                                 }
@@ -584,6 +585,11 @@ namespace inasm64
                             std::vector<uint8_t> data;
                             if(parse_values(cmd_type, params + tokens._token_idx[tokens._num_tokens > 2 ? 2 : 1], data))
                             {
+                                auto bytes_missing = int(reg_info._bit_width / 8) - int(data.size());
+                                while(bytes_missing-- > 0)
+                                {
+                                    data.push_back(0);
+                                }
                                 runtime::SetReg(reg_info, data.data(), data.size());
                             }
                         }
