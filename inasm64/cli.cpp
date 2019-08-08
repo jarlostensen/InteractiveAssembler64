@@ -410,7 +410,7 @@ namespace inasm64
                 }
                 else
                 {
-                    while(rp && (rp[0] || rp[1]))
+                    while(result && rp && (rp[0] || rp[1]))
                     {
                         // used to check that we read <= the required number of bytes in each chunk
                         auto prev_size = bytes.size();
