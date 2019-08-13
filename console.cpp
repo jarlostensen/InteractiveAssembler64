@@ -65,11 +65,14 @@ namespace console
         SetConsoleMode(_std_in, mode);
 
         char line_buffer[kMaxLineLength];
-        auto line_wp = 0;
-        auto max_read = 0;
+        size_t line_wp = line.length() ? line.length() : 0;
+        size_t max_read = line_wp;
 
         CONSOLE_SCREEN_BUFFER_INFO start_cs_info;
         GetConsoleScreenBufferInfo(_std_out, &start_cs_info);
+
+        if(line_wp)
+            std::cout << line;
 
         const auto move_cursor_pos = [](short dX) {
             CONSOLE_SCREEN_BUFFER_INFO cs_info;

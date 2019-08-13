@@ -599,7 +599,8 @@ int main(int argc, char* argv[])
             clear_next_input_on_key = true;
             return true;
         };
-        cli::OnStopAssembling = []() {
+        cli::OnStopAssembling = [&assembling]() {
+            assembling = false;
             std::cout << std::endl;
         };
 
@@ -618,22 +619,22 @@ int main(int argc, char* argv[])
 
         while(!done)
         {
-            if(cli::ActiveMode() == cli::Mode::Assembling)
+            if(assembling)
             {
                 const auto index = runtime::NextInstructionIndex();
                 std::cout << std::hex << index._address << ":@" << index._line << " ";
             }
             else
             {
-                assembling = false;
                 std::cout << "> ";
             }
+
             input_start_cursor_x = console::GetCursorX();
             console::ReadLine(input, clear_next_input_on_key);
 
             if(!cli::Execute(input.c_str()))
             {
-                if(cli::ActiveMode() != cli::Mode::Assembling)
+                if(assembling)
                 {
                     to_right_column();
                     std::cerr << console::red << ErrorMessage(GetError()) << console::reset_colours;
@@ -646,6 +647,7 @@ int main(int argc, char* argv[])
                 clear_next_input_on_key = false;
                 std::cout << std::endl;
             }
+            input = "";
         }
     }
     else

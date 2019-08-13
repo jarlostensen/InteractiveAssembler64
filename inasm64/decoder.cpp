@@ -14,8 +14,7 @@
 
 #include "xed_iclass_instruction_set.h"
 
-extern "C"
-{
+extern "C" {
 #include "xed-interface.h"
 }
 
@@ -145,6 +144,8 @@ namespace inasm64
                 InstructionInfo info;
                 const auto iclass = xed_decoded_inst_get_iclass(&xedd);
                 const auto isaset = xed_decoded_inst_get_isa_set(&xedd);
+				// assume supported
+                info._supported = true;
 
                 // check if this instruction is supported natively by the hardware
                 Cpuid cpuid;
