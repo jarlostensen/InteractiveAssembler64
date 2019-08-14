@@ -171,6 +171,7 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="..\console.cpp" />
     <ClCompile Include="..\external\Ratpack\basex.cpp" />
     <ClCompile Include="..\external\Ratpack\conv.cpp" />
     <ClCompile Include="..\external\Ratpack\exp.cpp" />

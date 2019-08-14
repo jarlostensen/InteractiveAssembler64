@@ -93,6 +93,9 @@
     <ClCompile Include="..\inasm64\decoder.cpp">
       <Filter>Source Files\inasm64</Filter>
     </ClCompile>
+    <ClCompile Include="..\console.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\inasm64\assembler.h">

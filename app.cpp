@@ -22,6 +22,7 @@
 #include "inasm64/x64.h"
 #include "inasm64/runtime.h"
 #include "inasm64/assembler.h"
+#include "inasm64/assembler_driver.h"
 #include "inasm64/cli.h"
 #include "inasm64/globvars.h"
 
@@ -617,6 +618,8 @@ int main(int argc, char* argv[])
             std::cout << std::endl;
         };
 
+		std::vector<const char*> instruction_matches;
+
         while(!done)
         {
             if(assembling)
@@ -630,16 +633,44 @@ int main(int argc, char* argv[])
             }
 
             input_start_cursor_x = console::GetCursorX();
-            console::ReadLine(input, clear_next_input_on_key);
 
+			// this loop implements support for tab-completion of commands in assembly mode, in non-assembly mode it just reads a line
+            std::pair<console::ReadLineResult, bool> readline_result = { console::ReadLineResult::kReturn, false };
+			instruction_matches.clear();
+			size_t tab_idx = 0;            
+            do
+            {
+                readline_result = console::ReadLine(input, clear_next_input_on_key);
+                clear_next_input_on_key = false;
+                switch(readline_result.first)
+                {
+                case console::ReadLineResult::kTab:
+					if(assembling)
+                    {
+						if(instruction_matches.empty() || readline_result.second)
+                        {                       
+							instruction_matches.clear();
+							assembler::driver::FindMatchingInstructions(input.c_str(), instruction_matches);
+                            tab_idx = 0;
+                        }
+                        if(!instruction_matches.empty())
+                        {
+                            input = instruction_matches[tab_idx];
+                            tab_idx = (tab_idx+1) % instruction_matches.size();                            							
+                            console::SetCursorX(input_start_cursor_x);
+                            console::ClearLineToEnd();   
+							console::SetCursorX(input_start_cursor_x);
+						}
+					}
+                    break;
+                default:
+                    instruction_matches.clear();
+					break;
+				}
+            } while(readline_result.first != console::ReadLineResult::kReturn && readline_result.first != console::ReadLineResult::kEsc);
+				
             if(!cli::Execute(input.c_str()))
             {
-                if(assembling)
-                {
-                    to_right_column();
-                    std::cerr << console::red << ErrorMessage(GetError()) << console::reset_colours;
-                    console::SetCursorX(0);
-                }
                 clear_next_input_on_key = true;
             }
             else

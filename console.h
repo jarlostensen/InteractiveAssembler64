@@ -12,6 +12,8 @@
 // Windows console rendering and input helpers
 
 #pragma once
+#include <string>
+#include <vector>
 
 namespace console
 {
@@ -27,7 +29,28 @@ namespace console
     short Height();
     void SetCursorX(short x);
     short GetCursorX();
-    void ReadLine(std::string& line, bool clearLineOnKey);
+
+	
+	enum class ReadLineResult
+    {
+        kReturn,
+        kUp,
+        kDown,
+        kTab,
+		kEsc,
+    };
+	///<summary>
+	/// read a line of text based on line
+	///</summary>
+	///<param name="clearLineOnKey">if true the input line in the console will be cleared on the first keypress</param>
+	///<returns>ReadLineResult,changed (true/false)</returns>
+	std::pair<ReadLineResult,bool> ReadLine(std::string& line, bool clearLineOnKey);
+    ///<summary>
+    /// read multiple individual lines of text
+    ///</summary>
+    void ReadLines(std::vector<std::string>& lines);
+
+	void ClearLineToEnd();
 
     inline std::ostream& reset_colours(std::ostream& os)
     {

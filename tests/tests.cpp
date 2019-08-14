@@ -7,6 +7,7 @@
 #include "../inasm64/assembler.h"
 #include "../inasm64/cli.h"
 #include "../inasm64/xed_iclass_instruction_set.h"
+#include "../console.h"
 
 #include "../external/Ratpack/ratpak.h"
 
@@ -133,6 +134,17 @@ void test_xed_instruction_lookup(const char* xed_instruction)
 
 int main()
 {
+    /*std::vector<std::string> lines;
+    std::cout << "enter some lines of text:\n";
+    console::Initialise();
+    console::ReadLines(lines);
+
+    std::cout << "\nyou entered:\n";
+    for(const auto& line : lines)
+    {
+        std::cout << line << "\n";
+    }
+*/
     //generate_instruction_set();
     test_xed_instruction_lookup("movs");
 
