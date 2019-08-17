@@ -648,7 +648,7 @@ int main(int argc, char* argv[])
 					if(assembling)
                     {
 						if(instruction_matches.empty() || readline_result.second)
-                        {                       
+                        {                        
 							instruction_matches.clear();
 							assembler::driver::FindMatchingInstructions(input.c_str(), instruction_matches);
                             tab_idx = 0;
