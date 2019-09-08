@@ -4,11 +4,39 @@
 #include <commctrl.h>
 #include <objidl.h>
 #include <gdiplus.h>
+
+#include <string>
 #include <vector>
+#include <functional>
+#include <algorithm>
 
 using namespace Gdiplus;
 #pragma comment(lib, "Gdiplus.lib")
 #pragma comment(lib, "Dwmapi.lib")
+
+namespace
+{
+    struct TmpDc
+    {
+        explicit TmpDc(HWND hWnd)
+        {
+            _dc = GetDC(_hwnd = hWnd);
+        }
+
+        ~TmpDc()
+        {
+            ReleaseDC(_hwnd, _dc);
+        }
+
+        operator HDC() const
+        {
+            return _dc;
+        }
+
+        HWND _hwnd;
+        HDC _dc;
+    };
+}
 
 namespace app
 {
@@ -46,7 +74,7 @@ namespace app
 
         unsigned short _caption_height;
         RECT _minimise_hit_area;
-        RECT _maximise_hit_area;
+        RECT _capacityimise_hit_area;
         RECT _close_hit_area;
         RECT _resize_hit_area;
 
@@ -61,7 +89,7 @@ namespace app
     struct
     {
         bool _mouse_on_minimise : 1;
-        bool _mouse_on_maximise : 1;
+        bool _mouse_on_capacityimise : 1;
         bool _mouse_on_close : 1;
 
         bool _needs_restore : 1;
@@ -145,8 +173,8 @@ namespace app
                 activated = _flags._mouse_on_minimise;
                 break;
             case DFCS_CAPTIONMAX:
-                rect = &_layout._maximise_hit_area;
-                activated = _flags._mouse_on_maximise;
+                rect = &_layout._capacityimise_hit_area;
+                activated = _flags._mouse_on_capacityimise;
                 break;
             default:;
             }
@@ -207,9 +235,9 @@ namespace app
                 }
                 break;
             case DFCS_CAPTIONMAX:
-                if(_flags._mouse_on_maximise)
+                if(_flags._mouse_on_capacityimise)
                 {
-                    _flags._mouse_on_maximise = false;
+                    _flags._mouse_on_capacityimise = false;
                     dark_theme::DrawFrameControl(dc, DFCS_CAPTIONMAX);
                 }
                 break;
@@ -231,9 +259,9 @@ namespace app
                 _flags._mouse_on_close = false;
                 dark_theme::DrawFrameControl(dc, DFCS_CAPTIONCLOSE);
             }
-            else if(_flags._mouse_on_maximise)
+            else if(_flags._mouse_on_capacityimise)
             {
-                _flags._mouse_on_maximise = false;
+                _flags._mouse_on_capacityimise = false;
                 dark_theme::DrawFrameControl(dc, DFCS_CAPTIONMAX);
             }
             else if(_flags._mouse_on_minimise)
@@ -267,7 +295,206 @@ namespace app
         AppendText(_linecounter, linenum);
         ++lines;
     }
+}
 
+namespace LineEditor
+{
+    struct Line
+    {
+        wchar_t* _buffer = nullptr;
+        size_t _capacity = 0;
+        size_t _length = 0;
+    };
+
+    struct State
+    {
+        std::vector<Line> _lines;
+
+        size_t _line = 0;
+        size_t _cursor = 0;
+        size_t _max_line = 0;
+        // values are in logical pixels
+        int _avg_char_width = 0;
+        int _char_height = 0;
+        int _caret_x = 0;
+        int _caret_y = 0;
+    };
+
+    LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
+    {
+        // based on https://docs.microsoft.com/en-us/windows/win32/inputdev/using-keyboard-input#processing-character-messages
+
+        auto state = reinterpret_cast<State*>(GetWindowLongPtr(hWnd, GWLP_USERDATA));
+        if(!state)
+        {
+            state = new State;
+            SetWindowLongPtr(hWnd, GWLP_USERDATA, LONG_PTR(state));
+        }
+
+        switch(message)
+        {
+        case WM_CREATE:
+        {
+            const auto dc = GetDC(hWnd);
+            TEXTMETRIC tm;
+            GetTextMetrics(dc, &tm);
+            ReleaseDC(hWnd, dc);
+
+            state->_char_height = tm.tmHeight;
+            state->_avg_char_width = tm.tmAveCharWidth;
+        }
+        break;
+        case WM_DESTROY:
+        {
+            PostQuitMessage(0);
+            for(const auto& line : state->_lines)
+            {
+                delete[] line._buffer;
+            }
+            delete state;
+            SetWindowLongPtr(hWnd, GWLP_USERDATA, 0);
+        }
+        break;
+        case WM_SIZE:
+        {
+            const auto line_width = 1 + LOWORD(lParam) / state->_avg_char_width;
+            auto& line = state->_lines[state->_line];
+            if(line._capacity < line_width)
+            {
+                const auto old_capacity = line._capacity;
+                line._capacity = line_width + line_width / 4;
+                auto tmp = new wchar_t[line._capacity];
+                memcpy(tmp, line._buffer, old_capacity);
+                delete[] line._buffer;
+                line._buffer = tmp;
+            }
+        }
+        break;
+        case WM_SETFOCUS:
+        {
+            CreateCaret(hWnd, HBITMAP(1), 0, state->_char_height);
+            SetCaretPos(state->_caret_x, state->_caret_y * state->_char_height);
+            ShowCaret(hWnd);
+        }
+        break;
+        case WM_KILLFOCUS:
+        {
+            HideCaret(hWnd);
+            DestroyCaret();
+        }
+        break;
+        case WM_KEYDOWN:
+        {
+            switch(wParam)
+            {
+            case VK_LEFT:
+            {
+                if(state->_cursor)
+                {
+                    HideCaret(hWnd);
+
+                    // move caret back one character
+                    const auto prev_char = state->_lines[state->_line]._buffer[--state->_cursor];
+                    int char_width = 0;
+                    GetCharWidth32(TmpDc(hWnd), prev_char, prev_char, &char_width);
+                    state->_caret_x = std::max<int>(0, state->_caret_x - char_width);
+
+                    ShowCaret(hWnd);
+                    SetCaretPos(state->_caret_x, state->_caret_y);
+                }
+            }
+            break;
+            case VK_RIGHT:
+            {
+                if(state->_cursor < state->_lines[state->_line]._length)
+                {
+                    HideCaret(hWnd);
+                    const auto this_char = state->_lines[state->_line]._buffer[state->_cursor++];
+                    int char_width = 0;
+                    GetCharWidth32(TmpDc(hWnd), this_char, this_char, &char_width);
+                    state->_caret_x += char_width;
+                    ShowCaret(hWnd);
+                    SetCaretPos(state->_caret_x, state->_caret_y);
+                }
+            }
+            break;
+            default:;
+            }
+        }
+        break;
+        case WM_CHAR:
+        {
+            auto& line = state->_lines[state->_line];
+            if(line._capacity - line._length == 0)
+            {
+                const auto old_capacity = line._capacity;
+                line._capacity += 32;
+                auto tmp = new wchar_t[line._capacity];
+                memcpy(tmp, line._buffer, old_capacity);
+                delete[] line._buffer;
+                line._buffer = tmp;
+            }
+
+            switch(wParam)
+            {
+            case 0x08:
+            case 0x0a:
+            case 0x1b:
+            case 0x09:
+            case 0x0d:
+                //TODO:
+                MessageBeep(UINT(-1));
+                break;
+            default:
+            {
+                const auto ch = TCHAR(wParam);
+                RECT cr;
+                GetClientRect(hWnd, &cr);
+
+                HideCaret(hWnd);
+                const auto dc = GetDC(hWnd);
+                int char_width;
+                GetCharWidth32(dc, UINT(ch), UINT(ch), &char_width);
+                if(state->_caret_x + char_width <= cr.right)
+                {
+                    state->_caret_x += char_width;
+                    line._buffer[line._length++] = ch;
+                    line._buffer[line._length] = 0;
+                    Graphics graphics(dc);
+                    graphics.DrawString((const WCHAR*)(line._buffer), -1, app::dark_theme::_consolasRegular, PointF(8.0, 4.0), app::dark_theme::_lightGrayBrush);
+                }
+                else
+                {
+                    MessageBeep(UINT(-1));
+                }
+                ShowCaret(hWnd);
+            }
+            break;
+            }
+            break;
+        }
+        break;
+        case WM_PAINT:
+        {
+            PAINTSTRUCT ps;
+            HDC hdc = BeginPaint(hWnd, &ps);
+            Graphics graphics(hdc);
+
+            //TODO: how do we clip this, which part do we render?
+
+            EndPaint(hWnd, &ps);
+        }
+        break;
+        default:
+            return DefWindowProc(hWnd, message, wParam, lParam);
+        }
+
+        return LRESULT(0);
+    }
+}
+
+namespace app
+{
     LRESULT CALLBACK AsmEditorWndProc(HWND hWnd, UINT message, WPARAM wParam,
         LPARAM lParam, UINT_PTR uIdSubclass, DWORD_PTR dwRefData)
     {
@@ -611,7 +838,7 @@ namespace app
             _layout._close_hit_area = { width - _layout._caption_height, 0, width - 2, _layout._caption_height };
             dark_theme::DrawFrameControl(dc, DFCS_CAPTIONCLOSE);
             width -= _layout._caption_height + 4;
-            _layout._maximise_hit_area = { width - _layout._caption_height, 0, width - 2, _layout._caption_height };
+            _layout._capacityimise_hit_area = { width - _layout._caption_height, 0, width - 2, _layout._caption_height };
             dark_theme::DrawFrameControl(dc, DFCS_CAPTIONMAX);
             width -= _layout._caption_height + 4;
             _layout._minimise_hit_area = { width - _layout._caption_height, 0, width - 2, _layout._caption_height };
@@ -626,43 +853,43 @@ namespace app
 
     LRESULT NcCalc(HWND hWnd, WPARAM wParam, LPARAM lParam)
     {
-		LRESULT result = 0;
+        LRESULT result = 0;
         if(wParam == TRUE)
         {
             LPNCCALCSIZE_PARAMS pncc = LPNCCALCSIZE_PARAMS(lParam);
-			// on entry:
+            // on entry:
             //pncc->rgrc[0] is the new rectangle
             //pncc->rgrc[1] is the old rectangle
             //pncc->rgrc[2] is the old client rectangle
             result = DefWindowProc(hWnd, WM_NCCALCSIZE, wParam, lParam);
 
-			// on exit:
-			//pncc->rgrc[0] is the new client rectangle
-			//pncc->rgrc[1] is the new rectangle
-			//pncc->rgrc[2] is the old rectangle
+            // on exit:
+            //pncc->rgrc[0] is the new client rectangle
+            //pncc->rgrc[1] is the new rectangle
+            //pncc->rgrc[2] is the old rectangle
 
-			// set client area to the whole width of the window
-			pncc->rgrc[0].left = pncc->rgrc[1].left;
-			pncc->rgrc[0].right = pncc->rgrc[1].right;
-			//pncc->rgrc[0].top += 8;
-			pncc->rgrc[0].bottom += 8;
+            // set client area to the whole width of the window
+            pncc->rgrc[0].left = pncc->rgrc[1].left;
+            pncc->rgrc[0].right = pncc->rgrc[1].right;
+            //pncc->rgrc[0].top += 8;
+            pncc->rgrc[0].bottom += 8;
         }
-		else
-		{
-			LPRECT prect = LPRECT(lParam);
-			// on entry:
-			// prect is the new window rectangle
-			const auto prev_left = prect->left;
-			const auto prev_right = prect->right;
-			result = DefWindowProc(hWnd, WM_NCCALCSIZE, wParam, lParam);
-			// on exit:
-			// prect is the new client area (in screen coordinates)
+        else
+        {
+            LPRECT prect = LPRECT(lParam);
+            // on entry:
+            // prect is the new window rectangle
+            const auto prev_left = prect->left;
+            const auto prev_right = prect->right;
+            result = DefWindowProc(hWnd, WM_NCCALCSIZE, wParam, lParam);
+            // on exit:
+            // prect is the new client area (in screen coordinates)
 
-			// set client area to the whole width of the window
-			prect->left = prev_left;
-			prect->right = prev_right;
-			prect->bottom += 8;
-		}
+            // set client area to the whole width of the window
+            prect->left = prev_left;
+            prect->right = prev_right;
+            prect->bottom += 8;
+        }
 
         return result;
     }
@@ -697,13 +924,13 @@ namespace app
                     }
                     return HTMINBUTTON;
                 }
-                if(check_pt(_layout._maximise_hit_area))
+                if(check_pt(_layout._capacityimise_hit_area))
                 {
                     dark_theme::CheckDisableFrameControl(dc, DFCS_CAPTIONMIN);
                     dark_theme::CheckDisableFrameControl(dc, DFCS_CAPTIONCLOSE);
-                    if(!_flags._mouse_on_maximise)
+                    if(!_flags._mouse_on_capacityimise)
                     {
-                        _flags._mouse_on_maximise = true;
+                        _flags._mouse_on_capacityimise = true;
                         dark_theme::DrawFrameControl(dc, DFCS_CAPTIONMAX);
                     }
                     return HTMAXBUTTON;
@@ -820,9 +1047,9 @@ namespace app
             return 0;
         case WM_NCLBUTTONDOWN:
         {
-            if(_flags._mouse_on_close || _flags._mouse_on_maximise || _flags._mouse_on_minimise)
+            if(_flags._mouse_on_close || _flags._mouse_on_capacityimise || _flags._mouse_on_minimise)
             {
-                if(_flags._mouse_on_maximise)
+                if(_flags._mouse_on_capacityimise)
                 {
                     SendMessage(hWnd, WM_SYSCOMMAND, _flags._needs_restore ? SC_RESTORE : SC_MAXIMIZE, 0);
                     _flags._needs_restore = !_flags._needs_restore;

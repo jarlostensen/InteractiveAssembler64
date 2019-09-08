@@ -5,4 +5,5 @@
 #include <wincodec.h>
 #include <dwmapi.h>
 
+#include <string>
 #include <vector>
