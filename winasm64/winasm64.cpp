@@ -104,15 +104,7 @@ namespace app
         const auto _dullBlue = Color(255, 0xff, 0x77, 0x77);
         const auto _codeGreen = Color(255, 0x77, 0xff, 0x77);
         const auto _lightGray = Color(255, 0xaa, 0xaa, 0xaa);
-
-        //NOTE: we need these to manage controls we don't render ourselves
-        HBRUSH _legacyBlackBrush = nullptr;
-        constexpr COLORREF kDullBlue = COLORREF(0xff7777);
-        constexpr COLORREF kAlmostBlack = RGB(25, 25, 28);
-        constexpr COLORREF kCodeGreen = COLORREF(0x77ff77);
-        constexpr COLORREF kLightGray = COLORREF(0xaaaaaa);
-        constexpr COLORREF kDarkGray = RGB(45, 45, 48);
-
+       
         FontFamily* _consolasFontFamily = nullptr;
         Font* _consolasRegular = nullptr;
         Font* _consolasSmall = nullptr;
@@ -122,8 +114,20 @@ namespace app
         SolidBrush* _redBrush = nullptr;
         Pen* _whitePen = nullptr;
 
+        // we need to use good old GDI for a few things too, in particular for cutom font rendering since GDI+ is incapable of it
+        //NOTE: we need these to manage controls we don't render ourselves
+        HBRUSH _legacyBlackBrush = nullptr;
+        constexpr COLORREF kDullBlue = COLORREF(0xff7777);
+        constexpr COLORREF kAlmostBlack = RGB(25, 25, 28);
+        constexpr COLORREF kCodeGreen = COLORREF(0x77ff77);
+        constexpr COLORREF kLightGray = COLORREF(0xaaaaaa);
+        constexpr COLORREF kDarkGray = RGB(45, 45, 48);       
+        HPEN _lightGrayPen = 0;
+        HFONT _consolasRegularGdi = 0;
+
         void Shutdown()
         {
+            DeleteObject(_consolasRegularGdi);
             DeleteObject(dark_theme::_legacyBlackBrush);
             delete _redBrush;
             delete _lightGrayBrush;
@@ -304,6 +308,8 @@ namespace LineEditor
         wchar_t* _buffer = nullptr;
         size_t _capacity = 0;
         size_t _length = 0;
+        // position of caret at current end of string
+        int _caret_end = 0;
     };
 
     struct State
@@ -318,6 +324,8 @@ namespace LineEditor
         int _char_height = 0;
         int _caret_x = 0;
         int _caret_y = 0;
+
+        std::function<void(const wchar_t*)> _on_command;
     };
 
     LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
@@ -357,16 +365,20 @@ namespace LineEditor
         break;
         case WM_SIZE:
         {
-            const auto line_width = 1 + LOWORD(lParam) / state->_avg_char_width;
-            auto& line = state->_lines[state->_line];
-            if(line._capacity < line_width)
+            if(!state->_lines.empty())
             {
-                const auto old_capacity = line._capacity;
-                line._capacity = line_width + line_width / 4;
-                auto tmp = new wchar_t[line._capacity];
-                memcpy(tmp, line._buffer, old_capacity);
-                delete[] line._buffer;
-                line._buffer = tmp;
+                const auto line_width = 1 + LOWORD(lParam) / state->_avg_char_width;
+                // only modify the current line, other lines are untouched
+                auto& line = state->_lines[state->_line];
+                if(line._capacity < line_width)
+                {
+                    const auto old_capacity = line._capacity;
+                    line._capacity = line_width + line_width / 4;
+                    auto tmp = new wchar_t[line._capacity];
+                    memcpy(tmp, line._buffer, old_capacity);
+                    delete[] line._buffer;
+                    line._buffer = tmp;
+                }
             }
         }
         break;
@@ -418,55 +430,107 @@ namespace LineEditor
                 }
             }
             break;
+            case VK_HOME:
+            {
+                state->_cursor = 0;
+                state->_caret_x = 0;
+                SetCaretPos(state->_caret_x, state->_caret_y);
+            }
+            break;
+            case VK_END:
+            {
+                if(!state->_lines.empty())
+                {
+                    state->_cursor = state->_lines[state->_line]._length;
+                    state->_caret_x = state->_lines[state->_line]._caret_end;
+                    SetCaretPos(state->_caret_x, state->_caret_y);
+                }
+            }
+            break;
             default:;
             }
         }
         break;
         case WM_CHAR:
         {
+            if(state->_lines.empty())
+                state->_lines.push_back({});
+
             auto& line = state->_lines[state->_line];
-            if(line._capacity - line._length == 0)
-            {
+            const auto growline = [&state, &line]() {
                 const auto old_capacity = line._capacity;
                 line._capacity += 32;
                 auto tmp = new wchar_t[line._capacity];
-                memcpy(tmp, line._buffer, old_capacity);
+                memcpy(tmp, line._buffer, old_capacity * sizeof(wchar_t));
                 delete[] line._buffer;
                 line._buffer = tmp;
-            }
+            };
+
+            if(line._capacity - line._length == 0)
+                growline();
 
             switch(wParam)
             {
-            case 0x08:
-            case 0x0a:
-            case 0x1b:
-            case 0x09:
-            case 0x0d:
+            case VK_BACK:
+            //linefeed? case 0x0a:
+            case VK_ESCAPE:
+            case VK_TAB:
+            case VK_RETURN:
                 //TODO:
                 MessageBeep(UINT(-1));
                 break;
             default:
             {
                 const auto ch = TCHAR(wParam);
+
+                if(line._length == line._capacity - 1)
+                    growline();
+
                 RECT cr;
                 GetClientRect(hWnd, &cr);
 
                 HideCaret(hWnd);
                 const auto dc = GetDC(hWnd);
+                Graphics graphics(dc);
+
+                if(app::dark_theme::_consolasRegularGdi == 0)
+                {
+                    LOGFONTW logFont;
+                    app::dark_theme::_consolasRegular->GetLogFontW(&graphics, &logFont);
+                    app::dark_theme::_consolasRegularGdi = CreateFontIndirectW(&logFont);
+                }
+                const auto currFont = SelectObject(dc, app::dark_theme::_consolasRegularGdi);
                 int char_width;
                 GetCharWidth32(dc, UINT(ch), UINT(ch), &char_width);
+
                 if(state->_caret_x + char_width <= cr.right)
                 {
+                    //TODO: insert
+                    line._buffer[line._length] = ch;
+                    line._buffer[++line._length] = 0;
+                    ++state->_cursor;
+
                     state->_caret_x += char_width;
-                    line._buffer[line._length++] = ch;
-                    line._buffer[line._length] = 0;
-                    Graphics graphics(dc);
-                    graphics.DrawString((const WCHAR*)(line._buffer), -1, app::dark_theme::_consolasRegular, PointF(8.0, 4.0), app::dark_theme::_lightGrayBrush);
+
+                    //NOTE: officialy GDI+'s font rendering is garbage. This is a known fact.
+                    //graphics.DrawString((const WCHAR*)(line._buffer + line._length - 1), 1, app::dark_theme::_consolasRegular, PointF(Gdiplus::REAL(state->_caret_x - char_width), 0.0), app::dark_theme::_lightGrayBrush);
+
+                    const auto bkMode = GetBkMode(dc);
+                    SetBkMode(dc, TRANSPARENT); 
+                    const auto currTextColor = GetTextColor(dc);
+                    SetTextColor(dc, app::dark_theme::kLightGray);
+                    TextOut(dc, state->_caret_x - char_width, state->_caret_y, (const WCHAR*)(line._buffer + line._length - 1), 1);
+                    SetTextColor(dc, currTextColor);
+                    SetBkMode(dc, bkMode); 
+
+                    line._caret_end = state->_caret_x;
+                    SetCaretPos(state->_caret_x, state->_caret_y);
                 }
                 else
                 {
                     MessageBeep(UINT(-1));
                 }
+                SelectObject(dc, currFont);
                 ShowCaret(hWnd);
             }
             break;
@@ -490,6 +554,35 @@ namespace LineEditor
         }
 
         return LRESULT(0);
+    }
+
+    HWND Create(HWND parent, HINSTANCE instance)
+    {
+        static ATOM klass = 0;
+        if(!klass)
+        {
+            WNDCLASSEXW wcex;
+            wcex.cbSize = sizeof(WNDCLASSEX);
+            wcex.style = CS_HREDRAW | CS_VREDRAW;
+            wcex.lpfnWndProc = WndProc;
+            wcex.cbClsExtra = 0;
+            wcex.cbWndExtra = 0;
+            wcex.hInstance = instance;
+            wcex.hIcon = LoadIcon(instance, MAKEINTRESOURCE(IDC_WINASM64));
+            wcex.hCursor = LoadCursor(nullptr, IDC_ARROW);
+            wcex.hbrBackground = app::dark_theme::_legacyBlackBrush;
+            wcex.lpszMenuName = nullptr;
+            wcex.lpszClassName = TEXT("ASMEDIT");
+            wcex.hIconSm = LoadIcon(wcex.hInstance, MAKEINTRESOURCE(IDI_SMALL));
+            klass = RegisterClassExW(&wcex);
+        }
+
+        return CreateWindowEx(0, TEXT("ASMEDIT"), nullptr, WS_CHILD | WS_VISIBLE | WS_VSCROLL | ES_LEFT | ES_MULTILINE | ES_AUTOVSCROLL,
+            0, 0, 0, 0,
+            parent,
+            nullptr,
+            instance,
+            nullptr);
     }
 }
 
@@ -577,7 +670,8 @@ namespace app
         dark_theme::_darkGrayBrush = new SolidBrush(dark_theme::_darkGray);
         dark_theme::_lightGrayBrush = new SolidBrush(dark_theme::_lightGray);
         dark_theme::_redBrush = new SolidBrush(Color::Red);
-        dark_theme::_whitePen = new Pen(Color(255, 255, 255, 255));
+        dark_theme::_whitePen = new Pen(Color(255, 255, 255, 255));        
+        dark_theme::_lightGrayPen = CreatePen(PS_SOLID,1,dark_theme::kLightGray);
 
         UpdateDpiInfo();
 
@@ -607,7 +701,7 @@ namespace app
             if(!_winasm64)
                 return false;
 
-            _asm_editor = CreateWindowEx(0, L"EDIT",
+            /*_asm_editor = CreateWindowEx(0, L"EDIT",
                 nullptr,
                 WS_CHILD | WS_VISIBLE | WS_VSCROLL | ES_LEFT |
                     ES_MULTILINE | ES_AUTOVSCROLL,
@@ -618,7 +712,9 @@ namespace app
                 nullptr);
             if(!_asm_editor)
                 return false;
-            SetWindowSubclass(_asm_editor, AsmEditorWndProc, 0, 0);
+                SetWindowSubclass(_asm_editor, AsmEditorWndProc, 0, 0);
+                */
+            _asm_editor = LineEditor::Create(_winasm64, instance);
 
             _linecounter = CreateWindowEx(0, L"EDIT",
                 nullptr,
