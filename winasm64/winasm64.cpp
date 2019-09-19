@@ -104,7 +104,7 @@ namespace app
         const auto _dullBlue = Color(255, 0xff, 0x77, 0x77);
         const auto _codeGreen = Color(255, 0x77, 0xff, 0x77);
         const auto _lightGray = Color(255, 0xaa, 0xaa, 0xaa);
-       
+
         FontFamily* _consolasFontFamily = nullptr;
         Font* _consolasRegular = nullptr;
         Font* _consolasSmall = nullptr;
@@ -121,7 +121,7 @@ namespace app
         constexpr COLORREF kAlmostBlack = RGB(25, 25, 28);
         constexpr COLORREF kCodeGreen = COLORREF(0x77ff77);
         constexpr COLORREF kLightGray = COLORREF(0xaaaaaa);
-        constexpr COLORREF kDarkGray = RGB(45, 45, 48);       
+        constexpr COLORREF kDarkGray = RGB(45, 45, 48);
         HPEN _lightGrayPen = 0;
         HFONT _consolasRegularGdi = 0;
 
@@ -339,11 +339,24 @@ namespace LineEditor
             SetWindowLongPtr(hWnd, GWLP_USERDATA, LONG_PTR(state));
         }
 
+        const auto render_dc = [hWnd]() -> HDC {
+            const auto dc = GetDC(hWnd);
+            SelectObject(dc, app::dark_theme::_consolasRegularGdi);
+            SetBkMode(dc, TRANSPARENT);
+            SetTextColor(dc, app::dark_theme::kLightGray);
+            return dc;
+        };
+
         switch(message)
         {
         case WM_CREATE:
         {
             const auto dc = GetDC(hWnd);
+            Graphics graphics(dc);
+            LOGFONTW logFont;
+            app::dark_theme::_consolasRegular->GetLogFontW(&graphics, &logFont);
+            app::dark_theme::_consolasRegularGdi = CreateFontIndirectW(&logFont);
+
             TEXTMETRIC tm;
             GetTextMetrics(dc, &tm);
             ReleaseDC(hWnd, dc);
@@ -403,14 +416,17 @@ namespace LineEditor
             {
                 if(state->_cursor)
                 {
+                    const auto dc = render_dc();
+
                     HideCaret(hWnd);
 
                     // move caret back one character
                     const auto prev_char = state->_lines[state->_line]._buffer[--state->_cursor];
                     int char_width = 0;
-                    GetCharWidth32(TmpDc(hWnd), prev_char, prev_char, &char_width);
+                    GetCharWidth32(dc, prev_char, prev_char, &char_width);
                     state->_caret_x = std::max<int>(0, state->_caret_x - char_width);
 
+                    ReleaseDC(hWnd, dc);
                     ShowCaret(hWnd);
                     SetCaretPos(state->_caret_x, state->_caret_y);
                 }
@@ -420,11 +436,13 @@ namespace LineEditor
             {
                 if(state->_cursor < state->_lines[state->_line]._length)
                 {
+                    const auto dc = render_dc();
                     HideCaret(hWnd);
                     const auto this_char = state->_lines[state->_line]._buffer[state->_cursor++];
                     int char_width = 0;
-                    GetCharWidth32(TmpDc(hWnd), this_char, this_char, &char_width);
+                    GetCharWidth32(dc, this_char, this_char, &char_width);
                     state->_caret_x += char_width;
+                    ReleaseDC(hWnd, dc);
                     ShowCaret(hWnd);
                     SetCaretPos(state->_caret_x, state->_caret_y);
                 }
@@ -447,6 +465,8 @@ namespace LineEditor
                 }
             }
             break;
+            case VK_DELETE:
+                break;
             default:;
             }
         }
@@ -472,6 +492,28 @@ namespace LineEditor
             switch(wParam)
             {
             case VK_BACK:
+            {
+                if(state->_cursor)
+                {
+                    // remove and erase
+                    HideCaret(hWnd);
+                    auto& line = state->_lines[state->_line];
+                    const auto ch = line._buffer[state->_cursor];
+                    const auto dc = render_dc();
+                    int char_width;
+                    GetCharWidth32(dc, UINT(ch), UINT(ch), &char_width);
+                    --line._length;
+                    --state->_cursor;
+                    state->_caret_x -= char_width;
+                    Graphics graphics(dc);
+                    Rect textRect{ state->_caret_x, state->_caret_y, char_width, state->_char_height };
+                    graphics.FillRectangle(app::dark_theme::_blackBrush, textRect);
+                    SetCaretPos(state->_caret_x, state->_caret_y);
+                    ShowCaret(hWnd);
+                }
+            }
+            break;
+            case VK_DELETE:
             //linefeed? case 0x0a:
             case VK_ESCAPE:
             case VK_TAB:
@@ -482,7 +524,6 @@ namespace LineEditor
             default:
             {
                 const auto ch = TCHAR(wParam);
-
                 if(line._length == line._capacity - 1)
                     growline();
 
@@ -490,47 +531,53 @@ namespace LineEditor
                 GetClientRect(hWnd, &cr);
 
                 HideCaret(hWnd);
-                const auto dc = GetDC(hWnd);
-                Graphics graphics(dc);
-
-                if(app::dark_theme::_consolasRegularGdi == 0)
-                {
-                    LOGFONTW logFont;
-                    app::dark_theme::_consolasRegular->GetLogFontW(&graphics, &logFont);
-                    app::dark_theme::_consolasRegularGdi = CreateFontIndirectW(&logFont);
-                }
-                const auto currFont = SelectObject(dc, app::dark_theme::_consolasRegularGdi);
+                const auto dc = render_dc();
                 int char_width;
                 GetCharWidth32(dc, UINT(ch), UINT(ch), &char_width);
 
                 if(state->_caret_x + char_width <= cr.right)
                 {
-                    //TODO: insert
-                    line._buffer[line._length] = ch;
-                    line._buffer[++line._length] = 0;
-                    ++state->_cursor;
+                    Graphics graphics(dc);
+                    if(state->_cursor < line._length)
+                    {
+                        //insert
+                        auto n = line._length;
+                        while(n >= state->_cursor)
+                        {
+                            // shuffle characters up one position to make room for insert
+                            line._buffer[n] = line._buffer[n - 1];
+                            --n;
+                        }
+                        line._buffer[state->_cursor++] = ch;
+                        line._buffer[++line._length] = 0;
 
-                    state->_caret_x += char_width;
+                        Rect textRect{ state->_caret_x, state->_caret_y, cr.right - state->_caret_x, state->_char_height };
+                        graphics.FillRectangle(app::dark_theme::_blackBrush, textRect);
 
+                        TextOut(dc, state->_caret_x, state->_caret_y, (const WCHAR*)(line._buffer + state->_cursor - 1), line._length - state->_cursor + 1);
+
+                        state->_caret_x += char_width;
+                        line._caret_end += char_width;
+                    }
+                    else
+                    {
+                        line._buffer[line._length] = ch;
+                        line._buffer[++line._length] = 0;
+                        ++state->_cursor;
+                        TextOut(dc, state->_caret_x, state->_caret_y, (const WCHAR*)(line._buffer + line._length - 1), 1);
+                        state->_caret_x += char_width;
+                        line._caret_end = state->_caret_x;
+                    }
                     //NOTE: officialy GDI+'s font rendering is garbage. This is a known fact.
                     //graphics.DrawString((const WCHAR*)(line._buffer + line._length - 1), 1, app::dark_theme::_consolasRegular, PointF(Gdiplus::REAL(state->_caret_x - char_width), 0.0), app::dark_theme::_lightGrayBrush);
 
-                    const auto bkMode = GetBkMode(dc);
-                    SetBkMode(dc, TRANSPARENT); 
-                    const auto currTextColor = GetTextColor(dc);
-                    SetTextColor(dc, app::dark_theme::kLightGray);
-                    TextOut(dc, state->_caret_x - char_width, state->_caret_y, (const WCHAR*)(line._buffer + line._length - 1), 1);
-                    SetTextColor(dc, currTextColor);
-                    SetBkMode(dc, bkMode); 
-
-                    line._caret_end = state->_caret_x;
                     SetCaretPos(state->_caret_x, state->_caret_y);
                 }
                 else
                 {
                     MessageBeep(UINT(-1));
                 }
-                SelectObject(dc, currFont);
+                ReleaseDC(hWnd, dc);
                 ShowCaret(hWnd);
             }
             break;
@@ -670,8 +717,8 @@ namespace app
         dark_theme::_darkGrayBrush = new SolidBrush(dark_theme::_darkGray);
         dark_theme::_lightGrayBrush = new SolidBrush(dark_theme::_lightGray);
         dark_theme::_redBrush = new SolidBrush(Color::Red);
-        dark_theme::_whitePen = new Pen(Color(255, 255, 255, 255));        
-        dark_theme::_lightGrayPen = CreatePen(PS_SOLID,1,dark_theme::kLightGray);
+        dark_theme::_whitePen = new Pen(Color(255, 255, 255, 255));
+        dark_theme::_lightGrayPen = CreatePen(PS_SOLID, 1, dark_theme::kLightGray);
 
         UpdateDpiInfo();
 
