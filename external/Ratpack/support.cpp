@@ -62,10 +62,11 @@ static int cbitsofprecision = 0;
     }
 
 static constexpr int RATIO_FOR_DECIMAL = 9;
-static constexpr int DECIMAL = 10;
+//JO: changed name to prevent clash with wtypes.h in Windows SDK
+static constexpr int kDECIMAL = 10;
 static constexpr int CALC_DECIMAL_DIGITS_DEFAULT = 32;
 
-static int cbitsofprecision = RATIO_FOR_DECIMAL * DECIMAL * CALC_DECIMAL_DIGITS_DEFAULT;
+static int cbitsofprecision = RATIO_FOR_DECIMAL * kDECIMAL * CALC_DECIMAL_DIGITS_DEFAULT;
 
 #include "ratconst.h"
 

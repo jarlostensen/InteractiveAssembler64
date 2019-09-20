@@ -72,15 +72,27 @@
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <LinkIncremental>true</LinkIncremental>
+    <OutDir>$(SolutionDir)build\winasm64\$(Configuration)\</OutDir>
+    <IntDir>$(SolutionDir)build\winasm64\intermediate\$(Configuration)\</IntDir>
+    <IncludePath>$(SolutionDir)..\xed\obj;$(SolutionDir)..\xed\include\public\xed;$(IncludePath)$(VC_IncludePath);$(WindowsSDK_IncludePath);</IncludePath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <LinkIncremental>true</LinkIncremental>
+    <OutDir>$(SolutionDir)build\winasm64\$(Configuration)\</OutDir>
+    <IntDir>$(SolutionDir)build\winasm64\intermediate\$(Configuration)\</IntDir>
+    <IncludePath>$(SolutionDir)..\xed\obj;$(SolutionDir)..\xed\include\public\xed;$(IncludePath)$(VC_IncludePath);$(WindowsSDK_IncludePath);</IncludePath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <LinkIncremental>false</LinkIncremental>
+    <OutDir>$(SolutionDir)build\winasm64\$(Configuration)\</OutDir>
+    <IntDir>$(SolutionDir)build\winasm64\intermediate\$(Configuration)\</IntDir>
+    <IncludePath>$(SolutionDir)..\xed\obj;$(SolutionDir)..\xed\include\public\xed;$(IncludePath)$(VC_IncludePath);$(WindowsSDK_IncludePath);</IncludePath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <LinkIncremental>false</LinkIncremental>
+    <OutDir>$(SolutionDir)build\winasm64\$(Configuration)\</OutDir>
+    <IntDir>$(SolutionDir)build\winasm64\intermediate\$(Configuration)\</IntDir>
+    <IncludePath>$(SolutionDir)..\xed\obj;$(SolutionDir)..\xed\include\public\xed;$(IncludePath)$(VC_IncludePath);$(WindowsSDK_IncludePath);</IncludePath>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <ClCompile>
@@ -91,11 +103,12 @@
       <PreprocessorDefinitions>_DEBUG;_WINDOWS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <ForcedIncludeFiles>stdafx.h</ForcedIncludeFiles>
+      <LanguageStandard>stdcpp17</LanguageStandard>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalDependencies>Comctl32.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>Comctl32.lib;$(SolutionDir)..\xed\obj\xed.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
@@ -107,11 +120,12 @@
       <PreprocessorDefinitions>WIN32;_DEBUG;_WINDOWS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <ForcedIncludeFiles>stdafx.h</ForcedIncludeFiles>
+      <LanguageStandard>stdcpp17</LanguageStandard>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalDependencies>Comctl32.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>Comctl32.lib;$(SolutionDir)..\xed\obj\xed.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
@@ -125,13 +139,14 @@
       <PreprocessorDefinitions>WIN32;NDEBUG;_WINDOWS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <ForcedIncludeFiles>stdafx.h</ForcedIncludeFiles>
+      <LanguageStandard>stdcpp17</LanguageStandard>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalDependencies>Comctl32.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>Comctl32.lib;$(SolutionDir)..\xed\obj\xed.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
@@ -145,16 +160,30 @@
       <PreprocessorDefinitions>NDEBUG;_WINDOWS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <ForcedIncludeFiles>stdafx.h</ForcedIncludeFiles>
+      <LanguageStandard>stdcpp17</LanguageStandard>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalDependencies>Comctl32.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>Comctl32.lib;$(SolutionDir)..\xed\obj\xed.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClInclude Include="..\external\Ratpack\CalcErr.h" />
+    <ClInclude Include="..\external\Ratpack\ratconst.h" />
+    <ClInclude Include="..\external\Ratpack\ratpak.h" />
+    <ClInclude Include="..\inasm64\assembler.h" />
+    <ClInclude Include="..\inasm64\assembler_driver.h" />
+    <ClInclude Include="..\inasm64\cli.h" />
+    <ClInclude Include="..\inasm64\common.h" />
+    <ClInclude Include="..\inasm64\decoder.h" />
+    <ClInclude Include="..\inasm64\globvars.h" />
+    <ClInclude Include="..\inasm64\runtime.h" />
+    <ClInclude Include="..\inasm64\x64.h" />
+    <ClInclude Include="..\inasm64\xed_assembler_driver.h" />
+    <ClInclude Include="..\inasm64\xed_iclass_instruction_set.h" />
     <ClInclude Include="framework.h" />
     <ClInclude Include="Resource.h" />
     <ClInclude Include="stdafx.h" />
@@ -162,6 +191,27 @@
     <ClInclude Include="winasm64.h" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="..\external\Ratpack\basex.cpp" />
+    <ClCompile Include="..\external\Ratpack\conv.cpp" />
+    <ClCompile Include="..\external\Ratpack\exp.cpp" />
+    <ClCompile Include="..\external\Ratpack\fact.cpp" />
+    <ClCompile Include="..\external\Ratpack\itrans.cpp" />
+    <ClCompile Include="..\external\Ratpack\itransh.cpp" />
+    <ClCompile Include="..\external\Ratpack\logic.cpp" />
+    <ClCompile Include="..\external\Ratpack\num.cpp" />
+    <ClCompile Include="..\external\Ratpack\rat.cpp" />
+    <ClCompile Include="..\external\Ratpack\support.cpp" />
+    <ClCompile Include="..\external\Ratpack\trans.cpp" />
+    <ClCompile Include="..\external\Ratpack\transh.cpp" />
+    <ClCompile Include="..\inasm64\assembler.cpp" />
+    <ClCompile Include="..\inasm64\cli.cpp" />
+    <ClCompile Include="..\inasm64\common.cpp" />
+    <ClCompile Include="..\inasm64\decoder.cpp" />
+    <ClCompile Include="..\inasm64\globvars.cpp" />
+    <ClCompile Include="..\inasm64\runtime.cpp" />
+    <ClCompile Include="..\inasm64\x64.cpp" />
+    <ClCompile Include="..\inasm64\xed_assembler_driver.cpp" />
+    <ClCompile Include="..\inasm64\xed_iclass_instruction_set.cpp" />
     <ClCompile Include="stdafx.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Create</PrecompiledHeader>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">Create</PrecompiledHeader>

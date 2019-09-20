@@ -13,6 +13,15 @@
       <UniqueIdentifier>{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}</UniqueIdentifier>
       <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav;mfcribbon-ms</Extensions>
     </Filter>
+    <Filter Include="inasm64">
+      <UniqueIdentifier>{25184146-ab48-43a5-af32-61199c954eb9}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="external">
+      <UniqueIdentifier>{9917e08a-1bc6-45b8-bd2d-d6140e69de19}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="external\Ratpak">
+      <UniqueIdentifier>{f88589e0-a87c-48d7-9516-eb2db8a6b6ad}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="framework.h">
@@ -30,6 +39,45 @@
     <ClInclude Include="stdafx.h">
       <Filter>Source Files</Filter>
     </ClInclude>
+    <ClInclude Include="..\inasm64\assembler.h">
+      <Filter>inasm64</Filter>
+    </ClInclude>
+    <ClInclude Include="..\inasm64\assembler_driver.h">
+      <Filter>inasm64</Filter>
+    </ClInclude>
+    <ClInclude Include="..\inasm64\cli.h">
+      <Filter>inasm64</Filter>
+    </ClInclude>
+    <ClInclude Include="..\inasm64\common.h">
+      <Filter>inasm64</Filter>
+    </ClInclude>
+    <ClInclude Include="..\inasm64\decoder.h">
+      <Filter>inasm64</Filter>
+    </ClInclude>
+    <ClInclude Include="..\inasm64\globvars.h">
+      <Filter>inasm64</Filter>
+    </ClInclude>
+    <ClInclude Include="..\inasm64\x64.h">
+      <Filter>inasm64</Filter>
+    </ClInclude>
+    <ClInclude Include="..\inasm64\xed_iclass_instruction_set.h">
+      <Filter>inasm64</Filter>
+    </ClInclude>
+    <ClInclude Include="..\inasm64\runtime.h">
+      <Filter>inasm64</Filter>
+    </ClInclude>
+    <ClInclude Include="..\inasm64\xed_assembler_driver.h">
+      <Filter>inasm64</Filter>
+    </ClInclude>
+    <ClInclude Include="..\external\Ratpack\CalcErr.h">
+      <Filter>external\Ratpak</Filter>
+    </ClInclude>
+    <ClInclude Include="..\external\Ratpack\ratconst.h">
+      <Filter>external\Ratpak</Filter>
+    </ClInclude>
+    <ClInclude Include="..\external\Ratpack\ratpak.h">
+      <Filter>external\Ratpak</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="winasm64.cpp">
@@ -37,6 +85,69 @@
     </ClCompile>
     <ClCompile Include="stdafx.cpp">
       <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\inasm64\assembler.cpp">
+      <Filter>inasm64</Filter>
+    </ClCompile>
+    <ClCompile Include="..\inasm64\cli.cpp">
+      <Filter>inasm64</Filter>
+    </ClCompile>
+    <ClCompile Include="..\inasm64\common.cpp">
+      <Filter>inasm64</Filter>
+    </ClCompile>
+    <ClCompile Include="..\inasm64\decoder.cpp">
+      <Filter>inasm64</Filter>
+    </ClCompile>
+    <ClCompile Include="..\inasm64\globvars.cpp">
+      <Filter>inasm64</Filter>
+    </ClCompile>
+    <ClCompile Include="..\inasm64\x64.cpp">
+      <Filter>inasm64</Filter>
+    </ClCompile>
+    <ClCompile Include="..\inasm64\xed_iclass_instruction_set.cpp">
+      <Filter>inasm64</Filter>
+    </ClCompile>
+    <ClCompile Include="..\inasm64\runtime.cpp">
+      <Filter>inasm64</Filter>
+    </ClCompile>
+    <ClCompile Include="..\inasm64\xed_assembler_driver.cpp">
+      <Filter>inasm64</Filter>
+    </ClCompile>
+    <ClCompile Include="..\external\Ratpack\basex.cpp">
+      <Filter>external\Ratpak</Filter>
+    </ClCompile>
+    <ClCompile Include="..\external\Ratpack\conv.cpp">
+      <Filter>external\Ratpak</Filter>
+    </ClCompile>
+    <ClCompile Include="..\external\Ratpack\exp.cpp">
+      <Filter>external\Ratpak</Filter>
+    </ClCompile>
+    <ClCompile Include="..\external\Ratpack\fact.cpp">
+      <Filter>external\Ratpak</Filter>
+    </ClCompile>
+    <ClCompile Include="..\external\Ratpack\itrans.cpp">
+      <Filter>external\Ratpak</Filter>
+    </ClCompile>
+    <ClCompile Include="..\external\Ratpack\itransh.cpp">
+      <Filter>external\Ratpak</Filter>
+    </ClCompile>
+    <ClCompile Include="..\external\Ratpack\logic.cpp">
+      <Filter>external\Ratpak</Filter>
+    </ClCompile>
+    <ClCompile Include="..\external\Ratpack\num.cpp">
+      <Filter>external\Ratpak</Filter>
+    </ClCompile>
+    <ClCompile Include="..\external\Ratpack\rat.cpp">
+      <Filter>external\Ratpak</Filter>
+    </ClCompile>
+    <ClCompile Include="..\external\Ratpack\support.cpp">
+      <Filter>external\Ratpak</Filter>
+    </ClCompile>
+    <ClCompile Include="..\external\Ratpack\trans.cpp">
+      <Filter>external\Ratpak</Filter>
+    </ClCompile>
+    <ClCompile Include="..\external\Ratpack\transh.cpp">
+      <Filter>external\Ratpak</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

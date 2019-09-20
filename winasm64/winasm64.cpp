@@ -1,9 +1,18 @@
-
+// MIT License
+// Copyright 2019 Jarl Ostensen
+// Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction,
+// including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
+// The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
+//
+// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
+// IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+//
 #include "winasm64.h"
 #include "framework.h"
 #include <commctrl.h>
 #include <objidl.h>
 #include <gdiplus.h>
+#include <Windowsx.h>
 
 #include <string>
 #include <vector>
@@ -14,29 +23,18 @@ using namespace Gdiplus;
 #pragma comment(lib, "Gdiplus.lib")
 #pragma comment(lib, "Dwmapi.lib")
 
-namespace
-{
-    struct TmpDc
-    {
-        explicit TmpDc(HWND hWnd)
-        {
-            _dc = GetDC(_hwnd = hWnd);
-        }
+#include "../inasm64/common.h"
+#include "../inasm64/x64.h"
+#include "../inasm64/runtime.h"
+#include "../inasm64/assembler.h"
+#include "../inasm64/assembler_driver.h"
+#include "../inasm64/cli.h"
+#include "../inasm64/globvars.h"
 
-        ~TmpDc()
-        {
-            ReleaseDC(_hwnd, _dc);
-        }
+// the Microsoft calculator for large numbers
+#include "../external/Ratpack/ratpak.h"
 
-        operator HDC() const
-        {
-            return _dc;
-        }
-
-        HWND _hwnd;
-        HDC _dc;
-    };
-}
+using namespace inasm64;
 
 namespace app
 {
@@ -54,6 +52,7 @@ namespace app
     HWND _codes = nullptr;
     HWND _output = nullptr;
     HWND _glowBorder = nullptr;
+    HINSTANCE _instance = nullptr;
 
     GdiplusStartupInput _gdiplusStartupInput;
     ULONG_PTR _gdiplusToken = 0;
@@ -596,6 +595,24 @@ namespace LineEditor
             EndPaint(hWnd, &ps);
         }
         break;
+        case WM_CONTEXTMENU:
+        {
+            static HMENU hmenu = 0;
+            if(!hmenu)
+                hmenu = LoadMenu(app::_instance, LPCWSTR(IDR_ASMMENU));
+            if(hmenu)
+            {
+                const auto hmenuTrackPopup = GetSubMenu(hmenu, 0);
+                
+                POINT pt{ GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam) };
+                TrackPopupMenu(hmenuTrackPopup,
+                    TPM_LEFTALIGN | TPM_RIGHTBUTTON,
+                    pt.x, pt.y, 0, hWnd, NULL);
+                
+                //DestroyMenu(hmenu); 
+            }
+        }
+        break;
         default:
             return DefWindowProc(hWnd, message, wParam, lParam);
         }
@@ -703,6 +720,8 @@ namespace app
         // Initialize GDI+.
         GdiplusStartup(&_gdiplusToken, &_gdiplusStartupInput, nullptr);
 
+        _instance = instance;
+
         constexpr auto kMaxLoadstring = 100;
         WCHAR szTitle[kMaxLoadstring];
         WCHAR szWindowClass[kMaxLoadstring];
@@ -748,19 +767,6 @@ namespace app
             if(!_winasm64)
                 return false;
 
-            /*_asm_editor = CreateWindowEx(0, L"EDIT",
-                nullptr,
-                WS_CHILD | WS_VISIBLE | WS_VSCROLL | ES_LEFT |
-                    ES_MULTILINE | ES_AUTOVSCROLL,
-                0, 0, 0, 0,
-                _winasm64,
-                nullptr,
-                instance,
-                nullptr);
-            if(!_asm_editor)
-                return false;
-                SetWindowSubclass(_asm_editor, AsmEditorWndProc, 0, 0);
-                */
             _asm_editor = LineEditor::Create(_winasm64, instance);
 
             _linecounter = CreateWindowEx(0, L"EDIT",
@@ -880,6 +886,9 @@ namespace app
             BOOL composition_enabled = FALSE;
             if(DwmIsCompositionEnabled(&composition_enabled) == S_OK)
                 DwmExtendFrameIntoClientArea(_winasm64, &margins);
+
+            // initialise inasm64
+            assembler::Initialise();
 
             return true;
         }
